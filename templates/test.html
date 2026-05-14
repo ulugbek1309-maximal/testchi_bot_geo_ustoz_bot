@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>
+    {% if lang == 'uz' %}Test boshqaruvi
+    {% elif lang == 'uz_cyrl' %}Тест бошқаруви
+    {% else %}Управление тестом{% endif %}: {{ test.get('title', '—') }} | Testchi
+  </title>
+  <style>
+    :root {
+      --bg: #090c14;
+      --card: rgba(255, 255, 255, 0.08);
+      --text: #f3f6ff;
+      --muted: rgba(243, 246, 255, 0.65);
+      --accent: #38d39f;
+      --accent2: #6cb2ff;
+      --warning: #ffc107;
+      --danger: #ff6b6b;
+      --border: rgba(255, 255, 255, 0.12);
+      --shadow: rgba(0, 0, 0, 0.32);
+      --radius: 18px;
+      --max-width: 1100px;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: radial-gradient(circle at top, #101b34 0%, #070b15 70%, #05060d 100%);
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(10, 16, 30, 0.92);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+    }
+
+    .navbar {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .navbar h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.03em;
+      font-weight: 700;
+    }
+
+    .navbar a {
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      transition: background 0.14s ease, transform 0.14s ease;
+    }
+
+    .navbar a:hover {
+      background: rgba(255, 255, 255, 0.14);
+      transform: translateY(-1px);
+    }
+
+    .lang-btns { display: flex; gap: 5px; align-items: center; }
+    .lang-btn { background: none; border: none; font-size: 18px; cursor: pointer; opacity: 0.5; transition: 0.2s; padding: 0 5px; }
+    .lang-btn.active { opacity: 1; transform: scale(1.1); }
+
+    main {
+      max-width: var(--max-width);
+      padding: 28px 18px 60px;
+      margin: 0 auto;
+    }
+
+    /* ==================================
+       YANGI 2 USTUNLI LAYOUT
+    ================================== */
+    .dashboard-layout {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 1fr;
+      margin-top: 18px;
+      align-items: start; /* Kartalar pastga cho'zilib ketmasligi uchun muhim */
+    }
+
+    @media (min-width: 900px) {
+      .dashboard-layout {
+        grid-template-columns: 1.1fr 0.9fr; /* Ekran katta bo'lsa 2 ga bo'linadi (Chap va O'ng) */
+      }
+    }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* KARTALAR STILI */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 14px 40px var(--shadow);
+    }
+
+    .card h2 { margin: 0 0 15px; font-size: 20px; color: var(--accent2); }
+    .card h3 { margin: 0 0 12px; font-size: 17px; color: var(--text); }
+
+    .note { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+    .note strong { color: var(--text); }
+
+    .form-field {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.15);
+      color: var(--text);
+      font-size: 14px;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    .form-field:focus { border-color: var(--accent); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.14s ease, background 0.14s ease;
+      width: 100%;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .btn-danger {
+      background: rgba(255, 107, 107, 0.15);
+      border-color: rgba(255, 107, 107, 0.3);
+      color: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: rgba(255, 107, 107, 0.25);
+    }
+
+    .btn-primary {
+      background: rgba(56, 211, 159, 0.15);
+      border-color: rgba(56, 211, 159, 0.3);
+      color: var(--accent);
+    }
+
+    .btn-primary:hover {
+      background: rgba(56, 211, 159, 0.25);
+    }
+
+    .btn-info {
+      background: rgba(108, 178, 255, 0.15);
+      border-color: rgba(108, 178, 255, 0.3);
+      color: var(--accent2);
+    }
+
+    .btn-info:hover {
+      background: rgba(108, 178, 255, 0.25);
+    }
+
+    .question { margin-bottom: 20px; background: rgba(0,0,0,0.15); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+    .question strong { display: block; margin-bottom: 10px; font-size: 15px; color: var(--text); }
+    .answer { color: var(--muted); margin-bottom: 6px; font-size: 14px; padding-left: 5px; }
+    .answer.correct { color: var(--accent); font-weight: 600; }
+
+    .list { padding: 0; margin: 0; list-style: none; }
+    .list li {
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .alert-success { background: rgba(56, 211, 159, 0.15); border: 1px solid rgba(56, 211, 159, 0.3); color: var(--accent); }
+    .alert-error { background: rgba(255, 107, 107, 0.15); border: 1px solid rgba(255, 107, 107, 0.3); color: var(--danger); }
+
+    footer { padding: 26px 18px; text-align: center; color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body style="{% if current_user_bg %}background: linear-gradient(rgba(10, 16, 30, 0.7), rgba(5, 6, 13, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
+  <nav>
+    <div class="navbar">
+      <h1>Testchi</h1>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="lang-btns" style="margin-right: 10px; border-right: 1px solid rgba(255,255,255,0.2); padding-right: 10px;">
+            <form action="/set-lang" method="POST" style="margin: 0;">
+                <input type="hidden" name="token" value="{{ token }}">
+                <input type="hidden" name="lang" value="uz">
+                <button type="submit" class="lang-btn {{ 'active' if lang == 'uz' else '' }}" title="Lotin">🇺🇿</button>
+            </form>
+            <form action="/set-lang" method="POST" style="margin: 0;">
+                <input type="hidden" name="token" value="{{ token }}">
+                <input type="hidden" name="lang" value="uz_cyrl">
+                <button type="submit" class="lang-btn {{ 'active' if lang == 'uz_cyrl' else '' }}" title="Кирилл">🇺🇿 Кр</button>
+            </form>
+            <form action="/set-lang" method="POST" style="margin: 0;">
+                <input type="hidden" name="token" value="{{ token }}">
+                <input type="hidden" name="lang" value="ru">
+                <button type="submit" class="lang-btn {{ 'active' if lang == 'ru' else '' }}" title="Русский">🇷🇺</button>
+            </form>
+        </div>
+        <a href="/?token={{ token }}">⬅️ 
+            {% if lang == 'uz' %}Dashboard
+            {% elif lang == 'uz_cyrl' %}Дашборд
+            {% else %}Главная{% endif %}
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div style="margin-bottom: 15px;">
+      <h2 style="margin: 0; font-size: 24px;">
+        {% if lang == 'uz' %}Test boshqaruvi
+        {% elif lang == 'uz_cyrl' %}Тест бошқаруви
+        {% else %}Управление тестом{% endif %}: {{ test.get('title', '—') }}
+      </h2>
+    </div>
+
+    {% if request.args.get('msg') %}
+      <div class="alert {{ 'alert-error' if '❌' in request.args.get('msg') or 'Xato' in request.args.get('msg') or 'Хато' in request.args.get('msg') or 'Ошибка' in request.args.get('msg') else 'alert-success' }}">
+        {{ request.args.get('msg') }}
+      </div>
+    {% endif %}
+
+    <div class="dashboard-layout">
+      
+      <div class="col">
+        
+        <div class="card">
+          <h2>📌 
+            {% if lang == 'uz' %}Test detallari
+            {% elif lang == 'uz_cyrl' %}Тест деталлари
+            {% else %}Детали теста{% endif %}
+          </h2>
+          <p class="note">Test ID: <code>{{ test.get('test_id', '') }}</code></p>
+          <p class="note">
+            {% if lang == 'uz' %}Status
+            {% elif lang == 'uz_cyrl' %}Ҳолати
+            {% else %}Статус{% endif %}: <strong>{{ test.get('status', '—') }}</strong>
+          </p>
+          <p class="note">
+            {% if lang == 'uz' %}Savollar soni
+            {% elif lang == 'uz_cyrl' %}Саволлар сони
+            {% else %}Кол-во вопросов{% endif %}: <strong>{{ stats[0] if stats else 0 }}</strong>
+          </p>
+          <p class="note">
+            {% if lang == 'uz' %}Tugatganlar
+            {% elif lang == 'uz_cyrl' %}Тугатганлар
+            {% else %}Завершили{% endif %}: <strong>{{ stats[1] if stats else 0 }}</strong>
+          </p>
+          <p class="note">
+            {% if lang == 'uz' %}Urinishlar limiti
+            {% elif lang == 'uz_cyrl' %}Уринишлар лимити
+            {% else %}Лимит попыток{% endif %}: 
+            <strong style="color: var(--warning);">
+              {% if test.get('attempts_limit') == 0 %}
+                {% if lang == 'uz' %}Cheksiz{% elif lang == 'uz_cyrl' %}Чексиз{% else %}Безлимит{% endif %}
+              {% else %}
+                {{ test.get('attempts_limit', 1) }}
+                {% if lang == 'uz' %}marta{% elif lang == 'uz_cyrl' %}марта{% else %}раз(а){% endif %}
+              {% endif %}
+            </strong>
+          </p>
+
+          <hr>
+
+          <h3>🌐 
+            {% if lang == 'uz' %}Public sozlamalar
+            {% elif lang == 'uz_cyrl' %}Публик созламалар
+            {% else %}Публичные настройки{% endif %}
+          </h3>
+          
+          {% if not test.get('public_name') %}
+            <p class="note" style="margin-bottom: 15px;">
+              {% if lang == 'uz' %}Test hozircha yopiq. Boshqalar topishi uchun public qiling.
+              {% elif lang == 'uz_cyrl' %}Тест ҳозирча ёпиқ. Бошқалар топиши учун публик қилинг.
+              {% else %}Тест пока закрыт. Опубликуйте его, чтобы другие могли найти.{% endif %}
+            </p>
+            <form action="/publish-test/{{ test.get('test_id', '') }}" method="post">
+              <input type="hidden" name="token" value="{{ token }}" />
+              
+              <label>
+                {% if lang == 'uz' %}Public nomi
+                {% elif lang == 'uz_cyrl' %}Публик номи
+                {% else %}Публичное имя{% endif %} (@ bilan)
+              </label>
+              <input class="form-field" type="text" name="public_name" placeholder="@my_test" required />
+
+              <label>
+                {% if lang == 'uz' %}Yechish paroli (Ixtiyoriy)
+                {% elif lang == 'uz_cyrl' %}Ечиш пароли (Ихтиёрий)
+                {% else %}Пароль решения (Необяз.){% endif %}
+              </label>
+              <input class="form-field" type="password" name="password" placeholder="******" />
+
+              <button class="btn btn-primary" type="submit">🌐 
+                {% if lang == 'uz' %}Ommaviy qilish
+                {% elif lang == 'uz_cyrl' %}Оммавий қилиш
+                {% else %}Опубликовать{% endif %}
+              </button>
+            </form>
+          {% else %}
+            <p class="note">
+              {% if lang == 'uz' %}Public ID
+              {% elif lang == 'uz_cyrl' %}Публик ID
+              {% else %}Публичный ID{% endif %}: <strong>{{ test.get('public_name', '') }}</strong>
+            </p>
+            <p class="note">
+              {% if lang == 'uz' %}Yechish paroli
+              {% elif lang == 'uz_cyrl' %}Ечиш пароли
+              {% else %}Пароль решения{% endif %}: 
+              <strong>
+                {% if test.get('password') %}
+                  {% if lang == 'uz' %}O'rnatilgan 🔒{% elif lang == 'uz_cyrl' %}Ўрнатилган 🔒{% else %}Установлен 🔒{% endif %}
+                {% else %}
+                  {% if lang == 'uz' %}Yo'q 🔓{% elif lang == 'uz_cyrl' %}Йўқ 🔓{% else %}Нет 🔓{% endif %}
+                {% endif %}
+              </strong>
+            </p>
+
+            <form action="/publish-test/{{ test.get('test_id', '') }}" method="post" style="margin-top:15px;">
+              <input type="hidden" name="token" value="{{ token }}" />
+              
+              <label>
+                {% if lang == 'uz' %}Public nomini tahrirlash (@)
+                {% elif lang == 'uz_cyrl' %}Публик номини таҳрирлаш (@)
+                {% else %}Изменить публичное имя (@){% endif %}
+              </label>
+              <input class="form-field" type="text" name="public_name" value="{{ test.get('public_name', '') }}" required />
+
+              <label>
+                {% if lang == 'uz' %}Yangi parol (bo'sh qolsa o'chadi)
+                {% elif lang == 'uz_cyrl' %}Янги парол (бўш қолса ўчади)
+                {% else %}Новый пароль (пусто = удалить){% endif %}
+              </label>
+              <input class="form-field" type="password" name="password" placeholder="******" />
+
+              <button class="btn" type="submit">✏️ 
+                {% if lang == 'uz' %}Tahrirlash
+                {% elif lang == 'uz_cyrl' %}Таҳрирлаш
+                {% else %}Редактировать{% endif %}
+              </button>
+            </form>
+          {% endif %}
+          
+          <hr>
+
+          <h3 style="color: var(--warning);">🔄 
+            {% if lang == 'uz' %}Limitni o'zgartirish
+            {% elif lang == 'uz_cyrl' %}Лимитни ўзгартириш
+            {% else %}Изменить лимит{% endif %}
+          </h3>
+          <p class="note" style="margin-bottom: 15px;">
+            {% if lang == 'uz' %}O'quvchilar testni necha marta ishlashini tahrirlang.
+            {% elif lang == 'uz_cyrl' %}Ўқувчилар тестни неча марта ишлашини таҳрирланг.
+            {% else %}Настройте, сколько раз ученики могут пройти тест.{% endif %}
+          </p>
+          <form action="/update-limit/{{ test.get('test_id', '') }}" method="POST">
+            <input type="hidden" name="token" value="{{ token }}">
+
+            <select name="attempts_limit" class="form-field" required>
+              <option value="1" {% if test.get('attempts_limit') == 1 %}selected{% endif %}>1 {% if lang == 'uz' %}marta (Oddiy){% elif lang == 'uz_cyrl' %}марта (Оддий){% else %}раз (Обычный){% endif %}</option>
+              <option value="0" {% if test.get('attempts_limit') == 0 %}selected{% endif %}>{% if lang == 'uz' %}Cheksiz (Xohlagancha){% elif lang == 'uz_cyrl' %}Чексиз (Хоҳлаганча){% else %}Безлимит (Сколько угодно){% endif %}</option>
+              <option value="2" {% if test.get('attempts_limit') == 2 %}selected{% endif %}>2 {% if lang == 'uz' %}marta{% elif lang == 'uz_cyrl' %}марта{% else %}раза{% endif %}</option>
+              <option value="3" {% if test.get('attempts_limit') == 3 %}selected{% endif %}>3 {% if lang == 'uz' %}marta{% elif lang == 'uz_cyrl' %}марта{% else %}раза{% endif %}</option>
+              <option value="5" {% if test.get('attempts_limit') == 5 %}selected{% endif %}>5 {% if lang == 'uz' %}marta{% elif lang == 'uz_cyrl' %}марта{% else %}раз{% endif %}</option>
+            </select>
+
+            <button type="submit" class="btn" style="background: rgba(255, 193, 7, 0.15); color: var(--warning); border-color: rgba(255, 193, 7, 0.3); margin-bottom: 20px;">
+              💾 {% if lang == 'uz' %}Limitni Saqlash{% elif lang == 'uz_cyrl' %}Лимитни Сақлаш{% else %}Сохранить лимит{% endif %}
+            </button>
+          </form>
+
+          <hr>
+
+          <h3 style="color: var(--accent2);">📤 
+            {% if lang == 'uz' %}Boshqa guruhga yuborish
+            {% elif lang == 'uz_cyrl' %}Бошқа гуруҳга юбориш
+            {% else %}Отправить в другую группу{% endif %}
+          </h3>
+          <p class="note" style="margin-bottom: 15px;">
+            {% if lang == 'uz' %}Ushbu testni bot qatnashgan istalgan guruhga yuboring.
+            {% elif lang == 'uz_cyrl' %}Ушбу тестни бот қатнашган исталган гуруҳга юборинг.
+            {% else %}Вы можете отправить этот тест в любую группу, где есть бот.{% endif %}
+          </p>
+          <form action="/share-test/{{ test.get('test_id', '') }}" method="post">
+            <input type="hidden" name="token" value="{{ token }}" />
+
+            <select class="form-field" name="chat_id" required>
+              <option value="" disabled selected>-- {% if lang == 'uz' %}Chatni tanlang{% elif lang == 'uz_cyrl' %}Чатни танланг{% else %}Выберите чат{% endif %} --</option>
+              <option value="{{ test.owner_user_id }}">🔒 {% if lang == 'uz' %}Private (Faqat o'zimga){% elif lang == 'uz_cyrl' %}Приват (Фақат ўзимга){% else %}Приватно (Только мне){% endif %}</option>
+              {% for chat in chats %}
+                <option value="{{ chat.get('chat_id', '') }}">{{ chat.get('title', '') }}</option>
+              {% endfor %}
+            </select>
+
+            {% if test.get('manage_password') %}
+              <input class="form-field" type="password" name="manage_password" placeholder="{% if lang == 'uz' %}Boshqaruv paroli{% elif lang == 'uz_cyrl' %}Бошқарув пароли{% else %}Пароль управления{% endif %}" required />
+            {% endif %}
+
+            <button class="btn btn-info" type="submit" style="margin-bottom: 20px;">
+              🚀 {% if lang == 'uz' %}Yuborish{% elif lang == 'uz_cyrl' %}Юбориш{% else %}Отправить{% endif %}
+            </button>
+          </form>
+
+          <hr>
+
+          <h3 style="color: var(--danger);">🗑 
+            {% if lang == 'uz' %}Testni o'chirish
+            {% elif lang == 'uz_cyrl' %}Тестни ўчириш
+            {% else %}Удалить тест{% endif %}
+          </h3>
+          <form action="/delete-test/{{ test.get('test_id', '') }}" method="post" onsubmit="return confirm('{% if lang == 'uz' %}Rostdan o\'chirmoqchimisiz?{% elif lang == 'uz_cyrl' %}Ростдан ўчирмоқчимисиз?{% else %}Вы действительно хотите удалить?{% endif %}');">
+            <input type="hidden" name="token" value="{{ token }}" />
+
+            {% if test.get('manage_password') %}
+              <input class="form-field" type="password" name="manage_password" placeholder="{% if lang == 'uz' %}Boshqaruv paroli{% elif lang == 'uz_cyrl' %}Бошқарув пароли{% else %}Пароль управления{% endif %}" required />
+            {% endif %}
+
+            <button class="btn btn-danger" type="submit">
+              🗑 {% if lang == 'uz' %}Butunlay o'chirish{% elif lang == 'uz_cyrl' %}Бутунлай ўчириш{% else %}Удалить навсегда{% endif %}
+            </button>
+          </form>
+
+        </div>
+
+        <div class="card">
+          <h2>🧠 
+            {% if lang == 'uz' %}Savollar ro'yxati
+            {% elif lang == 'uz_cyrl' %}Саволлар рўйхати
+            {% else %}Список вопросов{% endif %}
+          </h2>
+          {% if questions %}
+            {% set letters = ['a','b','c','d','e','f','g','h','i','j'] %}
+            {% for q in questions %}
+              <div class="question">
+                <strong>{{ loop.index }}. {{ q.get('question', '—') }}</strong>
+                
+                {% if q.get('photo_id') %}
+                <div style="margin-bottom: 12px;">
+                  <span class="badge" style="background: rgba(56, 211, 159, 0.15); color: var(--accent); padding: 4px 8px; border: none;">📸 Rasmli savol</span><br>
+                  <img src="/q-image/{{ q.get('photo_id') }}?token={{ token }}" style="max-height: 120px; max-width: 100%; margin-top: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                </div>
+                {% endif %}
+
+                {% for opt in q.get('options', []) %}
+                  {% set idx = loop.index0 %}
+                  <div class="answer {% if idx == q.get('correct_index', -1) %}correct{% endif %}">
+                    {{ letters[idx] }}) {{ opt }}
+                    {% if idx == q.get('correct_index', -1) %} ✅{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="note" style="text-align:center; padding: 20px;">
+              {% if lang == 'uz' %}Savollar topilmadi.{% elif lang == 'uz_cyrl' %}Саволлар топилмади.{% else %}Вопросы не найдены.{% endif %}
+            </p>
+          {% endif %}
+        </div>
+
+      </div> <div class="col">
+        
+        <div class="card">
+          <h2>📊 
+            {% if lang == 'uz' %}Natijalar (Reyting)
+            {% elif lang == 'uz_cyrl' %}Натижалар (Рейтинг)
+            {% else %}Результаты (Рейтинг){% endif %}
+          </h2>
+
+          {% if results %}
+            <ul class="list">
+              {% for r in results %}
+                <li>
+                  <div>
+                    <strong style="font-size: 15px; color: var(--text);">
+                      {{ r.get('username') or ((r.get('first_name') or '') ~ ' ' ~ (r.get('last_name') or '')) }}
+                    </strong><br />
+                    <span class="note" style="font-size: 13px;">
+                      {% if lang == 'uz' %}Ball{% elif lang == 'uz_cyrl' %}Балл{% else %}Баллы{% endif %}: 
+                      <strong style="color: var(--accent);">{{ r.get('score', 0) }}</strong> | 
+                      {% if lang == 'uz' %}Vaqt{% elif lang == 'uz_cyrl' %}Вақт{% else %}Время{% endif %}: 
+                      {{ r.get('duration_sec', 0) }} {% if lang == 'uz' %}soniya{% elif lang == 'uz_cyrl' %}сония{% else %}сек.{% endif %}
+                    </span>
+                  </div>
+                  <span style="font-size:12px; padding:4px 8px; background:rgba(255,255,255,0.1); border-radius:6px; color:var(--muted);">
+                    {{ (r.get('finished_at', '—'))|string|truncate(16, True, '') }}
+                  </span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="note" style="text-align:center; padding: 20px;">
+              {% if lang == 'uz' %}Hozircha hech kim testni yakunlamagan.{% elif lang == 'uz_cyrl' %}Ҳозирча ҳеч ким тестни якунламаган.{% else %}Пока никто не завершил тест.{% endif %}
+            </p>
+          {% endif %}
+
+          <hr>
+
+          <h3>📥 
+            {% if lang == 'uz' %}Natijalarni e'lon qilish
+            {% elif lang == 'uz_cyrl' %}Натижаларни эълон қилиш
+            {% else %}Опубликовать результаты{% endif %}
+          </h3>
+          <form action="/send-results/{{ test.get('test_id', '') }}" method="post">
+            <input type="hidden" name="token" value="{{ token }}" />
+            
+            <select class="form-field" name="chat_id" required>
+              <option value="" disabled selected>-- {% if lang == 'uz' %}Chatni tanlang{% elif lang == 'uz_cyrl' %}Чатни танланг{% else %}Выберите чат{% endif %} --</option>
+              <option value="{{ test.owner_user_id }}">🔒 {% if lang == 'uz' %}Faqat o'zimga{% elif lang == 'uz_cyrl' %}Фақат ўзимга{% else %}Только себе{% endif %}</option>
+              {% for chat in chats %}
+                <option value="{{ chat.get('chat_id', '') }}">{{ chat.get('title', '') }}</option>
+              {% endfor %}
+            </select>
+
+            {% if test.get('manage_password') %}
+              <input class="form-field" type="password" name="manage_password" placeholder="{% if lang == 'uz' %}Boshqaruv paroli{% elif lang == 'uz_cyrl' %}Бошқарув пароли{% else %}Пароль управления{% endif %}" required />
+            {% endif %}
+
+            <button class="btn btn-primary" type="submit">
+              📨 {% if lang == 'uz' %}Yuborish{% elif lang == 'uz_cyrl' %}Юбориш{% else %}Отправить{% endif %}
+            </button>
+          </form>
+        </div>
+
+      </div> </div>
+  </main>
+
+  <footer>
+    <span>© Testchi - {% if lang == 'uz' %}Avtomatlashtirilgan Test Tizimi{% elif lang == 'uz_cyrl' %}Автоматлаштирилган Тест Тизими{% else %}Автоматизированная система тестов{% endif %}</span>
+  </footer>
+</body>
+</html>

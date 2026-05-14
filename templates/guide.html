@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geo Ustoz - To'liq Yo'riqnoma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #38d39f;
+            --dark: #0f172a;
+            --card: #1e293b;
+            --card-hover: #273549;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --border: rgba(255,255,255,0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--dark); color: var(--text); scroll-behavior: smooth; line-height: 1.6; }
+
+        /* Navbar */
+        nav { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px); position: fixed; width: 100%; top: 0; z-index: 1000; padding: 15px 50px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+        .logo { font-size: 22px; font-weight: 800; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 10px; }
+        .nav-links { display: flex; align-items: center; gap: 20px; }
+        
+        .btn-back { background: rgba(56, 211, 159, 0.15); color: var(--primary); padding: 10px 20px; border-radius: 30px; border: 1px solid rgba(56, 211, 159, 0.3); display: flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 600; transition: 0.3s; }
+        .btn-back:hover { background: var(--primary); color: #000; transform: translateY(-2px); }
+
+        /* Layout */
+        .container { display: flex; max-width: 1200px; margin: 100px auto 50px; gap: 30px; padding: 0 20px; }
+        
+        /* Sidebar (Mundarija) */
+        .sidebar { width: 280px; position: sticky; top: 100px; height: calc(100vh - 120px); overflow-y: auto; background: var(--card); padding: 25px; border-radius: 20px; border: 1px solid var(--border); }
+        .sidebar h3 { margin-bottom: 20px; font-size: 18px; color: var(--primary); }
+        .sidebar ul { list-style: none; }
+        .sidebar li { margin-bottom: 12px; }
+        .sidebar a { color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 500; transition: 0.2s; display: block; padding: 8px 12px; border-radius: 8px; }
+        .sidebar a:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+        
+        /* Main Content */
+        .content { flex: 1; }
+        .content h1 { font-size: 3rem; margin-bottom: 15px; background: linear-gradient(to right, #38d39f, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .content > p.lead { font-size: 1.2rem; color: var(--muted); margin-bottom: 40px; }
+
+        .section { background: var(--card); padding: 40px; border-radius: 20px; margin-bottom: 30px; border: 1px solid var(--border); }
+        .section h2 { font-size: 24px; color: #fff; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .section h2 i { color: var(--primary); }
+        .section h3 { font-size: 18px; color: var(--text); margin: 25px 0 10px; }
+        .section p { margin-bottom: 15px; color: var(--muted); }
+        .section ul { margin-left: 20px; color: var(--muted); margin-bottom: 20px; }
+        .section li { margin-bottom: 8px; }
+        .section li strong { color: #fff; }
+
+        .code-block { background-color: #0b1120; padding: 20px; border-radius: 12px; font-family: monospace; color: #38d39f; border: 1px solid rgba(255,255,255,0.1); overflow-x: auto; margin: 15px 0; font-size: 14px; line-height: 1.5; }
+        
+        .alert { background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; padding: 15px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; color: #93c5fd; }
+        .alert.warning { background: rgba(245, 158, 11, 0.1); border-color: #f59e0b; color: #fcd34d; }
+
+        /* Support Chat */
+        .chat-container { background: var(--card); border-radius: 20px; overflow: hidden; border: 1px solid var(--border); display: flex; flex-direction: column; height: 500px; margin-top: 40px; }
+        .chat-header { background: rgba(0,0,0,0.2); padding: 20px; text-align: center; font-weight: bold; border-bottom: 1px solid var(--border); color: #fff;}
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .msg { max-width: 75%; padding: 12px 18px; border-radius: 18px; position: relative; font-size: 0.95rem; }
+        .msg.user { background: var(--primary); color: #000; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .msg.admin { background: #334155; color: #fff; align-self: flex-start; border-bottom-left-radius: 4px; }
+        .reaction { position: absolute; bottom: -12px; right: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 2px 6px; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .chat-input { display: flex; padding: 15px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border); }
+        .chat-input input { flex: 1; padding: 15px; border-radius: 30px; border: none; background: #0f172a; color: white; outline: none; padding-left: 25px; font-size: 15px;}
+        .chat-input button { background: var(--primary); border: none; width: 50px; height: 50px; border-radius: 50%; margin-left: 10px; cursor: pointer; color: #000; font-size: 18px; transition: 0.2s; }
+        .chat-input button:hover { transform: scale(1.1); }
+
+        @media (max-width: 900px) {
+            .container { flex-direction: column; margin-top: 80px; }
+            .sidebar { width: 100%; height: auto; position: relative; top: 0; padding: 15px; margin-bottom: 20px; }
+            nav { padding: 15px 20px; }
+            .nav-links span { display: none; } /* Hide text on mobile nav */
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="/?token={{ request.args.get('token', '') }}" class="logo"><i class="fa-solid fa-graduation-cap"></i> Geo Ustoz</a>
+        <div class="nav-links">
+            <a href="#support" style="color:var(--text); text-decoration:none; font-weight:600;"><i class="fa-regular fa-comment-dots"></i> <span>Yordam</span></a>
+            <a href="/?token={{ request.args.get('token', '') }}" class="btn-back">
+                <i class="fa-solid fa-house"></i> <span>Kabinetga qaytish</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="sidebar">
+            <h3><i class="fa-solid fa-list-ul"></i> Mundarija</h3>
+            <ul>
+                <li><a href="#test-yaratish"><i class="fa-solid fa-pen-to-square"></i> 1. Test Yaratish usullari</a></li>
+                <li><a href="#test-boshqarish"><i class="fa-solid fa-sliders"></i> 2. Testlarni boshqarish</a></li>
+                <li><a href="#test-ishlash"><i class="fa-solid fa-check-to-slot"></i> 3. Test ishlash va Limitlar</a></li>
+                <li><a href="#ai-yordamchi"><i class="fa-solid fa-brain"></i> 4. Geo AI Yordamchisi</a></li>
+                <li><a href="#premium"><i class="fa-solid fa-crown"></i> 5. Premium imkoniyatlar</a></li>
+                <li><a href="#xavfsizlik"><i class="fa-solid fa-shield-halved"></i> 6. Xavfsizlik (Captcha, PIN)</a></li>
+                <li><a href="#qidiruv"><i class="fa-solid fa-magnifying-glass"></i> 7. Qidiruv va Guruhlar</a></li>
+                <li><a href="#support"><i class="fa-solid fa-headset"></i> 8. Adminga yozish</a></li>
+            </ul>
+        </aside>
+
+        <main class="content">
+            <h1>Platforma Yo'riqnomasi</h1>
+            <p class="lead">Geo Ustoz tizimidan to'liq, samarali va xatosiz foydalanish uchun barcha funksiyalar bilan tanishib chiqing.</p>
+
+            <section id="test-yaratish" class="section">
+                <h2><i class="fa-solid fa-pen-to-square"></i> 1. Test Yaratish Usullari</h2>
+                <p>Platformada test yaratishning 3 xil usuli mavjud: <b>Bot orqali fayl yuborib</b>, <b>Saytdagi Word matnli forma orqali</b>, va <b>Saytdagi Vizual tugmalar orqali</b>.</p>
+
+                <h3>Word (.docx) fayl orqali yaratish</h3>
+                <p>Botga tayyor Word faylini yuborsangiz, u avtomatik ravishda testga aylanadi. Word ichidagi savollar, variantlar va hatto <b>rasmlar</b> ham bot tomonidan o'qib olinadi! Fayl ichidagi matn quyidagi formatda bo'lishi shart:</p>
+                <div class="code-block">
+theme: Tarix fanidan oraliq nazorat<br><br>
+1. O'zbekiston qachon mustaqil bo'lgan?<br>
+[Shu joyda ixtiyoriy rasm bo'lishi mumkin]<br>
+a) 1990-yil<br>
+b) 1991-yil<br>
+c) 1992-yil<br>
+true: b<br><br>
+2. Keyingi savol matni...<br>
+a) Variant 1...
+                </div>
+                <ul>
+                    <li><strong>theme:</strong> Eng birinchi qatorda yoziladi. Bu testning asosiy nomi bo'ladi.</li>
+                    <li><strong>1. yoki 1)</strong> Savollar raqam bilan boshlanishi kerak.</li>
+                    <li><strong>a) yoki a.</strong> Variantlar harf bilan ko'rsatilishi kerak.</li>
+                    <li><strong>true: a</strong> Har bir savol ostida to'g'ri javobni ko'rsatuvchi qator bo'lishi qat'iy talab qilinadi.</li>
+                </ul>
+
+                <div class="alert warning">
+                    <b>💡 AI orqali kalitlarni topish:</b> Agar Word faylida to'g'ri javoblarni (true:) kiritish yodingizdan chiqqan bo'lsa, xavotir olmang! Tizim buni aniqlaydi va sizga <b>"🤖 AI o'zi yechib bersin"</b> tugmasini taklif qiladi. AI savollarni o'qib, o'zi kalitlarni topib testni tayyorlab beradi.
+                </div>
+
+                <h3>Sayt orqali vizual yaratish</h3>
+                <p>Saytning "Vizual Test Yaratish" bo'limida siz hech qanday formatlarsiz, oddiy tugmalarni bosib, qutichalarga matn yozish orqali test yaratishingiz mumkin. Bu usulda test yaratayotib <b>Deadline (Tugash vaqti)</b> va <b>Urinishlar limitini</b> ham kiritib ketish mumkin.</p>
+            </section>
+
+            <section id="test-boshqarish" class="section">
+                <h2><i class="fa-solid fa-sliders"></i> 2. Testlarni Boshqarish va Natijalar</h2>
+                <p>Yaratilgan testlaringiz "Mening Testlarim" bo'limida saqlanadi. <b>⚙️ Boshqarish</b> tugmasini bosib quyidagilarni amalga oshirishingiz mumkin:</p>
+                
+                <ul>
+                    <li><strong>📤 Excel yuklab olish:</strong> Testni ishlagan barcha o'quvchilarning ro'yxati, to'g'ri javoblar soni va sarflagan vaqti Excel fayl (ro'yxat) ko'rinishida qurilmangizga yuklanadi.</li>
+                    <li><strong>🌐 Public qilish (@nom berish):</strong> Testingizga maxsus havola (masalan: <i>@kimyo_2026</i>) berishingiz mumkin. Shundan so'ng boshqa o'quvchilar "Qidiruv" bo'limidan shu nomni yozib testingizni topib yecha oladilar.</li>
+                    <li><strong>🔒 Parol o'rnatish:</strong> Public testni faqat o'zingizning o'quvchilaringiz yechishi uchun unga parol o'rnatib qo'yishingiz mumkin.</li>
+                    <li><strong>📢 Chatlarga yuborish:</strong> Testni kerakli Telegram guruh yoki kanalga avtomatik tarzda yuborish.</li>
+                    <li><strong>⛔ Testni yopish:</strong> Test yechishni to'xtatadi. Yopish vaqtida tizim sizdan <i>"Natijalar e'lon qilinsinmi?"</i> deb so'raydi. Agar "Ha" desangiz, Top 20 talik reyting guruhga yuboriladi.</li>
+                </ul>
+            </section>
+
+            <section id="test-ishlash" class="section">
+                <h2><i class="fa-solid fa-check-to-slot"></i> 3. Test Ishlash va Limitlar</h2>
+                <p>O'quvchilar testni guruhdagi tugmani bosish orqali ikki xil usulda ishlashlari mumkin:</p>
+                <ul>
+                    <li><strong>🌐 Saytda ishlash (Qulay):</strong> Chiroyli interfeys, vaqtni ko'rsatib turuvchi taymer va qulay tugmalar yordamida brauzerda ishlash.</li>
+                    <li><strong>💬 Botda ishlash:</strong> Telegram botning o'zida Inline (tugma)lar orqali ishlash. Interneti sekin bo'lganlar uchun qulay.</li>
+                </ul>
+
+                <div class="alert">
+                    <b>🔄 Urinishlar limiti:</b> Har bir test uchun o'qituvchi limit belgilashi mumkin (masalan: 1 marta). Agar o'quvchi testni 1 marta yechib bo'lsa, keyingi safar kirganida tizim unga javoblarni qayta ishlashga ruxsat bermaydi va faqat oxirgi olgan balini ko'rsatib turadi.
+                </div>
+            </section>
+
+            <section id="ai-yordamchi" class="section">
+                <h2><i class="fa-solid fa-brain"></i> 4. Geo AI Yordamchisi</h2>
+                <p>Platformada zamonaviy Sun'iy Intellekt (AI) o'rnatilgan bo'lib, u ham bot ichida, ham sayt ichida ishlaydi.</p>
+                <ul>
+                    <li><strong>JONLI Internet:</strong> Geo AI siz so'ragan ma'lumotlarni internetdan qidirib topadi va eng so'nggi yangiliklar asosida javob beradi.</li>
+                    <li><strong>Rasm tahlili:</strong> Telegram botga biror qiyin misol yoki rasmni yuborib tagiga savol yozsangiz, AI rasmni ko'ra oladi va uni tahlil qilib sizga to'g'ri javobni aytadi!</li>
+                </ul>
+                <div class="alert warning">
+                    <b>Limitlar:</b> Oddiy foydalanuvchilar serverga og'irlik tushmasligi uchun kuniga <b>10 ta bepul</b> AI so'rov yuborish imkoniyatiga ega. Premium maqomiga ega bo'lganlar uchun AI dan foydalanish to'liq <b>Cheksiz!</b>
+                </div>
+            </section>
+
+            <section id="premium" class="section">
+                <h2><i class="fa-solid fa-crown"></i> 5. Premium Maqomi</h2>
+                <p>Premium orqali tizimning barcha yopiq eshiklari ochiladi:</p>
+                <ul>
+                    <li>AI yordamchisidan mutlaqo cheksiz foydalanish.</li>
+                    <li>Test yaratishda savollar soni 10 tadan oshganda qo'yiladigan cheklovlarni olib tashlash.</li>
+                    <li><b>Shaxsiy Oboi (Fon):</b> Premiumlar o'zlarining shaxsiy kabinetlari va test ishlash ekranlari (Lock Screen va Main) orqasiga o'zlari xohlagan rasmni fon qilib o'rnatishlari mumkin!</li>
+                </ul>
+                <p><b>Qanday olinadi?</b> Kabinetdan "Premium" bo'limiga o'ting. Siz karta orqali pul o'tkazib chek yuborishingiz yoki <b>Telegram Stars (Yulduzlar)</b> orqali atigi 1 soniyada avtomatik Premium sotib olishingiz mumkin.</p>
+            </section>
+
+            <section id="xavfsizlik" class="section">
+                <h2><i class="fa-solid fa-shield-halved"></i> 6. Xavfsizlik (Captcha va PIN)</h2>
+                <p>Geo Ustoz tizimi himoyaga juda katta e'tibor beradi:</p>
+                <ul>
+                    <li><strong>Anti-Spam (Captcha):</strong> Agar foydalanuvchi daqiqasiga 100 tadan ortiq harakat qilsa (sun'iy yuklama bossa), tizim uni darhol bloklaydi. Blokdan chiqish uchun botdagi <b>"🤖 Men robot emasman"</b> tugmasini bosib saytga kirib, inson ekanligingizni tasdiqlashingiz shart.</li>
+                    <li><strong>Qulf (PIN-kod):</strong> O'qituvchilar o'zlarining testlari va bazasini himoyalash uchun saytdan <b>4 xonali PIN-kod</b> yoki telefoningizdagi <b>FaceID/Barmoq izi</b> (Biometrika) qulfini o'rnatib qo'yishlari mumkin. Botdan "🔐 Qulflash" ni bossangiz, sayt va bot qulflanadi va kalitsiz hech kim kirmaydi.</li>
+                </ul>
+            </section>
+
+            <section id="qidiruv" class="section">
+                <h2><i class="fa-solid fa-magnifying-glass"></i> 7. Qidiruv va Guruhlarga Ulanish</h2>
+                <ul>
+                    <li><strong>Qidiruv (@nom):</strong> Tizimning yuqori qismidagi Qidiruv tugmasi orqali respublika bo'ylab ustozlar ochiq (public) qilgan testlarni ularning @maxsus_nomi orqali izlab topib yechishingiz mumkin.</li>
+                    <li><strong>Guruhga qo'shish:</strong> Bot testni guruhingizga tashlab, reytinglarni o'sha yerda hisoblashi uchun, botni guruhingizga qo'shishingiz va unga <b>Admin</b> (xabar yozish va o'chirish) huquqlarini berishingiz shart.</li>
+                </ul>
+            </section>
+
+            <section id="support" class="section" style="border-color: var(--primary);">
+                <h2><i class="fa-solid fa-headset"></i> 8. Jonli Yordam (Adminga yozish)</h2>
+                <p>Agar sizda bot yoki sayt ishlashida xatolik kuzatilsa, yoki to'lovlaringizda muammo bo'lsa, to'g'ridan-to'g'ri admin bilan gaplashishingiz mumkin.</p>
+                
+                <div class="chat-container">
+                    <div class="chat-header">Jonli aloqa xizmati</div>
+                    <div class="chat-messages" id="chat-box"></div>
+                    <div class="chat-input">
+                        <input type="text" id="msg-input" placeholder="Xabaringizni yozing..." onkeypress="handleEnter(event)">
+                        <button onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <footer>
+        <h2>Geo Ustoz</h2>
+        <p>Zamonaviy ta'lim va test platformasi. © 2026 Barcha huquqlar himoyalangan.</p>
+        <p style="font-size: 13px; margin-top:5px;">Dasturchi: @python_dasturchi_bola</p>
+    </footer>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const userToken = urlParams.get('token');
+        const chatBox = document.getElementById('chat-box');
+
+        async function loadMessages() {
+            if(!userToken) {
+                chatBox.innerHTML = "<p style='text-align:center; color:var(--muted); margin-top:20px;'>Xabarlarni yozish va o'qish uchun avval bot orqali saytga kiring.</p>";
+                return;
+            }
+            try {
+                let res = await fetch(`/api/support/history?token=${userToken}`);
+                let msgs = await res.json();
+                
+                chatBox.innerHTML = "";
+                if(msgs.length === 0) {
+                    chatBox.innerHTML = "<p style='text-align:center; color:var(--muted); margin-top:20px;'>Xabarlar yo'q. Bu yerdan adminga murojaat qilishingiz mumkin.</p>";
+                }
+
+                msgs.forEach(m => {
+                    let div = document.createElement('div');
+                    div.className = `msg ${m.sender === 'user' ? 'user' : 'admin'}`;
+                    div.innerHTML = m.text.replace(/\n/g, '<br>');
+                    
+                    if(m.reaction) {
+                        let reactBadge = document.createElement('div');
+                        reactBadge.className = 'reaction';
+                        reactBadge.innerText = m.reaction;
+                        div.appendChild(reactBadge);
+                    }
+                    
+                    chatBox.appendChild(div);
+                });
+                
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (e) {
+                console.log(e);
+            }
+        }
+
+        async function sendMessage() {
+            if(!userToken) return alert("Bot orqali tizimga kiring!");
+            let input = document.getElementById('msg-input');
+            let text = input.value.trim();
+            if(!text) return;
+
+            input.value = "";
+            chatBox.innerHTML += `<div class="msg user">${text}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            await fetch('/api/support/send', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({token: userToken, text: text})
+            });
+
+            loadMessages();
+        }
+
+        function handleEnter(e) {
+            if(e.key === 'Enter') sendMessage();
+        }
+
+        if(userToken) {
+            loadMessages();
+            setInterval(loadMessages, 5000);
+        }
+    </script>
+</body>
+</html>

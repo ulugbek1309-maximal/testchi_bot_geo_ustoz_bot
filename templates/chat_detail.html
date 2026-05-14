@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat | Testchi</title>
+  <style>
+    :root {
+      --bg: #090c14;
+      --card: rgba(255, 255, 255, 0.08);
+      --text: #f3f6ff;
+      --muted: rgba(243, 246, 255, 0.65);
+      --accent: #38d39f;
+      --accent2: #6cb2ff;
+      --border: rgba(255, 255, 255, 0.12);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: var(--text);
+      background: radial-gradient(circle at top, #101b34 0%, #070b15 70%, #05060d 100%);
+    }
+
+    nav {
+      background: rgba(10, 16, 30, 0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .nav-title { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .back-btn {
+      padding: 8px 14px; border-radius: 8px;
+      background: var(--card); color: var(--text);
+      text-decoration: none; border: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .bubble {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 15px;
+      line-height: 1.5;
+      position: relative;
+    }
+
+    .bubble.user {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.1);
+      border-bottom-left-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+    }
+
+    .bubble.admin {
+      align-self: flex-end;
+      background: var(--accent2);
+      color: #000;
+      border-bottom-right-radius: 4px;
+      font-weight: 500;
+    }
+
+    .time-stamp {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-top: 5px;
+      display: block;
+      text-align: right;
+    }
+
+    .reactions {
+      display: flex;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .reaction-btn {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      color: white;
+    }
+    .reaction-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+
+    .input-area {
+      background: rgba(10, 16, 30, 0.95);
+      border-top: 1px solid var(--border);
+      padding: 15px 20px;
+      flex-shrink: 0;
+    }
+
+    .input-form {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 14px 20px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .chat-input:focus { border-color: var(--accent2); }
+
+    .send-btn {
+      background: var(--accent2);
+      color: #000;
+      border: none;
+      border-radius: 24px;
+      padding: 0 24px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .send-btn:active { transform: scale(0.95); }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+  </style>
+</head>
+<body style="{% if current_user_bg %}background: linear-gradient(rgba(10, 16, 30, 0.7), rgba(5, 6, 13, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
+
+  <nav>
+    <div class="nav-title">
+      <a href="/admin/chats?token={{ token }}" class="back-btn">⬅️ Orqaga</a>
+      <span style="margin-left: 10px;">
+        Suhbat: {{ target_user.get('first_name', 'Foydalanuvchi') }}
+      </span>
+    </div>
+  </nav>
+
+  <div class="chat-container" id="chatContainer">
+    {% if not messages %}
+      <div style="text-align: center; color: var(--muted); margin-top: 40px; padding: 20px; background: rgba(0,0,0,0.5); border-radius: 12px;">
+        Hozircha xabarlar yo'q. Birinchi bo'lib siz yozishingiz mumkin.
+      </div>
+    {% endif %}
+
+    {% for msg in messages %}
+      <div class="bubble {{ msg.get('sender') }}">
+        <div>{{ msg.get('text') }}</div>
+        <span class="time-stamp format-date" data-ts="{{ msg.get('created_at', 0) }}"></span>
+
+        {% if msg.get('sender') == 'user' %}
+          <form action="/admin/chat/{{ target_user.get('user_id') }}" method="post" class="reactions">
+            <input type="hidden" name="token" value="{{ token }}">
+            <input type="hidden" name="action" value="react">
+            <input type="hidden" name="message_id" value="{{ msg.get('message_id') }}">
+            <button type="submit" name="emoji" value="👍" class="reaction-btn" title="Klass">👍</button>
+            <button type="submit" name="emoji" value="❤️" class="reaction-btn" title="Yurak">❤️</button>
+            <button type="submit" name="emoji" value="🔥" class="reaction-btn" title="Olov">🔥</button>
+            <button type="submit" name="emoji" value="👏" class="reaction-btn" title="Qarsak">👏</button>
+            <button type="submit" name="emoji" value="🤝" class="reaction-btn" title="Kelishdik">🤝</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="input-area">
+    <form class="input-form" action="/admin/chat/{{ target_user.get('user_id') }}" method="post">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="action" value="send_msg">
+      <input type="text" name="text" class="chat-input" placeholder="Javob yozing..." required autocomplete="off" autofocus>
+      <button type="submit" class="send-btn">Yuborish 📤</button>
+    </form>
+  </div>
+
+  <script>
+    const chatContainer = document.getElementById('chatContainer');
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    document.querySelectorAll('.format-date').forEach(el => {
+      const ts = parseInt(el.getAttribute('data-ts'));
+      if(ts) {
+        const d = new Date(ts * 1000);
+        el.textContent = d.getHours().toString().padStart(2,'0') + ":" + d.getMinutes().toString().padStart(2,'0');
+      }
+    });
+  </script>
+</body>
+</html>

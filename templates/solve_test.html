@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>
+    {% if lang == 'uz' %}Test Yechish{% elif lang == 'uz_cyrl' %}Тест Ечиш{% else %}Прохождение теста{% endif %}: {{ test.get('title', '') }}
+  </title>
+  <style>
+    :root {
+      --bg: #090c14;
+      --card: rgba(255, 255, 255, 0.08);
+      --text: #f3f6ff;
+      --muted: rgba(243, 246, 255, 0.65);
+      --accent: #38d39f;
+      --accent-hover: #2db888;
+      --accent2: #6cb2ff;
+      --danger: #ff6b6b;
+      --border: rgba(255, 255, 255, 0.12);
+      --shadow: rgba(0, 0, 0, 0.32);
+      --radius: 16px;
+      --max-width: 600px;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--text); background: radial-gradient(circle at top, #101b34 0%, #070b15 70%, #05060d 100%); }
+
+    .top-bar {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(10, 16, 30, 0.95); border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px); padding: 15px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .top-bar h1 { margin: 0; font-size: 16px; font-weight: 600; color: var(--accent2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+    .timer { font-size: 18px; font-weight: bold; color: var(--accent); transition: color 0.3s; }
+    .timer.urgent { color: var(--danger); animation: blink 1s infinite; }
+
+    @keyframes blink { 50% { opacity: 0.5; } }
+
+    main { max-width: var(--max-width); padding: 25px 15px 100px; margin: 0 auto; }
+
+    .progress-container { margin-bottom: 25px; }
+    .progress-text { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+    .progress-bar-bg { background: rgba(255,255,255,0.1); height: 8px; border-radius: 10px; overflow: hidden; }
+    .progress-bar-fill { background: var(--accent); height: 100%; width: 0%; transition: width 0.3s ease; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 14px 40px var(--shadow); margin-bottom: 20px; }
+    
+    .question-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; line-height: 1.5; color: var(--text); }
+    
+    .option-label {
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: 0.2s;
+    }
+    .option-label:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+    .option-label.selected { background: rgba(56, 211, 159, 0.12); border-color: var(--accent); box-shadow: 0 0 15px rgba(56, 211, 159, 0.1); }
+    .option-label input { display: none; }
+    .option-letter { font-weight: bold; color: var(--accent2); min-width: 25px; }
+
+    .nav-controls {
+      position: fixed; bottom: 0; left: 0; width: 100%;
+      background: rgba(10, 16, 30, 0.9); backdrop-filter: blur(10px);
+      padding: 15px; border-top: 1px solid var(--border);
+      display: flex; justify-content: center; gap: 10px; z-index: 20;
+    }
+    .btn {
+      padding: 12px 20px; border-radius: 10px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; max-width: 200px; text-decoration: none;
+    }
+    .btn-secondary { background: rgba(255,255,255,0.1); color: white; }
+    .btn-primary { background: var(--accent2); color: white; }
+    .btn-finish { background: var(--accent); color: #000; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #resultScreen { display: none; text-align: center; }
+    .score-circle {
+      width: 150px; height: 150px; border-radius: 50%; border: 6px solid var(--accent);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 32px; font-weight: bold; color: var(--accent); margin: 20px auto;
+    }
+
+    .q-image-box { text-align: center; margin-bottom: 20px; border-radius: 10px; overflow: hidden; background: #000; padding: 10px; }
+    .q-image { max-width: 100%; max-height: 250px; object-fit: contain; }
+
+    .alert { padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+    .alert-error { background: rgba(255, 107, 107, 0.15); color: var(--danger); border: 1px solid rgba(255, 107, 107, 0.3); }
+
+    .form-field {
+      width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.15); color: var(--text); font-size: 15px; margin-bottom: 12px; outline: none;
+    }
+  </style>
+</head>
+<body>
+
+  {% if error_msg %}
+    <main>
+      <div class="card" style="text-align: center; padding: 40px 20px;">
+        <h2 style="color: var(--danger);">{{ error_msg }}</h2>
+        <a href="/?token={{ token }}" class="btn btn-primary" style="margin: 20px auto;">⬅️ Dashboard'ga qaytish</a>
+      </div>
+    </main>
+
+  {% elif require_purchase %}
+    <main>
+      <div class="card" style="text-align: center; padding: 40px 20px; border-color: #ffc107;">
+        <h2 style="color: #ffc107;">⛔ {% if lang == 'uz' %}Bu pullik test!{% else %}Бу пуллик тест!{% endif %}</h2>
+        <p>{% if lang == 'uz' %}Ushbu testni ishlash uchun avval uni sotib olishingiz kerak.{% else %}Ушбу тестни ишлаш учун аввал уни сотиб олишингиз керак.{% endif %}</p>
+        <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+          {% if test.price_gwt|float > 0 %}
+          <form action="/buy-test/gwt/{{ test.test_id }}" method="POST">
+              <input type="hidden" name="token" value="{{ token }}">
+              <button class="btn btn-finish" type="submit" style="width: 100%;">🛒 Sotib olish: {{ test.price_gwt }} GWT</button>
+          </form>
+          {% endif %}
+          {% if test.price_stars|int > 0 %}
+          <form action="/buy-test/stars/{{ test.test_id }}" method="POST">
+              <input type="hidden" name="token" value="{{ token }}">
+              <button class="btn" type="submit" style="background: #fbbf24; color: #000; width: 100%;">⭐️ Sotib olish: {{ test.price_stars }} Stars</button>
+          </form>
+          {% endif %}
+        </div>
+        <a href="/?token={{ token }}" class="btn btn-secondary" style="margin-top: 20px;">⬅️ Dashboard</a>
+      </div>
+    </main>
+
+  {% elif require_password %}
+    <main>
+      <div class="card" style="text-align: center; padding: 40px 20px;">
+        <h2>🔒 {% if lang == 'uz' %}Parol kiritish{% else %}Парол киритиш{% endif %}</h2>
+        <p>{% if lang == 'uz' %}Test parollangan. Davom etish uchun kiriting:{% else %}Тест паролланган. Давом этиш учун киритинг:{% endif %}</p>
+        {% if pwd_error %} <div class="alert alert-error">❌ Parol noto'g'ri!</div> {% endif %}
+        <form method="get" action="/solve/{{ test.test_id }}">
+          <input type="hidden" name="token" value="{{ token }}">
+          <input type="password" name="pwd" class="form-field" placeholder="****" required>
+          <button type="submit" class="btn btn-primary">Kirish</button>
+        </form>
+      </div>
+    </main>
+
+  {% else %}
+    <div class="top-bar">
+      <h1>{{ test.title }}</h1>
+      <div class="timer" id="timeDisplay">00:00</div>
+    </div>
+
+    <main id="quizMain">
+      <div class="progress-container">
+        <div class="progress-text">
+          <span id="progressStep">Savol: 1 / {{ questions|length }}</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+      </div>
+
+      <div class="card" id="questionCard"></div>
+    </main>
+
+    <div class="nav-controls" id="navControls">
+      <button class="btn btn-secondary" id="prevBtn" onclick="prevQuestion()" disabled>⬅️ Oldingi</button>
+      <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">Keyingi ➡️</button>
+      <button class="btn btn-finish" id="finishBtn" onclick="finishTest()" style="display: none;">🚀 Yakunlash</button>
+    </div>
+
+    <main id="resultScreen">
+      <div class="card">
+        <h2>🎉 {% if lang == 'uz' %}Test Yakunlandi!{% else %}Тест Якунланди!{% endif %}</h2>
+        <div class="score-circle">
+            <span id="finalScore">0</span>
+            <small id="scoreUnit" style="font-size: 14px; color: var(--muted)"></small>
+        </div>
+        <div id="statsBox" style="margin-bottom: 20px; font-size: 15px; color: var(--muted);">
+            <p>✅ To'g'ri: <b id="resCorrect" style="color:var(--accent)">0</b></p>
+            <p>⏱ Vaqt: <b id="finalTime">0</b> soniya</p>
+        </div>
+        <a href="/?token={{ token }}" class="btn btn-primary" style="margin: 20px auto;">Dashboard'ga qaytish</a>
+      </div>
+    </main>
+
+    <script>
+      let questions = [
+        {% for q in questions %}
+        {
+          index: {{ q.q_index or loop.index0 }},
+          question: {{ q.question | tojson }},
+          options: {{ q.options | tojson }},
+          photo: "{{ q.photo_id or '' }}"
+        },
+        {% endfor %}
+      ];
+
+      const testSettings = {
+          timeLimit: {{ test.get('time_limit', 0) | int }}, // daqiqada
+          scoringType: "{{ test.get('scoring_type', 'standard') }}",
+          isRandomized: {{ 'true' if test.get('is_randomized') else 'false' }},
+          testId: "{{ test.test_id }}"
+      };
+
+      let currentIdx = 0;
+      let userAnswers = {}; 
+      let secondsElapsed = 0;
+      let timerInterval = null;
+      let timeLeft = testSettings.timeLimit * 60; // Daqiqani soniyaga o'tkazish
+      const token = "{{ token }}";
+
+      window.onload = () => {
+        // Savollarni aralashtirish (Randomization) funksiyasi
+        if (testSettings.isRandomized && questions.length > 0) {
+            for (let i = questions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [questions[i], questions[j]] = [questions[j], questions[i]];
+            }
+        }
+
+        renderQuestion();
+        startTimer();
+        initAntiCheat();
+      };
+
+      // QAT'IY TAYMER MANTIG'I
+      function startTimer() {
+        timerInterval = setInterval(() => {
+          secondsElapsed++;
+          
+          if (testSettings.timeLimit > 0) {
+              timeLeft--;
+              updateTimerDisplay(timeLeft);
+              
+              // Vaqt tugashiga 1 daqiqa qolganda qizartirish
+              if (timeLeft <= 60 && timeLeft > 0) {
+                  document.getElementById('timeDisplay').classList.add('urgent');
+              }
+              
+              // Vaqt tugagach avtomatik yakunlash
+              if (timeLeft <= 0) {
+                  clearInterval(timerInterval);
+                  document.getElementById('timeDisplay').innerText = "00:00";
+                  alert("⏳ Vaqt tugadi! Test avtomatik yakunlanmoqda.");
+                  finishTest(true); // Avto-finish
+              }
+          } else {
+              // Agar vaqt chegarasi bo'lmasa, shunchaki oldinga sanaydi
+              updateTimerDisplay(secondsElapsed);
+          }
+        }, 1000);
+      }
+
+      function updateTimerDisplay(sec) {
+          const m = String(Math.floor(sec / 60)).padStart(2, '0');
+          const s = String(sec % 60).padStart(2, '0');
+          document.getElementById('timeDisplay').innerText = `${m}:${s}`;
+      }
+
+      // DAXSHATLI ANTI-CHEAT MANTIG'I
+      function initAntiCheat() {
+          document.addEventListener("visibilitychange", () => {
+              if (document.hidden) {
+                  // O'quvchi boshqa dasturga yoki oynaga o'tib ketganda serverga xabar yuboriladi
+                  fetch('/api/cheat-warning', {
+                      method: 'POST',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({token: token, test_id: testSettings.testId})
+                  }).catch(e => console.error(e));
+                  
+                  // O'quvchiga ogohlantirish chiqarish
+                  alert("⚠️ OGOHLANTIRISH!\n\nTest yechish vaqtida sahifadan chiqish qoidalarga zid hisoblanadi. Bu holat tizimga yozib olindi va reytingingizga ta'sir qilishi mumkin!");
+              }
+          });
+      }
+
+      function renderQuestion() {
+        if(questions.length === 0) return;
+        
+        const q = questions[currentIdx];
+        const card = document.getElementById('questionCard');
+        const letters = ['A','B','C','D','E','F','G','H','I','J'];
+
+        let html = `<div class="question-title">${currentIdx + 1}. ${escapeHtml(q.question)}</div>`;
+
+        if (q.photo) {
+          html += `<div class="q-image-box"><img src="/q-image/${q.photo}?token=${token}" class="q-image"></div>`;
+        }
+
+        q.options.forEach((opt, i) => {
+          // q.index bu savolning original (bazadagi) ID si. Aralashtirilganda ham bu o'zgarmaydi!
+          const isSelected = userAnswers[q.index] === i ? 'selected' : '';
+          html += `
+            <label class="option-label ${isSelected}" onclick="setAnswer(${q.index}, ${i})">
+              <span class="option-letter">${letters[i]})</span>
+              <span>${escapeHtml(opt)}</span>
+            </label>
+          `;
+        });
+
+        card.innerHTML = html;
+        updateUI();
+      }
+
+      function setAnswer(qIdx, optIdx) {
+        userAnswers[qIdx] = optIdx;
+        renderQuestion();
+      }
+
+      function updateUI() {
+        document.getElementById('prevBtn').disabled = currentIdx === 0;
+        
+        if (currentIdx === questions.length - 1) {
+          document.getElementById('nextBtn').style.display = 'none';
+          document.getElementById('finishBtn').style.display = 'flex';
+        } else {
+          document.getElementById('nextBtn').style.display = 'flex';
+          document.getElementById('finishBtn').style.display = 'none';
+        }
+
+        const total = questions.length;
+        const current = currentIdx + 1;
+        const percent = Math.round((current / total) * 100);
+        
+        document.getElementById('progressStep').innerText = `Savol: ${current} / ${total}`;
+        document.getElementById('progressPercent').innerText = `${percent}%`;
+        document.getElementById('progressBar').style.width = `${percent}%`;
+      }
+
+      function nextQuestion() {
+        if (currentIdx < questions.length - 1) {
+          currentIdx++;
+          renderQuestion();
+          window.scrollTo(0, 0);
+        }
+      }
+
+      function prevQuestion() {
+        if (currentIdx > 0) {
+          currentIdx--;
+          renderQuestion();
+          window.scrollTo(0, 0);
+        }
+      }
+
+      async function finishTest(auto = false) {
+        // Agar o'zi tugatishni bossa (vaqt tugamasdan)
+        if (!auto) {
+            const answeredCount = Object.keys(userAnswers).length;
+            const total = questions.length;
+            if (answeredCount < total) {
+              if (!confirm(`Siz hali barcha savollarga javob bermadingiz. Shunga qaramay testni yakunlaysizmi?`)) return;
+            }
+        }
+
+        clearInterval(timerInterval); // Taymerni to'xtatish
+        const finishBtn = document.getElementById('finishBtn');
+        finishBtn.disabled = true;
+        finishBtn.innerText = "⏳ Serverga yuborilmoqda...";
+
+        const payload = {
+          token: token,
+          duration_sec: secondsElapsed,
+          answers: userAnswers
+        };
+
+        try {
+          const res = await fetch('/solve/{{ test.test_id }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await res.json();
+
+          if (result.success) {
+            // Ekranni tozalab natijalarni chiqarish
+            document.querySelector('.top-bar').style.display = 'none';
+            document.getElementById('quizMain').style.display = 'none';
+            document.getElementById('navControls').style.display = 'none';
+            
+            document.getElementById('finalScore').innerText = result.score;
+            document.getElementById('resCorrect').innerText = result.correct_answers;
+            document.getElementById('finalTime').innerText = result.duration;
+            
+            // Pro Baholash birliklarini o'rnatish
+            let unit = "/ " + result.total; // Standard usul uchun
+            if (result.type === 'percentage') unit = "%";
+            if (result.type === 'minus' || result.type === 'custom') unit = " ball";
+            document.getElementById('scoreUnit').innerText = unit;
+
+            document.getElementById('resultScreen').style.display = 'block';
+          } else {
+            alert("Xatolik: " + result.error);
+            finishBtn.disabled = false;
+            finishBtn.innerText = "🚀 Yakunlash";
+          }
+        } catch (e) {
+          alert("Internet yoki server bilan aloqada xatolik yuz berdi!");
+          finishBtn.disabled = false;
+          finishBtn.innerText = "🚀 Yakunlash";
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    </script>
+  {% endif %}
+</body>
+</html>

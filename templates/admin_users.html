@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Admin | Foydalanuvchilar</title>
+
+  <style>
+    /* 1. CSS Reset va Global O'zgaruvchilar */
+    :root {
+      --bg-body: radial-gradient(circle at top, #101b34 0%, #070b15 70%, #05060d 100%);
+      --nav-blur: rgba(10, 16, 30, 0.95);
+      
+      /* Ranglar palitrasi */
+      --brand-green: #38d39f;
+      --brand-blue: #6cb2ff;
+      --brand-gold: #fbbf24;
+      --brand-red: #ff6b6b;
+      
+      /* UI elementlari */
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --item-bg: rgba(0, 0, 0, 0.3);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(243, 246, 255, 0.6);
+      
+      /* O'lchamlar */
+      --radius-container: 16px;
+      --radius-item: 10px;
+      --max-w: 800px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text-primary);
+      background: var(--bg-body);
+      line-height: 1.4;
+      /* Horizontal skrollni butunlay yo'qotish */
+      overflow-x: hidden; 
+    }
+
+    /* 2. Navigatsiya Paneli (Ixchamlashtirilgan) */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: var(--nav-blur);
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 10px 0;
+    }
+
+    .nav-container {
+      width: 100%;
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nav-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav-top h1 {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--brand-green);
+      letter-spacing: -0.3px;
+    }
+
+    /* Navigatsiya linklarini ekranga sig'dirish */
+    .nav-links {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none; /* Firefox */
+    }
+    .nav-links::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+
+    .nav-links a {
+      white-space: nowrap;
+      padding: 6px 10px;
+      border-radius: 15px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid var(--border-color);
+    }
+
+    .nav-links a.active {
+      background: rgba(56, 211, 159, 0.15);
+      border-color: var(--brand-green);
+      color: var(--brand-green);
+    }
+
+    /* 3. Asosiy Maydon */
+    main {
+      width: 100%;
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 15px 12px 60px;
+    }
+
+    /* 4. Qidiruv qatori */
+    .search-box {
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 10px 15px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--brand-blue);
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    /* 5. Jami Statistika */
+    .stats-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .stats-bar h2 {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .count-badge {
+      background: rgba(108, 178, 255, 0.1);
+      color: var(--brand-blue);
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    /* 6. Foydalanuvchilar Ro'yxati Konteyneri */
+    .user-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* 7. IXCHAM FOYDALANUVCHI KARTASI */
+    .user-card {
+      background: var(--item-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-item);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.1s;
+    }
+
+    .user-card:active {
+      transform: scale(0.99);
+    }
+
+    /* Kartochka ichidagi ma'lumotlar */
+    .card-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .user-main {
+      min-width: 0; /* Matn kesilishi uchun */
+    }
+
+    .user-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis; /* Ismni kesish */
+    }
+
+    .user-id {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: monospace;
+    }
+
+    /* Badgelar bir qatorda */
+    .card-badges {
+      display: flex;
+      gap: 5px;
+      margin-top: 5px;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+    }
+
+    .b-prem { background: rgba(56, 211, 159, 0.1); color: var(--brand-green); border-color: rgba(56, 211, 159, 0.2); }
+    .b-free { background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); border-color: var(--border-color); }
+    .b-ban { background: rgba(255, 107, 107, 0.1); color: var(--brand-red); border-color: rgba(255, 107, 107, 0.2); }
+    .b-bal { background: rgba(251, 191, 36, 0.1); color: var(--brand-gold); border-color: rgba(251, 191, 36, 0.2); }
+
+    /* 8. HARAKAT TUGMALARI (SELECT VA OK BIR QATORDA) */
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .action-form {
+      display: flex;
+      width: 100%;
+      gap: 6px;
+    }
+
+    .select-mini {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      font-size: 13px;
+      padding: 8px;
+      border-radius: 8px;
+      outline: none;
+      -webkit-appearance: none; /* Brauzer stilini o'chirish */
+      appearance: none;
+    }
+
+    .btn-ok {
+      background: var(--brand-green);
+      color: #000;
+      border: none;
+      padding: 0 15px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    /* 9. Footer */
+    footer {
+      padding: 30px 15px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
+    /* 10. Maxsus media query - Judayam kichik ekranlar uchun */
+    @media (max-width: 350px) {
+      .nav-top h1 { font-size: 14px; }
+      .user-name { font-size: 13px; }
+      .select-mini { font-size: 12px; }
+    }
+  </style>
+</head>
+<body style="{% if current_user_bg %}background: linear-gradient(rgba(10, 16, 30, 0.8), rgba(5, 6, 13, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
+
+  <nav>
+    <div class="nav-container">
+      <div class="nav-top">
+        <h1>Admin Panel</h1>
+        <div class="nav-links">
+          <a href="/?token={{ token }}">Dashboard</a>
+          <a href="/pendings?token={{ token }}">To'lovlar</a>
+          <a href="/admin/users?token={{ token }}" class="active">Foydalanuvchilar</a>
+          <a href="/account?token={{ token }}">Profil</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="stats-bar">
+      <h2>👤 Foydalanuvchilar <span class="count-badge">{{ users|length }}</span></h2>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="userInput" class="search-input" placeholder="Ism yoki ID kiriting..." onkeyup="searchFun()">
+    </div>
+
+    <div class="user-list" id="userList">
+      {% if users %}
+        {% for u in users %}
+          <div class="user-card" data-name="{{ u.first_name }} {{ u.last_name or '' }}" data-id="{{ u.user_id }}">
+            
+            <div class="card-info">
+              <div class="user-main">
+                <span class="user-name">{{ u.first_name }} {{ u.last_name or '' }}</span>
+                <span class="user-id">ID: {{ u.user_id }} {% if u.username %}• @{{ u.username }}{% endif %}</span>
+                
+                <div class="card-badges">
+                  {% if u.status == 'premium' %}
+                    <span class="badge b-prem">⭐ Premium</span>
+                  {% elif u.status == 'banned' %}
+                    <span class="badge b-ban">🛑 Blokda</span>
+                  {% else %}
+                    <span class="badge b-free">👤 Oddiy</span>
+                  {% endif %}
+                  
+                  <span class="badge b-bal">💰 {{ u.balance | default('0.0') }} GWT</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <form action="/admin/user_action" method="post" class="action-form">
+                <input type="hidden" name="token" value="{{ token }}">
+                <input type="hidden" name="target_id" value="{{ u.user_id }}">
+
+                <select name="action" class="select-mini" required>
+                  <option value="" disabled selected>Harakat...</option>
+                  {% if u.status == 'premium' %}
+                    <option value="make_free">🔴 Oddiy qilish</option>
+                  {% else %}
+                    <option value="make_premium">🟢 Premium berish</option>
+                  {% endif %}
+
+                  {% if u.status == 'banned' %}
+                    <option value="make_free">🟢 Bandan olish</option>
+                  {% else %}
+                    <option value="ban">🛑 Bloklash (Ban)</option>
+                  {% endif %}
+                </select>
+
+                <button type="submit" class="btn-ok">OK</button>
+              </form>
+            </div>
+
+          </div>
+        {% endfor %}
+      {% else %}
+        <div style="text-align: center; padding: 40px 10px; color: var(--text-secondary);">
+          Foydalanuvchilar topilmadi.
+        </div>
+      {% endif %}
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2026 Test Tuzgich Engine — Admin Terminal</p>
+  </footer>
+
+  <script>
+    /**
+     * Foydalanuvchilarni qidirish
+     */
+    function searchFun() {
+      let input = document.getElementById('userInput');
+      let filter = input.value.toLowerCase();
+      let list = document.getElementById('userList');
+      let cards = list.getElementsByClassName('user-card');
+
+      for (let i = 0; i < cards.length; i++) {
+        let name = cards[i].getAttribute('data-name').toLowerCase();
+        let id = cards[i].getAttribute('data-id').toLowerCase();
+        
+        if (name.includes(filter) || id.includes(filter)) {
+          cards[i].style.display = "";
+        } else {
+          cards[i].style.display = "none";
+        }
+      }
+    }
+
+    /**
+     * Bloklashdan oldin tasdiqlash so'rash
+     */
+    document.querySelectorAll('.action-form').forEach(form => {
+      form.addEventListener('submit', function(e) {
+        let action = this.querySelector('select').value;
+        if(action === 'ban') {
+          if(!confirm('Foydalanuvchini bloklashga ishonchingiz komilmi?')) {
+            e.preventDefault();
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

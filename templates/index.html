@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ 'Testchi | Kabinet' if lang == 'uz' else ('Тестчи | Кабинет' if lang == 'uz_cyrl' else 'Testchi | Кабинет') }}</title>
+  <style>
+    :root {
+      --bg: #090c14;
+      --card: rgba(255, 255, 255, 0.08);
+      --text: #f3f6ff;
+      --muted: rgba(243, 246, 255, 0.65);
+      --accent: #38d39f;
+      --accent2: #6cb2ff;
+      --border: rgba(255, 255, 255, 0.12);
+      --shadow: rgba(0, 0, 0, 0.32);
+      --radius: 18px;
+      --max-width: 1100px;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: radial-gradient(circle at top, #101b34 0%, #070b15 70%, #05060d 100%);
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(10, 16, 30, 0.92);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+    }
+
+    .navbar {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .navbar h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.03em;
+      font-weight: 700;
+    }
+
+    .navbar .links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .navbar a {
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 14px;
+      transition: transform 0.14s ease, background 0.14s ease, border 0.14s ease;
+    }
+
+    .navbar a:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .lang-btn {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      opacity: 0.5;
+      transition: 0.2s;
+      padding: 0 5px;
+    }
+
+    .lang-btn.active {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    main {
+      max-width: var(--max-width);
+      padding: 28px 18px 60px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: 1fr;
+    }
+
+    .hero h2 {
+      margin: 0 0 10px;
+      font-size: 26px;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 780px;
+      line-height: 1.55;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      margin-top: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 14px 40px var(--shadow);
+      padding: 20px 22px;
+      backdrop-filter: blur(16px);
+    }
+
+    .card h2 {
+      font-size: 18px;
+      margin: 0 0 12px;
+      color: #38d39f;
+    }
+
+    .card .note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: transform 0.14s ease, background 0.14s ease, border 0.14s ease;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .btn-visual {
+      background: rgba(108, 178, 255, 0.15);
+      color: #6cb2ff;
+      border: 1px solid rgba(108, 178, 255, 0.3);
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      width: 100%;
+      margin-top: 10px;
+      display: block;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .btn-visual:hover {
+      background: rgba(108, 178, 255, 0.25);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 12px;
+    }
+
+    .form-field {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.12);
+      color: var(--text);
+      font-size: 14px;
+      resize: vertical;
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    footer {
+      padding: 26px 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* MOBIL MOSLASHUV QISMI */
+    @media (max-width: 640px) {
+      .hero { gap: 14px; }
+      .grid { grid-template-columns: 1fr; }
+      .navbar { flex-direction: column; align-items: center; }
+
+      .navbar .links {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .navbar .links > div:first-child {
+        grid-column: 1 / -1;
+        justify-content: center;
+        border-right: none !important;
+        margin-right: 0 !important;
+        padding-right: 0 !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        padding-bottom: 12px;
+        margin-bottom: 4px;
+      }
+
+      .navbar a {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        width: 100%;
+        padding: 10px 14px;
+      }
+    }
+
+    /* Modallar */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+      display: none; justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal-content {
+      background: #101b34; border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 25px; width: 90%; max-width: 400px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+
+    .rank-item {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px; border-radius: 8px; margin-bottom: 8px; background: rgba(0,0,0,0.3);
+        border: 1px solid transparent;
+    }
+    .rank-item.me { background: rgba(56, 211, 159, 0.15); border-color: rgba(56, 211, 159, 0.4); font-weight: bold;}
+    .medal-icon { font-size: 20px; width: 30px; text-align: center; }
+  </style>
+</head>
+<body style="{% if current_user_bg %}background: linear-gradient(rgba(10, 16, 30, 0.7), rgba(5, 6, 13, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
+
+  <nav>
+    <div class="navbar">
+      <h1><a href="https://t.me/geo_ustoz_bot" target="_blank" style="text-decoration: none; color: inherit;">Testchi</a></h1>
+      <div class="links">
+
+        <div style="display: flex; align-items: center; border-right: 1px solid rgba(255,255,255,0.2); padding-right: 10px; margin-right: 5px;">
+          <form action="/set-lang" method="POST" style="margin: 0;">
+              <input type="hidden" name="token" value="{{ token }}">
+              <input type="hidden" name="lang" value="uz">
+              <button type="submit" class="lang-btn {{ 'active' if lang == 'uz' else '' }}" title="Lotin">🇺🇿</button>
+          </form>
+          <form action="/set-lang" method="POST" style="margin: 0;">
+              <input type="hidden" name="token" value="{{ token }}">
+              <input type="hidden" name="lang" value="uz_cyrl">
+              <button type="submit" class="lang-btn {{ 'active' if lang == 'uz_cyrl' else '' }}" title="Кирилл">🇺🇿 Кр</button>
+          </form>
+          <form action="/set-lang" method="POST" style="margin: 0;">
+              <input type="hidden" name="token" value="{{ token }}">
+              <input type="hidden" name="lang" value="ru">
+              <button type="submit" class="lang-btn {{ 'active' if lang == 'ru' else '' }}" title="Русский">🇷🇺</button>
+          </form>
+        </div>
+
+        <a href="/?token={{ token }}" style="background: rgba(255,255,255,0.15);">
+            {% if lang == 'uz' %}Dashboard{% elif lang == 'uz_cyrl' %}Дашборд{% else %}Главная{% endif %}
+        </a>
+
+        {% if is_admin %}
+          <a href="/admin/chats?token={{ token }}" style="color: #f6ad55; border-color: rgba(246, 173, 85, 0.4);">
+              {% if lang == 'uz' %}💬 Xabarlar{% elif lang == 'uz_cyrl' %}💬 Хабарлар{% else %}💬 Сообщения{% endif %}
+          </a>
+          <a href="/pendings?token={{ token }}" style="color: #6cb2ff; border-color: rgba(108, 178, 255, 0.4);">
+              {% if lang == 'uz' %}💰 To'lovlar{% elif lang == 'uz_cyrl' %}💰 Тўловлар{% else %}💰 Платежи{% endif %}
+          </a>
+          <a href="/admin/users?token={{ token }}" style="color: #38d39f; border-color: rgba(56, 211, 159, 0.4);">
+              {% if lang == 'uz' %}👥 Admin Panel{% elif lang == 'uz_cyrl' %}👥 Админ Панель{% else %}👥 Админ Панель{% endif %}
+          </a>
+          <a href="/admin/tests?token={{ token }}" style="color: #b794f4; border-color: rgba(183, 148, 244, 0.4);">
+              {% if lang == 'uz' %}🧩 Barcha Testlar{% elif lang == 'uz_cyrl' %}🧩 Барча Тестлар{% else %}🧩 Все Тесты{% endif %}
+          </a>
+        {% endif %}
+
+        <a href="/account?token={{ token }}">
+            {% if lang == 'uz' %}Hisobim{% elif lang == 'uz_cyrl' %}Ҳисобим{% else %}Мой профиль{% endif %}
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <h2>{{ 'Salom' if lang == 'uz' else ('Салом' if lang == 'uz_cyrl' else 'Привет') }}, {{ username or ("Foydalanuvchi" if lang == 'uz' else ("Фойдаланувчи" if lang == 'uz_cyrl' else "Пользователь")) }}!</h2>
+      <p>
+        {% if lang == 'uz' %}Bu tizim mutlaqo xavfsiz. Endi siz platformaga sayt orqali emas, faqatgina Telegram botingizdagi shaxsiy <b>Web App</b> tugmasi orqali kirasiz.
+        {% elif lang == 'uz_cyrl' %}Бу тизим мутлақо хавфсиз. Энди сиз платформага сайт орқали эмас, фақатгина Телеграм ботингиздаги шахсий <b>Web App</b> тугмаси орқали кирасиз.
+        {% else %}Система полностью безопасна. Теперь вы заходите на платформу не через сайт, а только через личную кнопку <b>Web App</b> в вашем Telegram боте.{% endif %}
+      </p>
+    </section>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 20px; gap: 15px;">
+        <a href="/ai-chat?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: linear-gradient(135deg, rgba(56, 211, 159, 0.1), rgba(45, 184, 136, 0.1)); border-color: rgba(56, 211, 159, 0.3);">
+            <div style="font-size: 35px;">🤖</div>
+            <div style="font-weight: 600; color: #38d39f; font-size: 16px;">AI Chat</div>
+        </a>
+
+        <a href="/search?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">🔍</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Qidiruv' if lang == 'uz' else ('Қидирув' if lang == 'uz_cyrl' else 'Поиск') }}</div>
+        </a>
+
+        <a href="/guide?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">📖</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Qo`llanma' if lang == 'uz' else ('Қўлланма' if lang == 'uz_cyrl' else 'Инструкция') }}</div>
+        </a>
+    </div>
+
+    <div class="card" style="border-color: #38d39f; background: rgba(56, 211, 159, 0.05); text-align: center; margin-top: 20px; margin-bottom: 20px;">
+      <h3 style="margin-top: 0; color: #38d39f; font-size: 22px;">👛
+        {% if lang == 'uz' %}Hamyon balansi:
+        {% elif lang == 'uz_cyrl' %}Ҳамён баланси:
+        {% else %}Баланс кошелька:{% endif %}
+        <b>{{ balance }} GWT</b>
+      </h3>
+      <p style="font-size: 14px; color: var(--muted); margin-bottom: 15px;">
+        {% if lang == 'uz' %}Tokenlar orqali yopiq testlarni xarid qiling yoki o'z testingizni sotib daromad qiling.
+        {% elif lang == 'uz_cyrl' %}Токенлар орқали ёпиқ тестларни харид қилинг ёки ўз тестингизни сотиб даромад қилинг.
+        {% else %}Покупайте закрытые тесты за токены или зарабатывайте, продавая свои тесты.{% endif %}
+      </p>
+
+      <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
+        <a href="/market?token={{ token }}" class="btn" style="background: #38d39f; color: #000; border: none; font-weight: bold; flex: 1; min-width: 150px;">
+          🛒 {% if lang == 'uz' %}Testlar Bozori{% elif lang == 'uz_cyrl' %}Тестлар Бозори{% else %}Рынок Тестов{% endif %}
+        </a>
+        <button onclick="document.getElementById('buyTokenModal').style.display='flex'" class="btn" style="background: #fbbf24; color: #000; border: none; font-weight: bold; flex: 1; min-width: 150px;">
+          ➕ {% if lang == 'uz' %}GWT Sotib olish{% elif lang == 'uz_cyrl' %}GWT Сотиб олиш{% else %}Купить GWT{% endif %}
+        </button>
+      </div>
+    </div>
+    {% if request.args.get('msg') %}
+      <div class="card" style="border-color: rgba(56, 211, 159, 0.7); margin-top: 20px;">
+        <p class="note" style="color: var(--accent); margin: 0; font-size: 15px;">{{ request.args.get('msg') }}</p>
+      </div>
+    {% endif %}
+
+    <div class="grid">
+      <div class="card">
+        <h2 style="color: #6cb2ff;">✍️ {% if lang == 'uz' %}Test Yaratish{% elif lang == 'uz_cyrl' %}Тест Яратиш{% else %}Создать Тест{% endif %}</h2>
+        <p class="note" style="margin-bottom: 20px;">
+            {% if lang == 'uz' %}O'zingizga qulay usulni tanlang:
+            {% elif lang == 'uz_cyrl' %}Ўзингизга қулай усулни танланг:
+            {% else %}Выберите удобный способ:{% endif %}
+        </p>
+
+        <a href="/create-visual-test?token={{ token }}" class="btn-visual">
+          🪄 {% if lang == 'uz' %}Vizual Test Yaratish (Tugmalar orqali){% elif lang == 'uz_cyrl' %}Визуал Тест Яратиш (Тугмалар орқали){% else %}Визуальный конструктор (через кнопки){% endif %}
+        </a>
+
+        <button onclick="toggleWordForm()" class="btn" style="width: 100%; border-radius: 12px; padding: 14px; margin-top: 15px; background: rgba(255,255,255,0.05); font-size: 15px;">
+          📝 {% if lang == 'uz' %}Formatli Matn Orqali Yaratish{% elif lang == 'uz_cyrl' %}Word Матн Орқали Яратиш{% else %}Создать через текст Word{% endif %}
+        </button>
+
+        <div id="wordFormContainer" style="display: none; margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+          <form id="wordForm" action="/create-test" method="post" onsubmit="prepareWordForm(event)">
+            <input type="hidden" name="token" value="{{ token }}" />
+
+            <label>{% if lang == 'uz' %}Test nomi{% elif lang == 'uz_cyrl' %}Тест номи{% else %}Название теста{% endif %}</label>
+            <input id="wordTitle" class="form-field" type="text" name="title" placeholder="{% if lang == 'uz' %}Masalan: Tarix 9-sinf{% elif lang == 'uz_cyrl' %}Масалан: Тарих 9-синф{% else %}Например: История 9 класс{% endif %}" required />
+
+            <label>{% if lang == 'uz' %}Savollar (Word formatida){% elif lang == 'uz_cyrl' %}Саволлар (Word форматида){% else %}Вопросы (в формате Word){% endif %}</label>
+            <textarea id="wordBody" class="form-field" name="body" rows="6" placeholder="1. O'zbekiston poytaxti?&#10;a) Toshkent&#10;b) Samarqand&#10;true: a" required></textarea>
+
+            <label>{% if lang == 'uz' %}Qaysi guruh/kanalga yuborilsin?{% elif lang == 'uz_cyrl' %}Қайси гуруҳ/каналга юборилсин?{% else %}В какую группу/канал отправить?{% endif %}</label>
+            <select class="form-field" name="chat_id" required>
+              <option value="{{ request.args.get('user_id') }}">🔒 {% if lang == 'uz' %}Private (Faqat o'zim uchun){% elif lang == 'uz_cyrl' %}Приват (Фақат ўзим учун){% else %}Приватно (Только для себя){% endif %}</option>
+              {% for chat in chats %}
+                <option value="{{ chat.chat_id }}">{{ chat.title }} ({{ chat.type }})</option>
+              {% endfor %}
+            </select>
+
+            <button class="btn" type="submit" style="width: 100%; border-radius: 12px; margin-top: 10px; background: rgba(56, 211, 159, 0.15); color: #38d39f; border-color: rgba(56, 211, 159, 0.4);">🚀 {% if lang == 'uz' %}Testni Yaratish{% elif lang == 'uz_cyrl' %}Тестни Яратиш{% else %}Создать Тест{% endif %}</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="color: #f3f6ff; margin: 0;">📂 {% if lang == 'uz' %}Mening Testlarim{% elif lang == 'uz_cyrl' %}Менинг Тестларим{% else %}Мои тесты{% endif %}</h2>
+        </div>
+
+        <div id="bulk-action-bar" style="display: none; margin-bottom: 15px; padding: 12px 18px; background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.3); border-radius: 12px; align-items: center; justify-content: space-between;">
+            <span id="selected-count" style="color: #ff6b6b; font-weight: bold; font-size: 14px;">0 ta tanlandi</span>
+            <button onclick="bulkDeleteTests()" class="btn" style="background: #ff6b6b; border-color: #ff6b6b; color: #fff; padding: 6px 15px;">
+                <i class="fa-solid fa-trash"></i> {% if lang == 'uz' %}O'chirish{% elif lang == 'uz_cyrl' %}Ўчириш{% else %}Удалить{% endif %}
+            </button>
+        </div>
+
+        {% if tests %}
+          <div class="tests">
+            {% for entry in tests %}
+              {% set t = entry['test'] %}
+              <div class="card test-card" style="margin-bottom: 15px; padding: 18px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.15); position: relative;">
+
+                <div style="position: absolute; top: 18px; right: 18px;">
+                    <input type="checkbox" class="test-checkbox" value="{{ t.get('test_id', '') }}" onchange="toggleBulkActionBar()" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ff6b6b;">
+                </div>
+
+                <h3 style="margin:0 0 10px; font-size: 16px; padding-right: 30px;">{{ t.get('title', '—') }}</h3>
+
+                <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:15px;">
+                  <span class="badge" style="background: rgba(108, 178, 255, 0.15); color: #6cb2ff;">{{ t.get('status', '—') }}</span>
+                  <span class="badge">{{ entry['q_count'] }} {% if lang == 'uz' %}ta savol{% elif lang == 'uz_cyrl' %}та савол{% else %}вопросов{% endif %}</span>
+                  <span class="badge">{{ entry['finished_count'] }} {% if lang == 'uz' %}ta natija{% elif lang == 'uz_cyrl' %}та натижа{% else %}результатов{% endif %}</span>
+
+                  {% if t.get('price_gwt', 0) > 0 %}
+                      <span class="badge" style="background: rgba(56, 211, 159, 0.15); color: #38d39f; border-color: #38d39f;">💰 {{ t.get('price_gwt') }} GWT</span>
+                  {% endif %}
+                  {% if t.get('price_stars', 0) > 0 %}
+                      <span class="badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-color: #fbbf24;">⭐️ {{ t.get('price_stars') }} Stars</span>
+                  {% endif %}
+                </div>
+
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                  <a class="btn" href="/test/{{ t.get('test_id', '') }}?token={{ token }}" style="flex: 1;">
+                    ⚙️ {% if lang == 'uz' %}Boshqarish{% elif lang == 'uz_cyrl' %}Бошқариш{% else %}Управление{% endif %}
+                  </a>
+
+                  <a class="btn" href="/edit-test/{{ t.get('test_id', '') }}?token={{ token }}" style="flex: 1; background: rgba(108, 178, 255, 0.15); color: #6cb2ff; border-color: rgba(108, 178, 255, 0.3);">
+                    ✏️ {% if lang == 'uz' %}Tahrirlash{% elif lang == 'uz_cyrl' %}Таҳрирлаш{% else %}Правка{% endif %}
+                  </a>
+
+                  <button onclick="openMonetizeModal('{{ t.get('test_id', '') }}', '{{ t.get('price_gwt', 0) }}', '{{ t.get('price_stars', 0) }}')" class="btn" style="background: rgba(255, 193, 7, 0.15); color: #ffc107; border-color: rgba(255, 193, 7, 0.3); flex: 1;">
+                    💰 {% if lang == 'uz' %}Narx qo'yish{% elif lang == 'uz_cyrl' %}Нарх қўйиш{% else %}Установить цену{% endif %}
+                  </button>
+                </div>
+
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="text-align: center; padding: 40px 10px;">
+            <p class="note" style="font-size: 15px;">{% if lang == 'uz' %}Sizda hozircha hech qanday test yo'q.{% elif lang == 'uz_cyrl' %}Сизда ҳозирча ҳеч қандай тест йўқ.{% else %}У вас пока нет тестов.{% endif %}</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div id="monetizeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; align-items: center; justify-content: center;">
+      <div class="card" style="width: 90%; max-width: 400px; margin: 0; background: #1e293b; border-color: rgba(255,255,255,0.1);">
+        <h2 style="color: #ffc107; margin-top: 0;">💰 Testni sotuvga qo'yish</h2>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+          Testingiz uchun narx belgilang. Narxni yozishingiz bilan uning taxminiy qiymati pastda ko'rinadi.
+        </p>
+
+        <form id="monetizeForm" method="POST" action="">
+          <input type="hidden" name="token" value="{{ token }}">
+
+          <label>Token orqali narxi (GWT):</label>
+          <input type="number" step="0.0001" min="0" id="priceGwtInput" name="price_gwt" class="form-field" placeholder="Masalan: 0.008" oninput="calculateLivePrice('gwt')" style="margin-bottom: 5px;">
+          <span id="gwtLiveCalc" style="color: #38d39f; font-size: 12px; display: block; margin-bottom: 15px; font-weight: bold;">≈ $0.00</span>
+
+          <label>Telegram Yulduzi (Stars) orqali narxi:</label>
+          <input type="number" step="1" min="0" id="priceStarsInput" name="price_stars" class="form-field" placeholder="Masalan: 50" oninput="calculateLivePrice('stars')" style="margin-bottom: 5px;">
+          <span id="starsLiveCalc" style="color: #fbbf24; font-size: 12px; display: block; margin-bottom: 15px; font-weight: bold;">≈ $0.00</span>
+
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button type="submit" class="btn" style="background: #38d39f; color: #000; border: none; flex: 1;">Saqlash</button>
+            <button type="button" onclick="closeMonetizeModal()" class="btn" style="background: rgba(255,107,107,0.15); color: #ff6b6b; border-color: rgba(255,107,107,0.3); flex: 1;">Bekor qilish</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="buyTokenModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; align-items: center; justify-content: center;">
+      <div class="card" style="width: 90%; max-width: 400px; margin: 0; background: #1e293b; border-color: rgba(251,191,36,0.4); text-align: center;">
+        <h2 style="color: #fbbf24; margin-top: 0;">➕ {% if lang == 'uz' %}GWT Sotib olish{% elif lang == 'uz_cyrl' %}GWT Сотиб олиш{% else %}Купить GWT{% endif %}</h2>
+
+        <p style="font-size: 14px; color: var(--muted); margin-bottom: 15px; line-height: 1.5;">
+          {% if lang == 'uz' %}GWT larni xavfsiz sotib olish uchun Telegram botdagi <b>"👛 Mening Hamyonim"</b> bo'limiga kiring. U yerda Karta yoki Telegram Yulduzlari orqali to'lov qilib, balansingizni to'ldirishingiz mumkin.
+          {% elif lang == 'uz_cyrl' %}GWT ларни хавфсиз сотиб олиш учун Telegram ботдаги <b>"👛 Менинг Ҳамёним"</b> бўлимига киринг. У ерда Карта ёки Telegram Юлдузлари орқали тўлов қилиб, балансингизни тўлдиришингиз мумкин.
+          {% else %}Для безопасной покупки токенов GWT перейдите в раздел <b>"👛 Мой Кошелек"</b> в Telegram-боте. Там вы можете пополнить баланс с помощью Карты или Звезд Telegram.{% endif %}
+        </p>
+
+        <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed rgba(251,191,36,0.3);">
+            <p style="margin: 0; font-size: 15px; color: #38d39f; font-weight: bold;">💎 1 GWT = $10.00</p>
+            <p style="margin: 5px 0 0 0; font-size: 13px; color: gray;">(≈ 126,000 so'm)</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <a href="https://t.me/geo_ustoz_bot" target="_blank" class="btn" style="background: #2AABEE; color: #fff; border: none; padding: 14px;">
+            🤖 {% if lang == 'uz' %}Botga o'tish{% elif lang == 'uz_cyrl' %}Ботга ўтиш{% else %}Перейти в бот{% endif %}
+          </a>
+          <button onclick="document.getElementById('buyTokenModal').style.display='none'" class="btn" style="background: rgba(255,107,107,0.15); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.3); padding: 14px;">
+            {% if lang == 'uz' %}Yopish{% elif lang == 'uz_cyrl' %}Ёпиш{% else %}Закрыть{% endif %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <span>© Testchi - {% if lang == 'uz' %}Avtomatlashtirilgan Test Tizimi{% elif lang == 'uz_cyrl' %}Автоматлаштирилган Тест Тизими{% else %}Автоматизированная Тестовая Система{% endif %}</span>
+  </footer>
+
+  <script>
+    const lang = "{{ lang }}";
+    const token = new URLSearchParams(window.location.search).get("token") || "{{ token }}";
+
+    // --- JONLI (LIVE) NARX HISOBLAGICH ---
+    const GWT_TO_USD = 10.0;    // 1 GWT = 10$
+    const STAR_TO_USD = 0.02;   // 1 Star = 0.02$
+    const USD_TO_UZS = 12600;   // 1$ = 12,600 so'm
+
+    function calculateLivePrice(type) {
+        if (type === 'gwt') {
+            const gwtVal = parseFloat(document.getElementById('priceGwtInput').value) || 0;
+            const usdVal = (gwtVal * GWT_TO_USD).toFixed(2);
+            const uzsVal = (usdVal * USD_TO_UZS).toLocaleString('ru-RU');
+            document.getElementById('gwtLiveCalc').innerText = `≈ $${usdVal} (yoki ${uzsVal} so'm)`;
+        }
+        else if (type === 'stars') {
+            const starsVal = parseInt(document.getElementById('priceStarsInput').value) || 0;
+            const usdVal = (starsVal * STAR_TO_USD).toFixed(2);
+            const uzsVal = (usdVal * USD_TO_UZS).toLocaleString('ru-RU');
+            document.getElementById('starsLiveCalc').innerText = `≈ $${usdVal} (yoki ${uzsVal} so'm)`;
+        }
+    }
+
+    // --- MONETIZATSIYA MODALI UCHUN JAVASCRIPT ---
+    function openMonetizeModal(testId, currentGwt, currentStars) {
+        document.getElementById('monetizeForm').action = "/monetize-test/" + testId;
+        document.getElementById('priceGwtInput').value = parseFloat(currentGwt) > 0 ? parseFloat(currentGwt) : '';
+        document.getElementById('priceStarsInput').value = parseInt(currentStars) > 0 ? parseInt(currentStars) : '';
+        calculateLivePrice('gwt');
+        calculateLivePrice('stars');
+        document.getElementById('monetizeModal').style.display = 'flex';
+    }
+
+    function closeMonetizeModal() {
+        document.getElementById('monetizeModal').style.display = 'none';
+    }
+
+    // --- OMMAVIY O'CHIRISH DASTURI (BULK DELETE) ---
+    function toggleBulkActionBar() {
+        const checkboxes = document.querySelectorAll('.test-checkbox:checked');
+        const actionBar = document.getElementById('bulk-action-bar');
+        const countSpan = document.getElementById('selected-count');
+
+        if (checkboxes.length > 0) {
+            actionBar.style.display = 'flex';
+            let txt = checkboxes.length + " ta tanlandi";
+            if(lang === 'uz_cyrl') txt = checkboxes.length + " та танланди";
+            else if(lang === 'ru') txt = "Выбрано " + checkboxes.length;
+            countSpan.innerText = txt;
+        } else {
+            actionBar.style.display = 'none';
+        }
+    }
+
+    async function bulkDeleteTests() {
+        const checkboxes = document.querySelectorAll('.test-checkbox:checked');
+        const testIds = Array.from(checkboxes).map(cb => cb.value);
+
+        if (testIds.length === 0) return;
+
+        let confirmMsg = "Haqiqatan ham belgilangan " + testIds.length + " ta testni o'chirmoqchimisiz?";
+        if(lang === 'uz_cyrl') confirmMsg = "Ҳақиқатан ҳам белгиланган " + testIds.length + " та тестни ўчирмоқчимисиз?";
+        else if(lang === 'ru') confirmMsg = "Вы действительно хотите удалить выбранные " + testIds.length + " тестов?";
+
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            const res = await fetch('/api/bulk-delete-tests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: token, test_ids: testIds })
+            });
+            const data = await res.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.error || "Xatolik yuz berdi!");
+            }
+        } catch(e) {
+            alert("Xatolik!");
+        }
+    }
+
+    function toggleWordForm() {
+      const form = document.getElementById('wordFormContainer');
+      form.style.display = (form.style.display === 'none') ? 'block' : 'none';
+    }
+
+    function prepareWordForm(event) {
+      event.preventDefault();
+      const title = document.getElementById('wordTitle').value.trim();
+      const bodyInput = document.getElementById('wordBody');
+      if (!bodyInput.value.toLowerCase().includes("theme:")) {
+        bodyInput.value = "theme: " + title + "\n" + bodyInput.value;
+      }
+      document.getElementById('wordForm').submit();
+    }
+
+    // --- LEADERBOARD MANTIG'I ---
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async function openLeaderboard() {
+        document.getElementById('leaderboardModal').style.display = 'flex';
+        const list = document.getElementById('leaderboardList');
+        const myRank = document.getElementById('myRankContainer');
+
+        let t_loading = lang === 'uz' ? "Yuklanmoqda..." : (lang === 'uz_cyrl' ? "Юкланмоқда..." : "Загрузка...");
+        let t_my_rank = lang === 'uz' ? "Sizning o'rningiz" : (lang === 'uz_cyrl' ? "Сизнинг ўрнингиз" : "Ваше место");
+        let t_score = lang === 'uz' ? "Umumiy ball" : (lang === 'uz_cyrl' ? "Умумий балл" : "Общий балл");
+        let t_empty = lang === 'uz' ? "Hali hech kim test yechmadi" : (lang === 'uz_cyrl' ? "Ҳали ҳеч ким тест ечмади" : "Еще никто не решил тест");
+        let t_err = lang === 'uz' ? "Xatolik yuz berdi" : (lang === 'uz_cyrl' ? "Хатолик юз берди" : "Произошла ошибка");
+
+        list.innerHTML = `<p style="text-align: center; color: var(--muted);">⏳ ${t_loading}</p>`;
+        myRank.style.display = 'none';
+
+        try {
+            const res = await fetch(`/api/leaderboard?token=${token}`);
+            const data = await res.json();
+
+            if (data.success) {
+                if (data.user) {
+                    myRank.innerHTML = `
+                        <h3 style="margin: 0 0 5px; color: var(--accent);">${t_my_rank}: ${data.user.rank}</h3>
+                        <p style="margin: 0; color: var(--text); font-size: 14px;">${t_score}: <b>${data.user.score}</b></p>
+                    `;
+                    myRank.style.display = 'block';
+                }
+
+                if (data.top && data.top.length > 0) {
+                    let html = '';
+                    data.top.forEach(u => {
+                        let medal = u.rank;
+                        if (u.rank === 1) medal = '🥇';
+                        if (u.rank === 2) medal = '🥈';
+                        if (u.rank === 3) medal = '🥉';
+
+                        let isMe = (data.user && data.user.rank === u.rank) ? 'me' : '';
+                        let displayName = escapeHtml(u.name);
+                        if (u.username) displayName += ` <span style="color:var(--muted); font-size:12px;">(@${escapeHtml(u.username)})</span>`;
+
+                        html += `
+                            <div class="rank-item ${isMe}">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span class="medal-icon">${medal}</span>
+                                    <span style="font-weight: 500; font-size: 14px;">${displayName}</span>
+                                </div>
+                                <div style="font-weight: bold; color: var(--accent2);">${u.score}</div>
+                            </div>
+                        `;
+                    });
+                    list.innerHTML = html;
+                } else {
+                    list.innerHTML = `<p style="text-align: center; color: var(--muted);">${t_empty}</p>`;
+                }
+            } else {
+                list.innerHTML = `<p style="text-align: center; color: var(--danger);">❌ ${t_err}</p>`;
+            }
+        } catch (err) {
+            list.innerHTML = `<p style="text-align: center; color: var(--danger);">❌ Internet muammosi</p>`;
+        }
+    }
+
+    function closeLeaderboard() {
+        document.getElementById('leaderboardModal').style.display = 'none';
+    }
+
+  </script>
+</body>
+</html>

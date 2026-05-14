@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>
+    {% if is_edit %}
+      {% if lang == 'uz' %}Testni Tahrirlash{% elif lang == 'uz_cyrl' %}Тестни Таҳрирлаш{% else %}Редактировать тест{% endif %}
+    {% else %}
+      {% if lang == 'uz' %}Yangi Test Yaratish{% elif lang == 'uz_cyrl' %}Янги Тест Яратиш{% else %}Создать новый тест{% endif %}
+    {% endif %} | Testchi
+  </title>
+  <style>
+    :root {
+      --bg: #090c14;
+      --card: rgba(255, 255, 255, 0.08);
+      --text: #f3f6ff;
+      --muted: rgba(243, 246, 255, 0.65);
+      --accent: #38d39f;
+      --accent-hover: #2db888;
+      --accent2: #6cb2ff;
+      --danger: #ff6b6b;
+      --border: rgba(255, 255, 255, 0.12);
+      --shadow: rgba(0, 0, 0, 0.32);
+      --radius: 12px;
+      --max-width: 800px;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: radial-gradient(circle at top, #101b34 0%, #070b15 70%, #05060d 100%);
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(10, 16, 30, 0.92);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+    }
+
+    .navbar {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .navbar h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    .navbar a {
+      padding: 9px 14px; border-radius: 999px; background: var(--card); color: var(--text);
+      text-decoration: none; border: 1px solid var(--border); font-size: 14px; transition: 0.2s;
+    }
+    .navbar a:hover { background: rgba(255,255,255,0.15); }
+
+    main { max-width: var(--max-width); padding: 28px 18px 60px; margin: 0 auto; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 14px 40px var(--shadow); margin-bottom: 20px;
+    }
+
+    .card h2 { margin: 0 0 15px; font-size: 20px; color: var(--accent2); display: flex; align-items: center; gap: 8px;}
+
+    .form-field {
+      width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.5); color: var(--text); font-size: 15px; margin-bottom: 12px; outline: none;
+    }
+    .form-field:focus { border-color: var(--accent); }
+
+    .grid-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+    @media (max-width: 600px) { .grid-fields { grid-template-columns: 1fr; } }
+
+    .checkbox-field {
+        display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05);
+        padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; border: 1px solid var(--border);
+    }
+    .checkbox-field input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+    select option { background: #101b34; color: white; }
+
+    /* Savollar Bloki */
+    .question-block {
+      background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 20px; position: relative; backdrop-filter: blur(10px);
+    }
+
+    .question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;}
+    .question-header h3 { margin: 0; font-size: 17px; color: var(--text); }
+
+    .q-score-wrapper {
+        display: none;
+        align-items: center;
+        gap: 8px;
+    }
+    .q-score-input {
+        width: 80px; padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(56, 211, 159, 0.4);
+        background: rgba(56, 211, 159, 0.1); color: var(--accent); font-weight: bold; outline: none; text-align: center;
+    }
+
+    .delete-btn {
+      background: rgba(255, 107, 107, 0.15); color: var(--danger); border: 1px solid rgba(255, 107, 107, 0.3);
+      padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s;
+    }
+    .delete-btn:hover { background: rgba(255, 107, 107, 0.25); }
+
+    .options-container { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+    .option-row { display: flex; align-items: center; gap: 10px; }
+
+    .option-row input[type="radio"] { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+
+    .option-row input[type="text"] {
+      flex: 1; padding: 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.3); color: var(--text); outline: none; font-size: 14px;
+    }
+    .option-row input[type="text"]:focus { border-color: var(--accent2); }
+
+    .del-opt-btn { background: transparent; color: var(--muted); border: none; font-size: 18px; cursor: pointer; padding: 5px; transition: 0.2s; }
+    .del-opt-btn:hover { color: var(--danger); transform: scale(1.1); }
+
+    .add-opt-btn {
+      background: transparent; color: var(--accent2); border: 1px dashed var(--accent2);
+      padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; width: fit-content; margin-top: 10px; transition: 0.2s;
+    }
+    .add-opt-btn:hover { background: rgba(108, 178, 255, 0.1); }
+
+    .btn-add-question {
+      background: rgba(108, 178, 255, 0.15); color: var(--accent2); border: 1px solid rgba(108, 178, 255, 0.3);
+      padding: 14px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; width: 100%; margin-bottom: 20px; transition: 0.2s;
+    }
+    .btn-add-question:hover { background: rgba(108, 178, 255, 0.25); }
+
+    .btn-save {
+      background: var(--accent); color: #000; border: none; padding: 16px; border-radius: 8px;
+      cursor: pointer; font-size: 16px; font-weight: 700; width: 100%; transition: 0.2s; display: flex; justify-content: center; gap: 8px; align-items: center;
+    }
+    .btn-save:hover { background: var(--accent-hover); transform: translateY(-2px); }
+    .btn-save:disabled { background: #666; cursor: not-allowed; transform: none; }
+
+    #errorBox { display: none; background: rgba(255, 107, 107, 0.15); color: var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 14px; font-weight: 500;}
+    .muted-label { color: var(--muted); font-size: 13px; margin-bottom: 5px; display: block; }
+  </style>
+</head>
+<body style="{% if current_user_bg %}background: linear-gradient(rgba(10, 16, 30, 0.7), rgba(5, 6, 13, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
+
+  <nav>
+    <div class="navbar">
+      <h1>Testchi</h1>
+      <div style="display: flex; gap: 5px;">
+        <button type="button" onclick="changeLang('uz')" style="background: none; border: none; font-size: 18px; cursor: pointer; opacity: {{ '1' if lang == 'uz' else '0.5' }};">🇺🇿</button>
+        <button type="button" onclick="changeLang('uz_cyrl')" style="background: none; border: none; font-size: 18px; cursor: pointer; opacity: {{ '1' if lang == 'uz_cyrl' else '0.5' }};">🇺🇿 (Кр)</button>
+        <button type="button" onclick="changeLang('ru')" style="background: none; border: none; font-size: 18px; cursor: pointer; opacity: {{ '1' if lang == 'ru' else '0.5' }};">🇷🇺</button>
+      </div>
+      <a href="/?token={{ token }}">⬅️
+        {% if lang == 'uz' %}Dashboard{% elif lang == 'uz_cyrl' %}Дашборд{% else %}Панель{% endif %}
+      </a>
+    </div>
+  </nav>
+
+  <main>
+    <div id="errorBox"></div>
+
+    <div class="card">
+      <h2>📝
+        {% if is_edit %}
+          {% if lang == 'uz' %}Testni Tahrirlash{% elif lang == 'uz_cyrl' %}Тестни Таҳрирлаш{% else %}Редактировать тест{% endif %}
+        {% else %}
+          {% if lang == 'uz' %}Asosiy Sozlamalar{% elif lang == 'uz_cyrl' %}Асосий Созламалар{% else %}Основные настройки{% endif %}
+        {% endif %}
+      </h2>
+
+      <label class="muted-label">{% if lang == 'uz' %}Test nomi (Mavzu){% elif lang == 'uz_cyrl' %}Тест номи (Мавзу){% else %}Название теста (Тема){% endif %}</label>
+      <input type="text" id="testTitle" class="form-field" placeholder="..." value="{{ test.title if test else '' }}" required>
+
+      <div class="grid-fields">
+          <div>
+              <label class="muted-label">{% if lang == 'uz' %}Qaysi chatga?{% elif lang == 'uz_cyrl' %}Қайси чатга?{% else %}В какой чат?{% endif %}</label>
+              <select id="chatId" class="form-field">
+                <option value="{{ user_id }}">🔒 Private</option>
+                {% for chat in chats %}
+                  <option value="{{ chat.chat_id }}" {% if test and test.chat_id == chat.chat_id %}selected{% endif %}>{{ chat.title }}</option>
+                {% endfor %}
+              </select>
+          </div>
+          <div>
+              <label class="muted-label">🔄 {% if lang == 'uz' %}Urinishlar{% elif lang == 'uz_cyrl' %}Уринишлар{% else %}Попытки{% endif %}</label>
+              <select id="attemptsLimit" class="form-field">
+                <option value="1" {% if test and test.attempts_limit == 1 %}selected{% endif %}>1 marta</option>
+                <option value="0" {% if test and test.attempts_limit == 0 %}selected{% endif %}>Cheksiz</option>
+                <option value="2" {% if test and test.attempts_limit == 2 %}selected{% endif %}>2 marta</option>
+                <option value="3" {% if test and test.attempts_limit == 3 %}selected{% endif %}>3 marta</option>
+              </select>
+          </div>
+      </div>
+
+      <div class="grid-fields">
+          <div>
+              <label class="muted-label">📊 {% if lang == 'uz' %}Baholash tizimi{% elif lang == 'uz_cyrl' %}Баҳолаш тизими{% else %}Система оценки{% endif %}</label>
+              <select id="scoringType" class="form-field" onchange="toggleScoreInputs()">
+                <option value="standard" {% if test and test.scoring_type == 'standard' %}selected{% endif %}>Standard (1 to'g'ri = 1 ball)</option>
+                <option value="percentage" {% if test and test.scoring_type == 'percentage' %}selected{% endif %}>Foizli (100 ballik tizim)</option>
+                <option value="minus" {% if test and test.scoring_type == 'minus' %}selected{% endif %}>Olimpiada (Xato javobga -ball)</option>
+                <option value="custom" {% if test and test.scoring_type == 'custom' %}selected{% endif %}>Maxsus ballar (O'zim kiritaman)</option>
+              </select>
+          </div>
+          <div>
+              <label class="muted-label">⏱ {% if lang == 'uz' %}Vaqt (daqiqada){% elif lang == 'uz_cyrl' %}Вақт (дақиқада){% else %}Время (в минутах){% endif %}</label>
+              <input type="number" id="timeLimit" class="form-field" placeholder="0 = cheksiz" min="0" value="{{ test.time_limit if test else '' }}">
+          </div>
+      </div>
+
+      <label class="checkbox-field">
+          <input type="checkbox" id="isRandomized" {% if test and test.is_randomized %}checked{% endif %}>
+          <span>🔀 {% if lang == 'uz' %}Savollarni aralashtirib chiqarish{% elif lang == 'uz_cyrl' %}Саволларни аралаштириб чиқариш{% else %}Перемешивать вопросы{% endif %}</span>
+      </label>
+
+      <div class="grid-fields">
+          <div>
+              <label class="muted-label">📅 Deadline</label>
+              <input type="text" id="deadline" class="form-field" placeholder="Masalan: 03/03/2026 22:00">
+          </div>
+          <div>
+              <label class="muted-label">🔒 {% if lang == 'uz' %}Yechish paroli{% elif lang == 'uz_cyrl' %}Ечиш пароли{% else %}Пароль решения{% endif %}</label>
+              <input type="password" id="takePassword" class="form-field" placeholder="...">
+          </div>
+      </div>
+
+      <label style="color:#ff6b6b; font-size:13px; margin-bottom:5px; display:block;">🛑 {% if lang == 'uz' %}Boshqarish paroli{% elif lang == 'uz_cyrl' %}Бошқариш пароли{% else %}Пароль управления{% endif %}</label>
+      <input type="password" id="managePassword" class="form-field" placeholder="Maxfiy... (Ixtiyoriy)" value="{{ test.manage_password if test and test.manage_password else '' }}">
+    </div>
+
+    <div id="questionsList"></div>
+
+    <button class="btn-add-question" onclick="addEmptyQuestion()">➕ {% if lang == 'uz' %}Yangi Savol Qo'shish{% elif lang == 'uz_cyrl' %}Янги Савол Қўшиш{% else %}Добавить новый вопрос{% endif %}</button>
+
+    <button class="btn-save" id="saveBtn" onclick="saveTest()">🚀
+        {% if is_edit %}
+          {% if lang == 'uz' %}O'zgarishlarni Saqlash{% elif lang == 'uz_cyrl' %}Ўзгаришларни Сақлаш{% else %}Сохранить изменения{% endif %}
+        {% else %}
+          {% if lang == 'uz' %}Testni Saqlash va Yuborish{% elif lang == 'uz_cyrl' %}Тестни Сақлаш ва Юбориш{% else %}Сохранить и отправить тест{% endif %}
+        {% endif %}
+    </button>
+
+  </main>
+
+  <script>
+    const lang = "{{ lang }}";
+    const isEdit = {{ 'true' if is_edit else 'false' }};
+    const testId = "{{ test.test_id if test else '' }}";
+    const questionsList = document.getElementById('questionsList');
+
+    const t = {
+        question: lang === 'uz' ? "Savol" : (lang === 'uz_cyrl' ? "Савол" : "Вопрос"),
+        score: lang === 'uz' ? "Ball" : (lang === 'uz_cyrl' ? "Балл" : "Балл"),
+        img_label: lang === 'uz' ? "🖼 Savol rasmi (ixtiyoriy):" : (lang === 'uz_cyrl' ? "🖼 Савол расми (ихтиёрий):" : "🖼 Картинка вопроса (необязательно):"),
+        del_img: lang === 'uz' ? "🗑 Rasmni o'chirish" : (lang === 'uz_cyrl' ? "🗑 Расмни ўчириш" : "🗑 Удалить картинку"),
+        delete: lang === 'uz' ? "🗑 O'chirish" : (lang === 'uz_cyrl' ? "🗑 Ўчириш" : "🗑 Удалить"),
+        enter_q: lang === 'uz' ? "Savolni kiriting..." : (lang === 'uz_cyrl' ? "Саволни киритинг..." : "Введите вопрос..."),
+        add_opt: lang === 'uz' ? "➕ Variant qo'shish" : (lang === 'uz_cyrl' ? "➕ Вариант қўшиш" : "➕ Добавить вариант"),
+        opt_text: lang === 'uz' ? "Variant matni..." : (lang === 'uz_cyrl' ? "Вариант матни..." : "Текст варианта..."),
+        mark_correct: lang === 'uz' ? "To'g'ri javobni belgilang" : (lang === 'uz_cyrl' ? "Тўғри жавобни белгиланг" : "Отметьте правильный ответ"),
+        del_opt: lang === 'uz' ? "Variantni o'chirish" : (lang === 'uz_cyrl' ? "Вариантни ўчириш" : "Удалить вариант"),
+        err_title: lang === 'uz' ? "Test nomini kiriting!" : (lang === 'uz_cyrl' ? "Тест номини киритинг!" : "Введите название теста!"),
+        err_one_q: lang === 'uz' ? "Kamida bitta savol qo'shing!" : (lang === 'uz_cyrl' ? "Камида битта савол қўшинг!" : "Добавьте хотя бы один вопрос!"),
+        saving: lang === 'uz' ? "⏳ Saqlanmoqda..." : (lang === 'uz_cyrl' ? "⏳ Сақланмоқда..." : "⏳ Сохранение..."),
+        save_btn: isEdit ? (lang === 'uz' ? "O'zgarishlarni Saqlash" : "Ўзгаришларни Сақлаш") : (lang === 'uz' ? "🚀 Testni Saqlash va Yuborish" : "🚀 Тестни Сақлаш ва Юбориш")
+    };
+
+    window.onload = () => {
+      const existingQuestions = [
+        {% if questions %}
+          {% for q in questions %}
+          {
+            // O'zgarish: Har ehtimolga qarshi barcha ustunlarni get() bilan xavfsiz tortib olish
+            question: {{ (q.get('question') or '') | tojson }},
+            options: {{ (q.get('options') or []) | tojson }},
+            correct_index: {{ q.get('correct_index', 0) }},
+            score: {{ q.get('question_score', 1.0) }},
+            photo_id: {{ (q.get('photo_id') or '') | tojson }}
+          },
+          {% endfor %}
+        {% endif %}
+      ];
+
+      if (existingQuestions.length > 0) {
+        existingQuestions.forEach(q => loadQuestionToUI(q));
+      } else {
+        addEmptyQuestion();
+      }
+      toggleScoreInputs();
+    };
+
+    function toggleScoreInputs() {
+        const scoringType = document.getElementById('scoringType').value;
+        const scoreWrappers = document.querySelectorAll('.q-score-wrapper');
+        scoreWrappers.forEach(wrapper => {
+            wrapper.style.display = (scoringType === 'custom') ? 'flex' : 'none';
+        });
+    }
+
+    function previewImage(input, qId) {
+        const file = input.files[0];
+        const previewDiv = document.getElementById(`preview_${qId}`);
+        const dataInput = document.querySelector(`#${qId} .q-new-image-data`);
+        const delBtn = document.getElementById(`btn_del_img_${qId}`);
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewDiv.innerHTML = `<img src="${e.target.result}" style="max-height: 120px; border-radius: 8px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1);">`;
+                if(dataInput) dataInput.value = e.target.result;
+                if(delBtn) delBtn.style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        } else {
+            previewDiv.innerHTML = '';
+            if(dataInput) dataInput.value = '';
+        }
+    }
+
+    function removeImage(qId) {
+        const block = document.getElementById(qId);
+        if(!block) return;
+        const existing = block.querySelector('.q-existing-photo');
+        const newData = block.querySelector('.q-new-image-data');
+        const fileInput = block.querySelector('.q-file-input');
+        if(existing) existing.value = '';
+        if(newData) newData.value = '';
+        if(fileInput) fileInput.value = '';
+        document.getElementById(`preview_${qId}`).innerHTML = '';
+        document.getElementById(`btn_del_img_${qId}`).style.display = 'none';
+    }
+
+    function loadQuestionToUI(data) {
+      const qId = `q_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const qScore = data.score !== undefined ? data.score : 1.0;
+      const qPhotoId = data.photo_id || '';
+
+      let previewHtml = '';
+      let delBtnDisplay = 'none';
+      if (qPhotoId) {
+         previewHtml = `<img src="/tg-image?token={{ token }}&path=${encodeURIComponent(qPhotoId)}" style="max-height: 120px; border-radius: 8px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1);">`;
+         delBtnDisplay = 'block';
+      }
+
+      const qHTML = `
+        <div class="question-block" id="${qId}">
+          <div class="question-header">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <h3 class="q-title">${t.question}</h3>
+                <div class="q-score-wrapper">
+                   <label style="font-size: 13px; color: var(--muted);">${t.score}:</label>
+                   <input type="number" class="q-score-input q-score" value="${qScore}" step="0.1" min="0" title="Ushbu savol uchun ball">
+                </div>
+            </div>
+            <button class="delete-btn" onclick="removeQuestion('${qId}')">${t.delete}</button>
+          </div>
+          <input type="text" class="form-field q-text" placeholder="${t.enter_q}" value="${escapeHtml(data.question)}" required>
+
+          <div style="margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+             <label style="font-size: 13px; color: var(--muted); display: block; margin-bottom: 8px;">${t.img_label}</label>
+             <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+                 <input type="file" class="form-field q-file-input" style="padding: 8px; margin-bottom: 0; flex: 1; min-width: 200px;" accept="image/*" onchange="previewImage(this, '${qId}')">
+                 <button type="button" class="delete-btn" style="display: ${delBtnDisplay}; white-space: nowrap; padding: 9px 14px; margin: 0;" id="btn_del_img_${qId}" onclick="removeImage('${qId}')">${t.del_img}</button>
+             </div>
+             <input type="hidden" class="q-existing-photo" value="${qPhotoId}">
+             <input type="hidden" class="q-new-image-data" value="">
+             <div id="preview_${qId}">${previewHtml}</div>
+          </div>
+          <div class="options-container" id="opts_${qId}"></div>
+          <button class="add-opt-btn" onclick="addOption('${qId}')">${t.add_opt}</button>
+        </div>
+      `;
+      questionsList.insertAdjacentHTML('beforeend', qHTML);
+
+      const container = document.getElementById(`opts_${qId}`);
+      data.options.forEach((opt, idx) => {
+        const optId = `opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        const isChecked = idx === data.correct_index ? "checked" : "";
+        const optHTML = `
+          <div class="option-row" id="${optId}">
+            <input type="radio" name="correct_${qId}" value="${optId}" ${isChecked} title="${t.mark_correct}">
+            <input type="text" class="opt-text" placeholder="${t.opt_text}" value="${escapeHtml(opt)}" required>
+            <button class="del-opt-btn" onclick="document.getElementById('${optId}').remove()" title="${t.del_opt}">✕</button>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', optHTML);
+      });
+      updateQuestionNumbers();
+    }
+
+    function addEmptyQuestion() {
+      const qId = `q_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const qHTML = `
+        <div class="question-block" id="${qId}">
+          <div class="question-header">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <h3 class="q-title">${t.question}</h3>
+                <div class="q-score-wrapper">
+                   <label style="font-size: 13px; color: var(--muted);">${t.score}:</label>
+                   <input type="number" class="q-score-input q-score" value="1.0" step="0.1" min="0" title="Ushbu savol uchun ball">
+                </div>
+            </div>
+            <button class="delete-btn" onclick="removeQuestion('${qId}')">${t.delete}</button>
+          </div>
+          <input type="text" class="form-field q-text" placeholder="${t.enter_q}" required>
+
+          <div style="margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+             <label style="font-size: 13px; color: var(--muted); display: block; margin-bottom: 8px;">${t.img_label}</label>
+             <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+                 <input type="file" class="form-field q-file-input" style="padding: 8px; margin-bottom: 0; flex: 1; min-width: 200px;" accept="image/*" onchange="previewImage(this, '${qId}')">
+                 <button type="button" class="delete-btn" style="display: none; white-space: nowrap; padding: 9px 14px; margin: 0;" id="btn_del_img_${qId}" onclick="removeImage('${qId}')">${t.del_img}</button>
+             </div>
+             <input type="hidden" class="q-existing-photo" value="">
+             <input type="hidden" class="q-new-image-data" value="">
+             <div id="preview_${qId}"></div>
+          </div>
+          <div class="options-container" id="opts_${qId}"></div>
+          <button class="add-opt-btn" onclick="addOption('${qId}')">${t.add_opt}</button>
+        </div>
+      `;
+      questionsList.insertAdjacentHTML('beforeend', qHTML);
+      updateQuestionNumbers();
+      addOption(qId);
+      addOption(qId);
+      toggleScoreInputs();
+    }
+
+    function addOption(qId) {
+      const container = document.getElementById(`opts_${qId}`);
+      const optId = `opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const optHTML = `
+        <div class="option-row" id="${optId}">
+          <input type="radio" name="correct_${qId}" value="${optId}" title="${t.mark_correct}">
+          <input type="text" class="opt-text" placeholder="${t.opt_text}" required>
+          <button class="del-opt-btn" onclick="document.getElementById('${optId}').remove()" title="${t.del_opt}">✕</button>
+        </div>
+      `;
+      container.insertAdjacentHTML('beforeend', optHTML);
+    }
+
+    function removeQuestion(qId) {
+      document.getElementById(qId).remove();
+      updateQuestionNumbers();
+    }
+
+    function updateQuestionNumbers() {
+      const titles = document.querySelectorAll('.q-title');
+      titles.forEach((el, index) => { el.innerText = `${index + 1} - ${t.question}`; });
+    }
+
+    async function saveTest() {
+      const errorBox = document.getElementById('errorBox');
+      const saveBtn = document.getElementById('saveBtn');
+      errorBox.style.display = 'none';
+
+      try {
+          const title = document.getElementById('testTitle').value.trim();
+          const chatId = document.getElementById('chatId').value;
+          const attemptsLimit = document.getElementById('attemptsLimit').value;
+          const scoringType = document.getElementById('scoringType').value;
+          const timeLimit = document.getElementById('timeLimit').value;
+          const isRandomized = document.getElementById('isRandomized').checked;
+          const deadline = document.getElementById('deadline').value.trim();
+          const takePassword = document.getElementById('takePassword').value.trim();
+          const managePassword = document.getElementById('managePassword').value.trim();
+
+          const questionBlocks = document.querySelectorAll('.question-block');
+          if (!title) { showError(t.err_title); return; }
+          if (questionBlocks.length === 0) { showError(t.err_one_q); return; }
+
+          const questionsData = [];
+
+          for (let i = 0; i < questionBlocks.length; i++) {
+            const block = questionBlocks[i];
+            const qText = block.querySelector('.q-text').value.trim();
+
+            const qScoreInput = block.querySelector('.q-score');
+            const qScore = qScoreInput ? (parseFloat(qScoreInput.value) || 1.0) : 1.0;
+
+            const existInp = block.querySelector('.q-existing-photo');
+            const newInp = block.querySelector('.q-new-image-data');
+            const qExistingPhoto = existInp ? existInp.value : "";
+            const qImageData = newInp ? newInp.value : "";
+
+            if (!qText) { showError(`${i + 1}-savol matnini kiriting!`); return; }
+
+            const optionRows = block.querySelectorAll('.option-row');
+            if (optionRows.length < 2) { showError(`${i + 1}-savolda kamida 2 ta variant bo'lishi kerak!`); return; }
+
+            const options = [];
+            let correctIndex = -1;
+
+            for (let j = 0; j < optionRows.length; j++) {
+              const row = optionRows[j];
+              const optText = row.querySelector('.opt-text').value.trim();
+              const isCorrect = row.querySelector('input[type="radio"]').checked;
+
+              if (!optText) { showError(`${i + 1}-savolning variantlarida bo'sh joy qoldi!`); return; }
+              options.push(optText);
+              if (isCorrect) correctIndex = j;
+            }
+
+            if (correctIndex === -1) { showError(`${i + 1}-savolda TO'G'RI JAVOB belgilanmagan!`); return; }
+
+            questionsData.push({
+              question: qText,
+              options: options,
+              correct_index: correctIndex,
+              score: qScore,
+              photo_id: qExistingPhoto,
+              image_data: qImageData
+            });
+          }
+
+          const payload = {
+            token: "{{ token }}", title: title, chat_id: chatId, attempts_limit: attemptsLimit,
+            scoring_type: scoringType, time_limit: timeLimit || 0, is_randomized: isRandomized ? 1 : 0,
+            deadline: deadline, take_password: takePassword, manage_password: managePassword,
+            questions: questionsData
+          };
+
+          saveBtn.disabled = true;
+          saveBtn.innerText = t.saving;
+
+          const fetchUrl = isEdit ? `/edit-test/${testId}?token={{ token }}` : `/create-visual-test?token={{ token }}`;
+
+          const response = await fetch(fetchUrl, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+
+          if(!response.ok) {
+              const errText = await response.text();
+              throw new Error(`Server xatosi (${response.status})`);
+          }
+
+          const result = await response.json();
+
+          if (result.success) {
+             window.location.replace(isEdit ? `/?token={{ token }}&msg=O'zgarishlar saqlandi!` : result.redirect_url);
+          } else {
+            showError(result.error || "Server xatosi yuz berdi");
+            saveBtn.disabled = false; saveBtn.innerText = t.save_btn;
+          }
+      } catch (err) {
+        showError("Xatolik: " + err.message);
+        saveBtn.disabled = false;
+        saveBtn.innerText = t.save_btn;
+      }
+    }
+
+    function showError(msg) {
+      const errorBox = document.getElementById('errorBox');
+      errorBox.innerText = msg;
+      errorBox.style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return '';
+      const div = document.createElement('div');
+      div.textContent = String(text);
+      return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function changeLang(l) {
+        const f = document.createElement('form');
+        f.method = 'POST'; f.action = '/set-lang';
+        const t = document.createElement('input');
+        t.type = 'hidden'; t.name = 'token'; t.value = "{{ token }}";
+        const ln = document.createElement('input');
+        ln.type = 'hidden'; ln.name = 'lang'; ln.value = l;
+        f.appendChild(t); f.appendChild(ln);
+        document.body.appendChild(f);
+        f.submit();
+    }
+  </script>
+</body>
+</html>

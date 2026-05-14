@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatlar | Admin Panel</title>
+    <style>
+        :root {
+            --bg: #090c14;
+            --text: #f3f6ff;
+            --card: rgba(255, 255, 255, 0.08);
+            --border: rgba(255, 255, 255, 0.12);
+            --accent: #38d39f;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { margin-bottom: 25px; }
+        .back-btn { color: #6cb2ff; text-decoration: none; display: inline-block; margin-bottom: 15px; font-weight: 600; background: rgba(108, 178, 255, 0.1); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(108, 178, 255, 0.3);}
+        
+        .card { 
+            background: var(--card); 
+            padding: 20px; 
+            border-radius: 16px; 
+            margin-bottom: 15px; 
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h2 { margin-top: 0; color: var(--accent); }
+        h3 { margin-top: 0; color: #fff; margin-bottom: 10px;}
+        p { margin: 5px 0; color: rgba(255,255,255,0.7); font-size: 14px;}
+        .card a { display: inline-block; margin-top: 10px; color: var(--accent); text-decoration: none; font-weight: bold; background: rgba(56, 211, 159, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(56, 211, 159, 0.3); transition: 0.2s;}
+        .card a:hover { background: rgba(56, 211, 159, 0.2); }
+    </style>
+</head>
+<body style="{% if current_user_bg %}background: linear-gradient(rgba(10, 16, 30, 0.7), rgba(5, 6, 13, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
+    
+    <div class="container">
+        <div class="header">
+            <a href="/?token={{ token }}" class="back-btn">⬅️ Kabinetga qaytish</a>
+            <h2>🤖 Foydalanuvchilarning AI yozishmalari</h2>
+            <p>Ushbu ro'yxatda platformada AI bilan kim necha marta gaplashgani haqida ma'lumot bor.</p>
+        </div>
+
+        {% for u in users %}
+            <div class="card">
+                <h3>👤 {{ u.first_name }} (@{{ u.username }})</h3>
+                <p>Xabarlar sessiyasi: <b>{{ u.session_count }}</b> ta</p>
+                <p>Oxirgi xabar vaqti: <i>{{ u.last_msg_str }}</i></p>
+                <a href="/admin/ai-chat/{{ u.user_id }}?token={{ token }}">💬 Chatni to'liq o'qish (Batafsil)</a>
+            </div>
+        {% else %}
+            <div class="card">
+                <p style="text-align: center; margin: 0;">Hozircha hech kim AI bilan yozishmadi.</p>
+            </div>
+        {% endfor %}
+    </div>
+
+</body>
+</html>

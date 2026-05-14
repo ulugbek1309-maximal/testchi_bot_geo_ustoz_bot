@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>
+    {% if lang == 'uz' %}Testchi | Kabinet
+    {% elif lang == 'uz_cyrl' %}Тестчи | Кабинет
+    {% else %}Testchi | Kabinet{% endif %}
+  </title>
+  <style>
+    :root {
+      --bg: #090c14;
+      --card: rgba(255, 255, 255, 0.08);
+      --text: #f3f6ff;
+      --muted: rgba(243, 246, 255, 0.65);
+      --accent: #38d39f;
+      --accent2: #6cb2ff;
+      --warning: #ffc107;
+      --danger: #ff6b6b;
+      --border: rgba(255, 255, 255, 0.12);
+      --shadow: rgba(0, 0, 0, 0.32);
+      --radius: 18px;
+      --max-width: 600px;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text); background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; padding: 20px;
+      background-size: cover; background-position: center; background-attachment: fixed;
+    }
+    .overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(9, 12, 20, 0.7); backdrop-filter: blur(10px); z-index: -1;
+    }
+    .container { width: 100%; max-width: var(--max-width); z-index: 1; }
+    header { display: flex; align-items: center; gap: 15px; margin-bottom: 30px; }
+    .btn-back {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      width: 44px; height: 44px; border-radius: 12px; display: flex;
+      align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 24px; margin-bottom: 20px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px var(--shadow);
+    }
+    .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; color: var(--accent2); }
+    .card-header h3 { margin: 0; font-size: 18px; font-weight: 600; }
+    .info-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    .info-item { display: flex; flex-direction: column; gap: 4px; }
+    .info-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-value { font-size: 16px; font-weight: 500; }
+    .balance-badge {
+      display: inline-flex; align-items: center; gap: 8px; background: rgba(56, 211, 159, 0.15);
+      color: var(--accent); padding: 8px 16px; border-radius: 100px; font-weight: 600; font-size: 18px;
+    }
+    .btn {
+      width: 100%; padding: 14px; border-radius: 12px; border: none; font-size: 15px;
+      font-weight: 600; cursor: pointer; transition: 0.2s; display: flex;
+      align-items: center; justify-content: center; gap: 10px;
+    }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .input-group { margin-bottom: 20px; }
+    .input-group label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--muted); }
+    input[type="text"], input[type="password"], input[type="email"], select {
+      width: 100%; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05); color: var(--text); font-size: 15px; outline: none;
+    }
+    input:focus { border-color: var(--accent2); }
+
+    /* TOGGLE SWITCH UCHUN STYLE */
+    .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.2); transition: .4s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    /* MODAL */
+    .modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+      display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+    }
+    .modal-content {
+      background: #151b2b; border: 1px solid var(--border); border-radius: 24px;
+      padding: 30px; width: 100%; max-width: 400px; position: relative;
+    }
+
+    /* QULF EKRANI */
+    #mainLockScreen {
+      position: fixed; top:0; left:0; width:100%; height:100%; z-index:9999;
+      background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center;
+    }
+    .lock-overlay { position: absolute; width:100%; height:100%; background: rgba(9,12,20,0.85); backdrop-filter: blur(20px); }
+    .lock-content { position: relative; z-index:2; text-align: center; width: 100%; max-width: 320px; }
+    .dots-container { display: flex; justify-content: center; gap: 15px; margin: 30px 0; }
+    .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); transition: 0.2s; }
+    .dot.filled { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+    .dot.error { border-color: var(--danger); background: var(--danger); animation: shake 0.4s; }
+    .keypad { display: grid; grid-template-columns: repeat(3, 75px); gap: 15px 25px; justify-content: center; padding: 10px; }
+    .key {
+      width: 75px; height: 75px; border-radius: 50%; background: rgba(255,255,255,0.05);
+      display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 500; cursor: pointer; user-select: none;
+    }
+    .key:active { background: rgba(255,255,255,0.2); transform: scale(0.9); }
+    .icon-key { background: transparent !important; border: none !important; }
+
+    .btn-link {
+        background: none; border: none; color: #6cb2ff; font-size: 14px;
+        cursor: pointer; text-decoration: underline; opacity: 0.8; margin-top: 25px;
+    }
+    .btn-link:hover { opacity: 1; }
+
+    @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-5px);} 75%{transform:translateX(5px);} }
+  </style>
+</head>
+<body style="{% if current_user_bg %}background-image: url('{{ current_user_bg }}');{% endif %}">
+  <div class="overlay"></div>
+
+  <div id="mainLockScreen" style="display:none; {% if current_lock_bg %}background-image: url('{{ current_lock_bg }}');{% elif current_user_bg %}background-image: url('{{ current_user_bg }}');{% endif %}">
+    <div class="lock-overlay"></div>
+    <div class="lock-content">
+      <h2 id="lockTitle" style="margin-bottom: 5px;">{% if lang == 'uz' %}PIN kodni kiriting{% elif lang == 'uz_cyrl' %}PIN кодни киритинг{% else %}Введите PIN-код{% endif %}</h2>
+      <p id="lockSub" style="color: var(--muted); margin-bottom: 20px;">{% if lang == 'uz' %}Hisobni boshqarish uchun{% elif lang == 'uz_cyrl' %}Ҳисобни бошқариш учун{% else %}Для управления аккаунтом{% endif %}</p>
+      <div class="dots-container" id="mainDots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+
+      <div class="keypad">
+        <div class="key" onclick="pressKey('1')">1</div>
+        <div class="key" onclick="pressKey('2')">2</div>
+        <div class="key" onclick="pressKey('3')">3</div>
+        <div class="key" onclick="pressKey('4')">4</div>
+        <div class="key" onclick="pressKey('5')">5</div>
+        <div class="key" onclick="pressKey('6')">6</div>
+        <div class="key" onclick="pressKey('7')">7</div>
+        <div class="key" onclick="pressKey('8')">8</div>
+        <div class="key" onclick="pressKey('9')">9</div>
+
+        <div class="key icon-key" id="accBioKey" onclick="loginWithBiometrics()" style="visibility:hidden;" title="Face ID / Touch ID">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#38d39f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a10 10 0 0 0-10 10c0 5.523 4.477 10 10 10s10-4.477 10-10A10 10 0 0 0 12 2z"></path>
+              <path d="M12 6a6 6 0 0 0-6 6"></path><path d="M12 10a2 2 0 0 0-2 2"></path>
+              <path d="M12 14a2 2 0 0 0 2-2"></path><path d="M12 18a6 6 0 0 0 6-6"></path>
+            </svg>
+        </div>
+
+        <div class="key" onclick="pressKey('0')">0</div>
+
+        <div class="key icon-key" style="color:var(--danger);" onclick="deleteKey()">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path>
+              <line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line>
+            </svg>
+        </div>
+      </div>
+
+      <div class="footer-links" id="accFooterLinks" style="display:none;">
+          <button class="btn-link" onclick="forgotPin()">
+              ❓ {% if lang == 'uz' %}PIN kodni unutdim
+                 {% elif lang == 'uz_cyrl' %}PIN кодни унутдим
+                 {% else %}Я забыл PIN-код{% endif %}
+          </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="container">
+    <header>
+      <a href="/?token={{ token }}" class="btn-back">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </a>
+      <h2 style="margin:0; font-size: 22px;">{{ get_text('btn_account', lang) }}</h2>
+    </header>
+
+    {% if request.args.get('msg') %}
+      <div class="card" style="border-color: var(--accent); color: var(--accent); text-align: center; padding: 15px;">
+        {{ request.args.get('msg') }}
+      </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <h3>Profil Ma'lumotlari</h3>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Foydalanuvchi</span>
+          <span class="info-value">{{ full_name }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Telegram ID / Username</span>
+          <span class="info-value"><code>{{ session_user_id }}</code> {% if username %} / @{{ username }}{% endif %}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Maqom</span>
+          <span class="info-value" style="color: var(--accent2)">{{ user_status }}</span>
+        </div>
+        {% if premium_until != '—' %}
+        <div class="info-item">
+          <span class="info-label">Premium muddati</span>
+          <span class="info-value">{{ premium_until }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/></svg>
+        <h3>GWT Token Balansi</h3>
+      </div>
+      <div style="text-align: center; padding: 10px 0;">
+        <div class="balance-badge">
+          {{ balance }} GWT
+        </div>
+        <p style="color: var(--muted); font-size: 13px; margin-top: 15px;">
+          GWT tokenlari orqali siz testlar sotib olishingiz yoki Premium maqomini faollashtirishingiz mumkin.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <h3>Fon Sozlamalari (Wallpaper)</h3>
+      </div>
+      <form action="/update-bg" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="token" value="{{ token }}">
+        <div class="input-group">
+          <label>Qaysi ekran foni o'zgartirilsin?</label>
+          <select name="target_screen">
+            <option value="main">Asosiy sahifa foni</option>
+            <option value="lock">Qulf ekrani (PIN) foni</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Tayyor fonlardan tanlang:</label>
+          <select name="system_bg">
+             <option value="">-- Tanlash --</option>
+             <option value="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?q=80&w=2070">Tog' manzarasi</option>
+             <option value="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2070">Tabiat</option>
+             <option value="https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?q=80&w=2071">Koinot</option>
+             <option value="https://images.unsplash.com/photo-1511300636408-a63a89df3482?q=80&w=2070">Minimalizm</option>
+          </select>
+          <input type="hidden" name="bg_type" value="system" id="bgTypeField">
+        </div>
+        <div style="margin-bottom: 20px; text-align: center; color: var(--muted); font-size: 14px;">— YOKI —</div>
+        <div class="input-group">
+          <label>O'z rasmingizni yuklang (Faqat Premium):</label>
+          <input type="file" name="bg_file" accept="image/*" onchange="document.getElementById('bgTypeField').value='upload'">
+        </div>
+        <button type="submit" class="btn btn-outline">Yangilash</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <h3>Xavfsizlik & PIN Tiklash</h3>
+      </div>
+      <div class="card-content">
+        <p style="color: var(--muted); font-size: 14px; margin-bottom: 15px;">PIN-kod tizimni himoya qiladi. Pochta va maxfiy so'z esa uni unutganda tiklash uchun kerak.</p>
+        <button class="btn btn-primary" onclick="openSecurityModal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span id="pinBtnText">PIN & Tiklashni Sozlash</span>
+        </button>
+      </div>
+    </div>
+
+    <form action="/set-lang" method="POST" class="card" style="text-align: center;">
+      <input type="hidden" name="token" value="{{ token }}">
+      <div class="card-header" style="justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <h3>Tilni O'zgartirish</h3>
+      </div>
+      <select name="lang" onchange="this.form.submit()" style="max-width: 200px; margin: 0 auto;">
+        <option value="uz" {% if lang == 'uz' %}selected{% endif %}>O'zbekcha (Lotin)</option>
+        <option value="uz_cyrl" {% if lang == 'uz_cyrl' %}selected{% endif %}>Ўзбекча (Кирилл)</option>
+        <option value="ru" {% if lang == 'ru' %}selected{% endif %}>Русский</option>
+      </select>
+    </form>
+  </div>
+
+  <div id="securityModal" class="modal">
+    <div class="modal-content">
+      <h3 style="margin-top:0; color: var(--accent2);">Xavfsizlik Sozlamalari</h3>
+
+      <div class="input-group">
+        <label>Elektron pochta (PIN tiklash uchun):</label>
+        <input type="email" id="secEmail" placeholder="example@gmail.com" autocomplete="off">
+      </div>
+
+      <div class="input-group">
+        <label>Maxfiy so'z (Masalan: Onangiz ismi):</label>
+        <input type="text" id="secSecret" placeholder="Maxfiy so'z..." autocomplete="off">
+      </div>
+
+      <div class="input-group">
+        <label id="pinLabel">Yangi 4 xonali PIN (agar o'chirmoqchi bo'lsangiz bo'sh qoldiring):</label>
+        <input type="password" id="secPin" maxlength="4" placeholder="****" inputmode="numeric">
+      </div>
+
+      <div class="input-group" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; margin-top: 15px;">
+        <label style="margin:0;">Biometrik kirish (Face/Touch ID):</label>
+        <label class="switch">
+          <input type="checkbox" id="bioToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <p id="secStatus" style="font-size: 13px; color: var(--danger); display:none;"></p>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary" onclick="saveSecuritySettings()">Saqlash</button>
+        <button class="btn btn-outline" onclick="closeModal('securityModal')">Yopish</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = "{{ token }}";
+    const lang = "{{ lang }}";
+    let mainPin = "";
+    let isLocked = false;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        checkPinOnEntry();
+
+        // Biometrika tugmasini bosganda haqiqiy ruxsat so'rash
+        document.getElementById('bioToggle').addEventListener('change', async function(e) {
+            if (this.checked) {
+                const success = await registerBiometrics();
+                if (!success) {
+                    this.checked = false; // Bekor qilinsa yoki xato bo'lsa switch'ni qaytarish
+                }
+            } else {
+                localStorage.setItem('biometric_' + token, 'false');
+            }
+        });
+    });
+
+    // KIRISHDA PIN TEKSHIRISH
+    async function checkPinOnEntry() {
+        const res = await fetch('/api/pin-manager', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'check', token: token})
+        });
+        const data = await res.json();
+
+        if (data.success && data.has_pin) {
+            document.getElementById('accFooterLinks').style.display = 'block';
+
+            const hasBio = localStorage.getItem('biometric_' + token) === 'true';
+            if(hasBio) {
+                document.getElementById('accBioKey').style.visibility = "visible";
+            }
+
+            if (!sessionStorage.getItem("unlocked_" + token)) {
+                document.getElementById("mainLockScreen").style.display = "flex";
+                isLocked = true;
+
+                if(hasBio) setTimeout(loginWithBiometrics, 400);
+            }
+        }
+    }
+
+    // SECURITY MODALINI OCHISH VA YOPISH
+    function openSecurityModal() {
+        document.getElementById('securityModal').style.display = 'flex';
+        document.getElementById('secStatus').style.display = 'none';
+        document.getElementById('secPin').value = '';
+        document.getElementById('secEmail').value = '';
+        document.getElementById('secSecret').value = '';
+
+        // Biometrika holatini o'qib, switch'ni to'g'irlaymiz
+        document.getElementById('bioToggle').checked = (localStorage.getItem('biometric_' + token) === 'true');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // HAMMASINI SAQLASH (PIN + EMAIL + SECRET)
+    async function saveSecuritySettings() {
+        const pin = document.getElementById('secPin').value;
+        const email = document.getElementById('secEmail').value.trim();
+        const secret = document.getElementById('secSecret').value.trim();
+        const statusEl = document.getElementById('secStatus');
+
+        if (pin && pin.length !== 4) {
+            statusEl.innerText = "PIN-kod 4 xonali bo'lishi shart!";
+            statusEl.style.display = "block";
+            return;
+        }
+
+        if (pin && (!email || !secret)) {
+            statusEl.innerText = "Yangi PIN o'rnatayotganda pochta va maxfiy so'zni kiritish majburiy!";
+            statusEl.style.display = "block";
+            return;
+        }
+
+        const res = await fetch('/api/pin-manager', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'set',
+                token: token,
+                pin: pin,
+                email: email,
+                secret_word: secret
+            })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            alert("✅ Sozlamalar muvaffaqiyatli saqlandi!");
+            closeModal('securityModal');
+            location.reload();
+        } else {
+            statusEl.innerText = data.error || "Noma'lum xatolik yuz berdi";
+            statusEl.style.display = "block";
+        }
+    }
+
+    // --- QULF EKRANI FUNKSIYALARI ---
+    function updateMainDots() {
+        const dots = document.querySelectorAll('#mainDots .dot');
+        dots.forEach((d, i) => { d.className = 'dot ' + (i < mainPin.length ? 'filled' : ''); });
+    }
+
+    function showMainError() {
+        const dots = document.querySelectorAll('#mainDots .dot');
+        dots.forEach(d => d.className = 'dot error');
+        setTimeout(() => { mainPin = ""; updateMainDots(); }, 500);
+    }
+
+    async function pressKey(num) {
+        if (mainPin.length < 4) {
+            mainPin += num;
+            updateMainDots();
+            if (mainPin.length === 4) setTimeout(() => processMainPin(), 100);
+        }
+    }
+
+    function deleteKey() {
+        if (mainPin.length > 0) { mainPin = mainPin.slice(0, -1); updateMainDots(); }
+    }
+
+    async function processMainPin() {
+        const res = await fetch('/api/pin-manager', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'verify', token: token, pin: mainPin})
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            unlockMainScreen();
+        } else {
+            let t5 = "Noto'g'ri parol", s5 = "Qaytadan urinib ko'ring";
+            if(lang === 'uz_cyrl') { t5 = "Нотўғри парол"; s5 = "Қайтадан уриниб кўринг"; }
+            else if(lang === 'ru') { t5 = "Неверный пароль"; s5 = "Попробуйте еще раз"; }
+
+            document.getElementById('lockTitle').innerText = t5;
+            document.getElementById('lockSub').innerText = s5;
+            showMainError();
+        }
+    }
+
+    function unlockMainScreen() {
+        sessionStorage.setItem("unlocked_" + token, "true");
+        document.getElementById("mainLockScreen").style.opacity = "0";
+        setTimeout(() => document.getElementById("mainLockScreen").style.display = "none", 300);
+    }
+
+    // --- HAKIQIY BIOMETRIKA (WEBAUTHN) MANTIQLARI ---
+
+    // 1. Biometriyani qurilmaga saqlash (Ro'yxatdan o'tish)
+    async function registerBiometrics() {
+        if (!window.PublicKeyCredential) {
+            alert("Kechirasiz, sizning qurilmangiz yoki brauzeringiz biometriyani qo'llab-quvvatlamaydi.");
+            return false;
+        }
+        try {
+            // FIDO2 uchun maxsus xavfsizlik kalitlari va tasdiqlar
+            const challenge = new Uint8Array(32);
+            window.crypto.getRandomValues(challenge);
+            const userID = new Uint8Array(16);
+            window.crypto.getRandomValues(userID);
+
+            const credential = await navigator.credentials.create({
+                publicKey: {
+                    challenge: challenge,
+                    rp: { name: "Testchi Platformasi", id: window.location.hostname },
+                    user: {
+                        id: userID,
+                        name: "user_" + token.substring(0, 6),
+                        displayName: "Testchi User"
+                    },
+                    pubKeyCredParams: [
+                        { type: "public-key", alg: -7 },   // ES256
+                        { type: "public-key", alg: -257 }  // RS256
+                    ],
+                    authenticatorSelection: {
+                        authenticatorAttachment: "platform", // Faqat telefonning o'zidagi TouchID/FaceID
+                        userVerification: "required"
+                    },
+                    timeout: 60000
+                }
+            });
+
+            if (credential) {
+                // Brauzer va foydalanuvchi barmoq izini muvaffaqiyatli saqladi
+                localStorage.setItem('biometric_' + token, 'true');
+                return true;
+            }
+        } catch (err) {
+            console.error("Biometrika ro'yxatdan o'tishda xato:", err);
+            alert("Biometrik ro'yxatdan o'tish bekor qilindi yoki xatolik yuz berdi.");
+            return false;
+        }
+        return false;
+    }
+
+    // 2. Biometrika bilan qulfni ochish (Login)
+    async function loginWithBiometrics() {
+        if (!window.PublicKeyCredential || localStorage.getItem('biometric_' + token) !== 'true') return;
+        try {
+            const challenge = new Uint8Array(32);
+            window.crypto.getRandomValues(challenge);
+
+            const assertion = await navigator.credentials.get({
+                publicKey: {
+                    challenge: challenge,
+                    rpId: window.location.hostname,
+                    userVerification: "required",
+                    timeout: 60000
+                }
+            });
+
+            if (assertion) {
+                // 🟢 YANGILIK: Pythonga barmoq tasdiqlanganini xabar beramiz
+                const res = await fetch('/api/pin-manager', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'biometric_unlock', token: token })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // Agar account.html da bo'lsangiz unlockMainScreen() chaqirasiz
+                    // Agar pin_lock.html da bo'lsangiz window.location.href qilasiz
+                    if (typeof unlockMainScreen === "function") {
+                        unlockMainScreen();
+                    } else {
+                        window.location.href = `/?token=${token}`;
+                    }
+                }
+            }
+        } catch (err) {
+            console.log("Biometrika xatosi", err);
+            // Ekranda qizil xatolik chiqarish
+            if (typeof showErrorAnimation === "function") showErrorAnimation();
+            else if (typeof showMainError === "function") showMainError();
+        }
+    }
+
+    // --- PIN TIKLASH FUNKSIYASI ---
+    async function forgotPin() {
+        let choice = confirm("PIN kodni tiklash uchun pochtangizga kod yuboramizmi?\n\nOK - Pochtaga kod yuborish\nCancel (Bekor qilish) - Maxfiy so'z orqali tiklash");
+
+        if (choice) {
+            try {
+                document.getElementById('lockTitle').innerText = "Kuting...";
+                document.getElementById('lockSub').innerText = "Pochtaga kod yuborilmoqda";
+
+                const res = await fetch('/api/request-pin-reset', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ token: token })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    let code = prompt(`${data.email} pochtasiga 4 xonali kod yuborildi.\nShu kodni kiriting:`);
+                    if (code) {
+                        verifyResetData({ token: token, code: code });
+                    } else {
+                        document.getElementById('lockTitle').innerText = "PIN kodni kiriting";
+                        document.getElementById('lockSub').innerText = "Hisobni boshqarish uchun";
+                    }
+                } else {
+                    alert("Xatolik: " + data.error);
+                    document.getElementById('lockTitle').innerText = "PIN kodni kiriting";
+                    document.getElementById('lockSub').innerText = "Hisobni boshqarish uchun";
+                }
+            } catch (e) {
+                alert("Server xatosi: Aloqa uzildi!");
+                document.getElementById('lockTitle').innerText = "PIN kodni kiriting";
+                document.getElementById('lockSub').innerText = "Hisobni boshqarish uchun";
+            }
+        } else {
+            let secret = prompt("Akkaunt xavfsizligi uchun o'rnatgan Maxfiy so'zingizni kiriting:\n(Masalan: onamni ismi yoki itimni ismi)");
+            if (secret) {
+                verifyResetData({ token: token, secret_word: secret });
+            }
+        }
+    }
+
+    async function verifyResetData(payload) {
+        try {
+            const res = await fetch('/api/verify-pin-reset', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert("✅ Muvaffaqiyatli!\nEski PIN kod o'chirildi. Endi tizimga yangi PIN kod o'rnatishingiz mumkin.");
+                window.location.reload();
+            } else {
+                alert("❌ Xato: " + data.error);
+                document.getElementById('lockTitle').innerText = "PIN kodni kiriting";
+                document.getElementById('lockSub').innerText = "Hisobni boshqarish uchun";
+            }
+        } catch (e) {
+            alert("Server xatosi yuz berdi!");
+        }
+    }
+  </script>
+</body>
+</html>

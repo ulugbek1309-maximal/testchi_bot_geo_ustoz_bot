@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Barcha Testlar (Admin) | Test Tuzgich</title>
+  <style>
+    :root { --bg: #090c14; --card: rgba(255, 255, 255, 0.08); --text: #f3f6ff; --muted: rgba(243, 246, 255, 0.65); --border: rgba(255, 255, 255, 0.12); font-family: sans-serif; }
+    body { margin: 0; padding: 20px; color: var(--text); background: radial-gradient(circle at top, #101b34 0%, #070b15 70%, #05060d 100%); }
+    .nav-btn { padding: 8px 14px; background: var(--card); color: white; text-decoration: none; border-radius: 8px; border: 1px solid var(--border); display: inline-block; margin-bottom: 20px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; backdrop-filter: blur(10px); }
+    .badge { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.1); font-size: 12px; margin-right: 8px;}
+    .btn { padding: 8px 14px; background: rgba(108, 178, 255, 0.2); color: #6cb2ff; text-decoration: none; border-radius: 8px; font-size: 13px; display: inline-block; margin-top: 10px; border: 1px solid #6cb2ff; }
+  </style>
+</head>
+<body style="{% if current_user_bg %}background: linear-gradient(rgba(10, 16, 30, 0.7), rgba(5, 6, 13, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
+
+  <a href="/?token={{ token }}" class="nav-btn">⬅️ Orqaga (Dashboard)</a>
+  <h2 style="margin-top: 0;">📚 Barcha Yaratilgan Testlar (Admin Panel)</h2>
+  <p style="color: var(--muted);">Tizimda yaratilgan jami testlar soni: {{ tests|length }} ta</p>
+
+  {% if request.args.get('msg') %}
+      <div style="color: #38d39f; margin-bottom: 15px; font-weight: bold; background: rgba(56, 211, 159, 0.15); padding: 10px; border-radius: 8px; border: 1px solid rgba(56, 211, 159, 0.3);">{{ request.args.get('msg') }}</div>
+  {% endif %}
+
+  {% for t in tests %}
+    <div class="card">
+      <h3 style="margin: 0 0 10px;">{{ t.get('title') }}</h3>
+      <div style="margin-bottom: 8px; font-size: 14px; color: var(--muted);">
+        👤 <b>Yaratuvchi:</b> {{ t.get('first_name', '') }} {{ t.get('last_name', '') }} (@{{ t.get('username', 'Mavjud emas') }}) | ID: {{ t.get('owner_user_id') }}
+      </div>
+      <div>
+        <span class="badge">{{ t.get('q_count') }} ta savol</span>
+        <span class="badge">{{ t.get('finished_count') }} ta natija</span>
+        <span class="badge">{{ t.get('status') }}</span>
+      </div>
+      <a href="/test/{{ t.get('test_id') }}?token={{ token }}" class="btn">⚙️ Ichiga kirish / O'chirish</a>
+    </div>
+  {% endfor %}
+</body>
+</html>
