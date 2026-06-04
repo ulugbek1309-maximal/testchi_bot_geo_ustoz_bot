@@ -59,8 +59,9 @@ LOWER_ADMINS=333333333
 MAIN_ADMIN_ID=111111111
 ADMIN_CARD=8600 0000 0000 0000 (Ism Familiya)
 
-# Majburiy kanallar
-REQUIRED_CHANNEL=@majburiy_kanal_nomi
+# Majburiy kanallar (Bir nechta kanal bo'lsa vergul bilan ajrating)
+# Masalan: REQUIRED_CHANNELS=@kanal1,@kanal2,@kanal3
+REQUIRED_CHANNELS=@majburiy_kanal_nomi
 PUBLIC_TEST_CHANNEL=@ommaviy_testlar_nomi
 
 # Tashqi API Kalitlar

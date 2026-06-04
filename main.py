@@ -68,7 +68,9 @@ SUPERADMINS = {int(x) for x in (os.getenv("SUPERADMINS", "") or "").split(",") i
 LOWER_ADMINS = {int(x) for x in (os.getenv("LOWER_ADMINS", "") or "").split(",") if x.strip().isdigit()}
 
 ADMIN_CARD = os.getenv("ADMIN_CARD", "0000 0000 0000 0000 (Ism Familiya)")
-REQUIRED_CHANNEL = os.getenv("REQUIRED_CHANNEL", "@your_channel")
+# Bir nechta kanallarni vergul bilan ajratib kiritish mumkin
+REQUIRED_CHANNELS_STR = os.getenv("REQUIRED_CHANNELS", "@your_channel")
+REQUIRED_CHANNELS = [ch.strip() for ch in REQUIRED_CHANNELS_STR.split(",") if ch.strip()]
 PUBLIC_TEST_CHANNEL = os.getenv("PUBLIC_TEST_CHANNEL", "@your_public_channel")
 
 try:
@@ -1218,7 +1220,7 @@ async def spam_check_middleware(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data['spam_track'] = spam_data
 
 # ==========================================
-# 🛑 MAJBURIY OBUNA (FORCE SUB) MIDDLEWARE
+# 🛑 MAJBURIY OBUNA (FORCE SUB) MIDDLEWARE - KO'P KANALLAR UCHUN
 # ==========================================
 async def check_subscription_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.effective_chat:
@@ -1235,38 +1237,58 @@ async def check_subscription_middleware(update: Update, context: ContextTypes.DE
     if user_id in SUPERADMINS:
         return
 
-    last_check = context.user_data.get('last_sub_check_time', 0)
-    is_subbed = context.user_data.get('is_subscribed', False)
+    # Agar kanallar ro'yxati bo'sh bo'lsa, hech narsa tekshirmaydi
+    if not REQUIRED_CHANNELS:
+        return
 
+    last_check = context.user_data.get('last_sub_check_time', 0)
     now = time.time()
 
-    if now - last_check > 300 or not is_subbed:
-        try:
-            member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
-            if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
-                is_subbed = False
-            else:
-                is_subbed = True
+    # Har 5 daqiqada tekshirish
+    if now - last_check > 300:
+        unsubscribed_channels = []
+        
+        for channel in REQUIRED_CHANNELS:
+            try:
+                member = await context.bot.get_chat_member(chat_id=channel, user_id=user_id)
+                if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
+                    unsubscribed_channels.append(channel)
+            except Exception as e:
+                logging.error(f"Kanal {channel} obunasini tekshirishda xato: {e}")
+                # Xatolik bo'lsa, bu kanalni o'tkazib yuboramiz
+                continue
 
-            context.user_data['last_sub_check_time'] = now
-            context.user_data['is_subscribed'] = is_subbed
-        except Exception as e:
-            logging.error(f"Kanal obunasini tekshirishda xato: {e}")
-            is_subbed = True
-            context.user_data['is_subscribed'] = True
+        context.user_data['last_sub_check_time'] = now
+        context.user_data['unsubscribed_channels'] = unsubscribed_channels
+    else:
+        unsubscribed_channels = context.user_data.get('unsubscribed_channels', [])
 
-    if not is_subbed:
+    if unsubscribed_channels:
         last_prompt = context.user_data.get('last_sub_prompt_time', 0)
 
         if now - last_prompt > 5:
             context.user_data['last_sub_prompt_time'] = now
 
-            channel_link = f"https://t.me/{REQUIRED_CHANNEL.replace('@', '')}"
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton(get_bot_text('sub_btn_join', lang), url=channel_link)],
-                [InlineKeyboardButton(get_bot_text('sub_btn_check', lang), callback_data="check_sub")]
-            ])
-            text = get_bot_text('sub_req_msg', lang, channel=REQUIRED_CHANNEL)
+            # Har bir kanal uchun tugma yaratish
+            buttons = []
+            for channel in unsubscribed_channels:
+                channel_link = f"https://t.me/{channel.replace('@', '')}"
+                buttons.append([InlineKeyboardButton(f"📢 {channel}", url=channel_link)])
+            
+            # Tasdiqlash tugmasi
+            buttons.append([InlineKeyboardButton(get_bot_text('sub_btn_check', lang), callback_data="check_sub")])
+            
+            kb = InlineKeyboardMarkup(buttons)
+            
+            # Kanallar ro'yxatini matn ko'rinishida tayyorlash
+            channels_text = "\n".join([f"• <b>{ch}</b>" for ch in unsubscribed_channels])
+            
+            if lang == 'ru':
+                text = f"🚫 <b>Обязательная подписка!</b>\n\nДля использования бота необходимо подписаться на следующие каналы:\n\n{channels_text}\n\nПосле подписки нажмите кнопку «Подтвердить»."
+            elif lang == 'uz_cyrl':
+                text = f"🚫 <b>Мажбурий обуна!</b>\n\nБотдан фойдаланиш учун қуйидаги каналларга обуна бўлишингиз керак:\n\n{channels_text}\n\nКаналларга қўшилгач, «Тасдиқлаш» тугмасини босинг."
+            else:
+                text = f"🚫 <b>Majburiy obuna!</b>\n\nBotdan foydalanish uchun quyidagi kanallarga obuna bo'lishingiz kerak:\n\n{channels_text}\n\nKanallarga qo'shilgach, «Tasdiqlash» tugmasini bosing."
 
             try:
                 del_msg = await update.effective_chat.send_message("⏳", reply_markup=ReplyKeyboardRemove())
