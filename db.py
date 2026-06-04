@@ -271,6 +271,16 @@ class DB:
                 distributed_at BIGINT
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
 
+            # 17. Majburiy Kanallar Jadvali
+            c.execute('''CREATE TABLE IF NOT EXISTS required_channels (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                channel_id VARCHAR(255) UNIQUE,
+                channel_title VARCHAR(255),
+                added_by BIGINT,
+                added_at BIGINT,
+                is_active TINYINT DEFAULT 1
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
             # ==============================================================
             # 🔗 BLOKCHEYN VA HAMYONLAR JADVALLARI
             # ==============================================================
@@ -1040,3 +1050,50 @@ class DB:
     def get_user_messages(self, user_id):
         with self._conn() as c:
             return c.execute("SELECT * FROM support_messages WHERE user_id=%s ORDER BY created_at ASC", (user_id,)).fetchall()
+
+
+    # ================= 📢 MAJBURIY KANALLAR BOSHQARUVI =================
+    def add_required_channel(self, channel_id, channel_title, added_by):
+        """Yangi majburiy kanal qo'shish"""
+        with self._conn() as c:
+            try:
+                c.execute("""
+                    INSERT INTO required_channels (channel_id, channel_title, added_by, added_at, is_active)
+                    VALUES (%s, %s, %s, %s, 1)
+                """, (channel_id, channel_title, added_by, int(time.time())))
+                return True
+            except Exception as e:
+                logging.error(f"Kanal qo'shishda xato: {e}")
+                return False
+
+    def get_all_required_channels(self, active_only=True):
+        """Barcha majburiy kanallarni olish"""
+        with self._conn() as c:
+            if active_only:
+                return c.execute("SELECT * FROM required_channels WHERE is_active=1 ORDER BY added_at DESC").fetchall()
+            else:
+                return c.execute("SELECT * FROM required_channels ORDER BY added_at DESC").fetchall()
+
+    def get_active_channel_ids(self):
+        """Faqat aktiv kanallar ID'larini olish (ro'yxat ko'rinishida)"""
+        with self._conn() as c:
+            rows = c.execute("SELECT channel_id FROM required_channels WHERE is_active=1").fetchall()
+            return [row['channel_id'] for row in rows]
+
+    def remove_required_channel(self, channel_id):
+        """Kanalni o'chirish (yoki o'chirib qo'yish)"""
+        with self._conn() as c:
+            c.execute("UPDATE required_channels SET is_active=0 WHERE channel_id=%s", (channel_id,))
+            return True
+
+    def activate_required_channel(self, channel_id):
+        """Kanalni qayta faollashtirish"""
+        with self._conn() as c:
+            c.execute("UPDATE required_channels SET is_active=1 WHERE channel_id=%s", (channel_id,))
+            return True
+
+    def delete_required_channel(self, channel_id):
+        """Kanalni butunlay o'chirish (bazadan)"""
+        with self._conn() as c:
+            c.execute("DELETE FROM required_channels WHERE channel_id=%s", (channel_id,))
+            return True

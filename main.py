@@ -68,9 +68,18 @@ SUPERADMINS = {int(x) for x in (os.getenv("SUPERADMINS", "") or "").split(",") i
 LOWER_ADMINS = {int(x) for x in (os.getenv("LOWER_ADMINS", "") or "").split(",") if x.strip().isdigit()}
 
 ADMIN_CARD = os.getenv("ADMIN_CARD", "0000 0000 0000 0000 (Ism Familiya)")
-# Bir nechta kanallarni vergul bilan ajratib kiritish mumkin
-REQUIRED_CHANNELS_STR = os.getenv("REQUIRED_CHANNELS", "@your_channel")
-REQUIRED_CHANNELS = [ch.strip() for ch in REQUIRED_CHANNELS_STR.split(",") if ch.strip()]
+
+# Majburiy kanallarni bazadan yuklash funksiyasi
+def load_required_channels_from_db():
+    """Bazadan aktiv kanallarni yuklash"""
+    try:
+        return db.get_active_channel_ids()
+    except Exception as e:
+        logging.error(f"Kanallarni yuklashda xato: {e}")
+        return []
+
+# Boshlang'ich yuklash
+REQUIRED_CHANNELS = load_required_channels_from_db()
 PUBLIC_TEST_CHANNEL = os.getenv("PUBLIC_TEST_CHANNEL", "@your_public_channel")
 
 try:
@@ -1223,6 +1232,8 @@ async def spam_check_middleware(update: Update, context: ContextTypes.DEFAULT_TY
 # 🛑 MAJBURIY OBUNA (FORCE SUB) MIDDLEWARE - KO'P KANALLAR UCHUN
 # ==========================================
 async def check_subscription_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global REQUIRED_CHANNELS
+    
     if not update.effective_user or not update.effective_chat:
         return
     if update.effective_chat.type != "private":
@@ -1236,6 +1247,9 @@ async def check_subscription_middleware(update: Update, context: ContextTypes.DE
 
     if user_id in SUPERADMINS:
         return
+
+    # Bazadan kanallarni yangilash (har safar tekshirishda)
+    REQUIRED_CHANNELS = load_required_channels_from_db()
 
     # Agar kanallar ro'yxati bo'sh bo'lsa, hech narsa tekshirmaydi
     if not REQUIRED_CHANNELS:
@@ -1375,6 +1389,114 @@ async def build_main_menu(user_id: int, bot_username: str, lang: str = "uz") -> 
 
     start_text = get_bot_text('welcome', lang, name="")
     return start_text, ReplyKeyboardMarkup(kb, resize_keyboard=True, is_persistent=True)
+
+# ==========================================
+# 📢 ADMIN - MAJBURIY KANALLARNI BOSHQARISH
+# ==========================================
+async def cmd_manage_channels(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin uchun kanallarni boshqarish paneli"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        return
+    
+    channels = db.get_all_required_channels(active_only=False)
+    
+    if not channels:
+        text = "📢 <b>Majburiy Kanallar</b>\n\n📭 Hozircha kanallar ro'yxati bo'sh.\n\nYangi kanal qo'shish uchun:\n<code>/addchannel @kanal_nomi</code>"
+    else:
+        lines = []
+        for i, ch in enumerate(channels, 1):
+            status = "✅ Aktiv" if ch['is_active'] else "❌ O'chirilgan"
+            lines.append(f"{i}. <b>{ch['channel_id']}</b> - {status}")
+        
+        text = f"📢 <b>Majburiy Kanallar Ro'yxati</b>\n\n{chr(10).join(lines)}\n\n<b>Komandalar:</b>\n• <code>/addchannel @nom</code> - Kanal qo'shish\n• <code>/removechannel @nom</code> - O'chirish\n• <code>/activatechannel @nom</code> - Qayta yoqish"
+    
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+async def cmd_add_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Yangi majburiy kanal qo'shish"""
+    user_id = update.effective_user.id
+    
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/addchannel @kanal_nomi</code>", parse_mode=ParseMode.HTML)
+        return
+    
+    channel_id = context.args[0].strip()
+    
+    if not channel_id.startswith("@"):
+        await update.message.reply_text("❌ Kanal nomi @ belgisi bilan boshlanishi kerak!\n\nMasalan: <code>@geo_ustoz</code>", parse_mode=ParseMode.HTML)
+        return
+    
+    # Kanalni Telegramda tekshirish
+    try:
+        chat = await context.bot.get_chat(channel_id)
+        channel_title = chat.title or channel_id
+    except Exception as e:
+        await update.message.reply_text(f"❌ <b>Xato!</b>\n\nKanalni topib bo'lmadi. Bot o'sha kanalga admin sifatida qo'shilganligiga ishonch hosil qiling.\n\nXato: {e}", parse_mode=ParseMode.HTML)
+        return
+    
+    # Bazaga qo'shish
+    success = db.add_required_channel(channel_id, channel_title, user_id)
+    
+    if success:
+        # Global ro'yxatni yangilash
+        global REQUIRED_CHANNELS
+        REQUIRED_CHANNELS = load_required_channels_from_db()
+        
+        await update.message.reply_text(f"✅ <b>Muvaffaqiyatli!</b>\n\n📢 Kanal <b>{channel_id}</b> (<i>{channel_title}</i>) majburiy kanallar ro'yxatiga qo'shildi!", parse_mode=ParseMode.HTML)
+    else:
+        await update.message.reply_text(f"❌ Kanal qo'shishda xato yuz berdi. Bu kanal allaqachon ro'yxatda bo'lishi mumkin.", parse_mode=ParseMode.HTML)
+
+async def cmd_remove_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Kanalni o'chirish (deaktivatsiya qilish)"""
+    user_id = update.effective_user.id
+    
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/removechannel @kanal_nomi</code>", parse_mode=ParseMode.HTML)
+        return
+    
+    channel_id = context.args[0].strip()
+    
+    db.remove_required_channel(channel_id)
+    
+    # Global ro'yxatni yangilash
+    global REQUIRED_CHANNELS
+    REQUIRED_CHANNELS = load_required_channels_from_db()
+    
+    await update.message.reply_text(f"✅ Kanal <b>{channel_id}</b> ro'yxatdan o'chirildi (deaktiv).", parse_mode=ParseMode.HTML)
+
+async def cmd_activate_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Kanalni qayta faollashtirish"""
+    user_id = update.effective_user.id
+    
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/activatechannel @kanal_nomi</code>", parse_mode=ParseMode.HTML)
+        return
+    
+    channel_id = context.args[0].strip()
+    
+    db.activate_required_channel(channel_id)
+    
+    # Global ro'yxatni yangilash
+    global REQUIRED_CHANNELS
+    REQUIRED_CHANNELS = load_required_channels_from_db()
+    
+    await update.message.reply_text(f"✅ Kanal <b>{channel_id}</b> qayta faollashtirildi!", parse_mode=ParseMode.HTML)
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
@@ -4372,6 +4494,12 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("cabinet", cmd_cabinet))
     app.add_handler(CommandHandler("reward_top", cmd_reward_top))
     app.add_handler(CommandHandler(["ommaviy", "ommaviy_tekshiruv"], cmd_ommaviy_tekshiruv))
+    
+    # Admin - Kanallarni boshqarish
+    app.add_handler(CommandHandler("managechannels", cmd_manage_channels))
+    app.add_handler(CommandHandler("addchannel", cmd_add_channel))
+    app.add_handler(CommandHandler("removechannel", cmd_remove_channel))
+    app.add_handler(CommandHandler("activatechannel", cmd_activate_channel))
 
     # 3. Tugmalar va Matnlar (Messages & Callbacks)
     app.add_handler(CallbackQueryHandler(on_callback))
