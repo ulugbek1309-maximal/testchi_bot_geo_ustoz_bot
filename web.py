@@ -34,7 +34,19 @@ tokens_env = os.getenv("BOT_TOKENS", os.getenv("BOT_TOKEN", ""))
 BOT_TOKENS = [t.strip() for t in tokens_env.split(",") if t.strip()]
 BOT_TOKEN_MAIN = BOT_TOKENS[0] if BOT_TOKENS else ""
 
-REQUIRED_CHANNEL = os.getenv("REQUIRED_CHANNEL", "@your_channel")
+# Majburiy kanallarni bazadan yuklash funksiyasi (web.py uchun)
+def load_required_channels_from_db():
+    """Bazadan aktiv kanallarni yuklash"""
+    try:
+        # db obyekti pastda yaratiladi, shuning uchun lazy loading qilamiz
+        if 'db' in globals():
+            return db.get_active_channel_ids()
+        return []
+    except Exception as e:
+        logging.error(f"Kanallarni yuklashda xato (web.py): {e}")
+        return []
+
+REQUIRED_CHANNELS = []  # Boshida bo'sh, keyin yuklaydi
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 MODEL_NAME = "nvidia/nemotron-3-super-120b-a12b:free"
@@ -208,6 +220,9 @@ def inject_globals():
 # ==========================================
 db = DB()
 
+# Database yaratilgandan keyin kanallarni yuklash
+REQUIRED_CHANNELS = load_required_channels_from_db()
+
 def to_dict(row):
     return dict(row) if row else None
 
@@ -309,20 +324,32 @@ def get_bot_username():
     return "bot_username"
 
 def check_user_subscription(user_id):
-    if not BOT_TOKENS:
+    """Barcha majburiy kanallarga obuna tekshiruvi"""
+    global REQUIRED_CHANNELS
+    REQUIRED_CHANNELS = load_required_channels_from_db()
+    
+    if not BOT_TOKENS or not REQUIRED_CHANNELS:
         return True
+    
     bot_token = BOT_TOKENS[0]
-    url = f"https://api.telegram.org/bot{bot_token}/getChatMember?chat_id={REQUIRED_CHANNEL}&user_id={user_id}"
-    try:
-        res = requests.get(url, timeout=5).json()
-        if res.get("ok"):
-            status = res["result"]["status"]
-            if status in ["left", "kicked", "banned"]:
-                return False
-            return True
-    except Exception:
-        pass
-    return True
+    
+    for channel in REQUIRED_CHANNELS:
+        url = f"https://api.telegram.org/bot{bot_token}/getChatMember?chat_id={channel}&user_id={user_id}"
+        try:
+            res = requests.get(url, timeout=5).json()
+            if res.get("ok"):
+                status = res["result"]["status"]
+                if status in ["left", "kicked", "banned"]:
+                    return False  # Bitta kanalga ham obuna bo'lmasa False
+            else:
+                # Agar kanal topilmasa yoki bot admin bo'lmasa, bu kanalni o'tkazib yuboramiz
+                logging.warning(f"Kanal {channel} tekshirishda muammo: {res.get('description')}")
+                continue
+        except Exception as e:
+            logging.error(f"Kanal {channel} tekshirishda xato: {e}")
+            continue
+    
+    return True  # Barcha kanallar tekshirildi va muammo yo'q
 
 def parse_word_to_test(text):
     questions = []
@@ -595,8 +622,20 @@ def auth_webapp():
 # ==========================================
 @app.route("/force-sub")
 def force_sub_page():
+    global REQUIRED_CHANNELS
+    REQUIRED_CHANNELS = load_required_channels_from_db()
+    
     token = request.args.get("token")
-    channel_link = f"https://t.me/{REQUIRED_CHANNEL.replace('@', '')}"
+    
+    # Kanallar ro'yxatini HTML uchun tayyorlash
+    channel_buttons_html = ""
+    for channel in REQUIRED_CHANNELS:
+        channel_link = f"https://t.me/{channel.replace('@', '')}"
+        channel_buttons_html += f'<a href="{channel_link}" target="_blank" class="btn">📢 {channel}</a>\n'
+    
+    if not channel_buttons_html:
+        channel_buttons_html = '<p style="color: yellow;">⚠️ Hozirda majburiy kanallar yo\'q.</p>'
+    
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="uz">
@@ -619,10 +658,10 @@ def force_sub_page():
     <body>
         <div class="box">
             <h2>🚫 Majburiy Obuna</h2>
-            <p>Tizimdan foydalanish uchun quyidagi kanalga a'zo bo'lishingiz shart. Kanalga qo'shilgach, pastdagi tugmani bosing:</p>
-            <a href="{{channel_link}}" target="_blank" class="btn">📢 Kanalga qo'shilish</a>
+            <p>Tizimdan foydalanish uchun quyidagi kanallarga a'zo bo'lishingiz shart. Barcha kanallarga qo'shilgach, pastdagi tugmani bosing:</p>
+            {{channel_buttons|safe}}
             <button class="btn-check" onclick="checkSub()">✅ Tasdiqlash</button>
-            <p class="error" id="err-msg">❌ Hali kanalga qo'shilmadingiz!</p>
+            <p class="error" id="err-msg">❌ Hali barcha kanallarga qo'shilmadingiz!</p>
         </div>
         <script>
             function checkSub() {
@@ -640,7 +679,7 @@ def force_sub_page():
                         setTimeout(() => window.location.href = '/pin-lock?token={{token}}', 500);
                     }
                     else {
-                        let errMsg = '❌ Hali kanalga qo\'shilmadingiz!';
+                        let errMsg = '❌ Hali barcha kanallarga qo\'shilmadingiz!';
                         if(d.error === 'not_admin') errMsg = '⚠️ XATOLIK: Bot kanalda Admin emas yoki kanal noto\'g\'ri! Sabab: ' + (d.tg_error || '');
                         if(d.error === 'api_error') errMsg = '❌ Server xatosi: ' + (d.tg_error || '');
                         document.getElementById('err-msg').innerText = errMsg;
@@ -658,31 +697,41 @@ def force_sub_page():
         </script>
     </body>
     </html>
-    """, channel_link=channel_link, token=token)
+    """, channel_buttons=channel_buttons_html, token=token)
 
 @app.route("/api/verify-sub", methods=["POST"])
 def api_verify_sub():
+    global REQUIRED_CHANNELS
+    REQUIRED_CHANNELS = load_required_channels_from_db()
+    
     data = request.json or {}
     token = data.get("token")
     user = validate_token(token)
     if not user: return jsonify({"success": False, "error": "Not logged in"})
 
-    if not BOT_TOKENS: return jsonify({"success": True})
+    if not BOT_TOKENS or not REQUIRED_CHANNELS: 
+        session[f"sub_{user['user_id']}"] = int(time.time())
+        return jsonify({"success": True})
+    
     bot_token = BOT_TOKENS[0]
-    url = f"https://api.telegram.org/bot{bot_token}/getChatMember?chat_id={REQUIRED_CHANNEL}&user_id={user['user_id']}"
-    try:
-        res = requests.get(url, timeout=7).json()
-        if res.get("ok"):
-            status = res["result"]["status"]
-            if status in ["left", "kicked", "banned"]:
-                return jsonify({"success": False, "error": "not_joined"})
+    
+    # Barcha kanallarni tekshirish
+    for channel in REQUIRED_CHANNELS:
+        url = f"https://api.telegram.org/bot{bot_token}/getChatMember?chat_id={channel}&user_id={user['user_id']}"
+        try:
+            res = requests.get(url, timeout=7).json()
+            if res.get("ok"):
+                status = res["result"]["status"]
+                if status in ["left", "kicked", "banned"]:
+                    return jsonify({"success": False, "error": "not_joined", "channel": channel})
             else:
-                session[f"sub_{user['user_id']}"] = int(time.time())
-                return jsonify({"success": True})
-        else:
-            return jsonify({"success": False, "error": "not_admin", "tg_error": res.get("description")})
-    except Exception as e:
-        return jsonify({"success": False, "error": "api_error", "tg_error": str(e)})
+                return jsonify({"success": False, "error": "not_admin", "tg_error": res.get("description"), "channel": channel})
+        except Exception as e:
+            return jsonify({"success": False, "error": "api_error", "tg_error": str(e), "channel": channel})
+    
+    # Barcha kanallar tekshirildi va hammasi OK
+    session[f"sub_{user['user_id']}"] = int(time.time())
+    return jsonify({"success": True})
 
 @app.route("/set-lang", methods=["GET", "POST"])
 def set_lang():
