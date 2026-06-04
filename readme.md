@@ -59,9 +59,9 @@ LOWER_ADMINS=333333333
 MAIN_ADMIN_ID=111111111
 ADMIN_CARD=8600 0000 0000 0000 (Ism Familiya)
 
-# Majburiy kanallar (Bir nechta kanal bo'lsa vergul bilan ajrating)
-# Masalan: REQUIRED_CHANNELS=@kanal1,@kanal2,@kanal3
-REQUIRED_CHANNELS=@majburiy_kanal_nomi
+# Majburiy kanallar (Yangi versiyada bot ichida boshqariladi)
+# Eski ENV usuli ham ishlaydi, lekin tavsiya etilmaydi
+# REQUIRED_CHANNELS=@kanal1,@kanal2 (eskirgan)
 PUBLIC_TEST_CHANNEL=@ommaviy_testlar_nomi
 
 # Tashqi API Kalitlar
@@ -96,3 +96,72 @@ db.py — MySQL bilan ishlash, tranzaksiyalar, foydalanuvchilar va testlarni baz
 templates/ — Web App uchun HTML frontend fayllar (index, solve_test, account va h.k).
 
 static/ — CSS, JS va yuklangan rasmlar saqlanadigan papka.
+
+
+
+---
+
+## 📢 Majburiy Kanallarni Boshqarish (Yangi!)
+
+Yangi versiyada majburiy kanallarni ENV faylida emas, **bot ichida** boshqarishingiz mumkin!
+
+### Admin Komandalar:
+
+**1. Barcha kanallarni ko'rish:**
+```
+/managechannels
+```
+
+**2. Yangi kanal qo'shish:**
+```
+/addchannel @kanal_nomi
+```
+> ⚠️ **Muhim:** Bot o'sha kanalga admin sifatida qo'shilgan bo'lishi kerak!
+
+**3. Kanalni o'chirish (deaktivatsiya):**
+```
+/removechannel @kanal_nomi
+```
+
+**4. Kanalni qayta faollashtirish:**
+```
+/activatechannel @kanal_nomi
+```
+
+### Xususiyatlar:
+- ✅ Real-time yangilanish (botni qayta ishga tushirish shart emas)
+- ✅ Har bir kanal alohida tekshiriladi
+- ✅ Foydalanuvchiga obuna bo'lmagan kanallar ro'yxati ko'rsatiladi
+- ✅ Har bir kanal uchun dinamik tugmalar
+- ✅ 3 tilda qo'llab-quvvatlash (O'zbek Lotin, Kirill, Rus)
+- ✅ Adminlar uchun majburiy obuna o'chirilgan
+- ✅ MySQL database'da saqlanadi
+
+### Ishlatish Misoli:
+
+```bash
+# 1. Kanal qo'shish
+/addchannel @geo_ustoz
+
+# 2. Yana bir kanal qo'shish
+/addchannel @testchi_uz
+
+# 3. Barcha kanallarni ko'rish
+/managechannels
+
+# 4. Bitta kanalni o'chirish
+/removechannel @geo_ustoz
+
+# 5. Qayta yoqish
+/activatechannel @geo_ustoz
+```
+
+---
+
+## 🔄 Yangilanishlar
+
+**v2.0 - Majburiy Kanallar Tiziми**
+- Bot ichida kanallarni boshqarish
+- Real-time yangilanish
+- Ko'p kanallar qo'llab-quvvatlash
+- Database'da saqlash
