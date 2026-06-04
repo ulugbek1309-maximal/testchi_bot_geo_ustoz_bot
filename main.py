@@ -1835,6 +1835,8 @@ async def show_channel_selection(chat_id_to_send: int, context: ContextTypes.DEF
 # 8. CALLBACK QUERY HANDLER (TUGMALAR)
 # ==========================================
 async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global REQUIRED_CHANNELS
+    
     await upsert_user_from_update(update)
     q = update.callback_query
     if not q: return
@@ -1845,7 +1847,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "check_sub":
         # Bazadan kanallarni yangilash
-        global REQUIRED_CHANNELS
         REQUIRED_CHANNELS = load_required_channels_from_db()
         
         # Agar kanallar bo'sh bo'lsa
@@ -1897,7 +1898,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.delete_required_channel(channel_id)
         
         # Global ro'yxatni yangilash
-        global REQUIRED_CHANNELS
         REQUIRED_CHANNELS = load_required_channels_from_db()
         
         await q.message.edit_text(
