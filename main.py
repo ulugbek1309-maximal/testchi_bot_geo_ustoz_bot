@@ -248,7 +248,26 @@ BOT_LANGS = {
         "time_sec": "soniya",
         "leaderboard_title": "🏆 <b>TEST YAKUNLANDI!</b> 🏆\n━━━━━━━━━━━━━━━━━━━━━━\n📚 <b>Mavzu:</b> {title}\n📝 <b>Savollar soni:</b> {qcount} ta\n👥 <b>Qatnashchilar:</b> {participants} ta\n━━━━━━━━━━━━━━━━━━━━━━\n\n📊 <b>TOP NATIJALAR:</b>\n\n{lines}\n\n━━━━━━━━━━━━━━━━━━━━━━\n🤖 <i>Geo Ustoz - Bilimingizni sinang!</i>",
         "nobody_played": "🤷‍♂️ <i>Hali hech kim qatnashmadi.</i>",
-        "main_menu_loaded": "⚙️ Asosiy menyu yuklandi:"
+        "main_menu_loaded": "⚙️ Asosiy menyu yuklandi:",
+        # Admin - Kanallar boshqaruvi
+        "admin_only": "❌ Bu komanda faqat adminlar uchun!",
+        "admin_channels_title": "📢 <b>Majburiy Kanallar Ro'yxati</b>",
+        "admin_channels_empty": "📢 <b>Majburiy Kanallar</b>\n\n📭 Hozircha kanallar ro'yxati bo'sh.\n\n<b>Komandalar:</b>\n• <code>/addchannel @kanal_nomi</code> - Yangi kanal qo'shish",
+        "admin_channels_list": "📢 <b>Majburiy Kanallar Ro'yxati</b>\n\n{list}\n\n<b>Komandalar:</b>\n• <code>/addchannel @nom</code> - Kanal qo'shish\n• <code>/removechannel @nom</code> - O'chirish (deaktiv)\n• <code>/activatechannel @nom</code> - Qayta yoqish\n• <code>/deletechannel @nom</code> - Butunlay o'chirish",
+        "channel_active": "✅ Aktiv",
+        "channel_inactive": "❌ O'chirilgan",
+        "add_channel_format": "❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/addchannel @kanal_nomi</code>",
+        "add_channel_at_required": "❌ Kanal nomi @ belgisi bilan boshlanishi kerak!\n\nMasalan: <code>@geo_ustoz</code>",
+        "add_channel_not_found": "❌ <b>Xato!</b>\n\nKanalni topib bo'lmadi. Bot o'sha kanalga admin sifatida qo'shilganligiga ishonch hosil qiling.\n\nXato: {error}",
+        "add_channel_success": "✅ <b>Muvaffaqiyatli!</b>\n\n📢 Kanal <b>{channel_id}</b> (<i>{channel_title}</i>) majburiy kanallar ro'yxatiga qo'shildi!",
+        "add_channel_error": "❌ Kanal qo'shishda xato yuz berdi. Bu kanal allaqachon ro'yxatda bo'lishi mumkin.",
+        "remove_channel_success": "✅ Kanal <b>{channel_id}</b> ro'yxatdan o'chirildi (deaktiv).",
+        "activate_channel_success": "✅ Kanal <b>{channel_id}</b> qayta faollashtirildi!",
+        "delete_channel_confirm": "⚠️ <b>Diqqat!</b>\n\nKanal <b>{channel_id}</b> butunlay bazadan o'chiriladi.\n\nDavom etishni xohlaysizmi?",
+        "delete_channel_success": "✅ <b>Muvaffaqiyatli!</b>\n\nKanal <b>{channel_id}</b> butunlay bazadan o'chirildi.",
+        "delete_channel_cancelled": "❌ Kanal o'chirish bekor qilindi.",
+        "btn_confirm_delete": "✅ Ha, o'chirish",
+        "btn_cancel_action": "❌ Yo'q"
     },
     "uz_cyrl": {
         "welcome": "👋 <b>Салом, {name}!</b>\n\nGeo Ustoz ботига хуш келибсиз.\n\nПастдаги меню орқали керакли бўлимни танланг 👇",
@@ -327,7 +346,26 @@ BOT_LANGS = {
         "time_sec": "сония",
         "leaderboard_title": "🏆 <b>ТЕСТ ЯКУНЛАНДИ!</b> 🏆\n━━━━━━━━━━━━━━━━━━━━━━\n📚 <b>Мавзу:</b> {title}\n📝 <b>Саволлар сони:</b> {qcount} та\n👥 <b>Қатнашчилар:</b> {participants} та\n━━━━━━━━━━━━━━━━━━━━━━\n\n📊 <b>ТОП НАТИЖАЛАР:</b>\n\n{lines}\n\n━━━━━━━━━━━━━━━━━━━━━━\n🤖 <i>Geo Ustoz - Билимингизни синанг!</i>",
         "nobody_played": "🤷‍♂️ <i>Ҳали ҳеч ким қатнашмади.</i>",
-        "main_menu_loaded": "⚙️ Асосий меню юкланди:"
+        "main_menu_loaded": "⚙️ Асосий меню юкланди:",
+        # Admin - Kanallar boshqaruvi
+        "admin_only": "❌ Бу буйруқ фақат админлар учун!",
+        "admin_channels_title": "📢 <b>Мажбурий Каналлар Рўйхати</b>",
+        "admin_channels_empty": "📢 <b>Мажбурий Каналлар</b>\n\n📭 Ҳозирча каналлар рўйхати бўш.\n\n<b>Буйруқлар:</b>\n• <code>/addchannel @kanal_nomi</code> - Янги канал қўшиш",
+        "admin_channels_list": "📢 <b>Мажбурий Каналлар Рўйхати</b>\n\n{list}\n\n<b>Буйруқлар:</b>\n• <code>/addchannel @nom</code> - Канал қўшиш\n• <code>/removechannel @nom</code> - Ўчириш (деактив)\n• <code>/activatechannel @nom</code> - Қайта ёқиш\n• <code>/deletechannel @nom</code> - Бутунлай ўчириш",
+        "channel_active": "✅ Актив",
+        "channel_inactive": "❌ Ўчирилган",
+        "add_channel_format": "❌ <b>Хато!</b>\n\nТўғри формат:\n<code>/addchannel @kanal_nomi</code>",
+        "add_channel_at_required": "❌ Канал номи @ белгиси билан бошланиши керак!\n\nМасалан: <code>@geo_ustoz</code>",
+        "add_channel_not_found": "❌ <b>Хато!</b>\n\nКанални топиб бўлмади. Бот ўша каналга админ сифатида қўшилганлигига ишонч ҳосил қилинг.\n\nХато: {error}",
+        "add_channel_success": "✅ <b>Муваффақиятли!</b>\n\n📢 Канал <b>{channel_id}</b> (<i>{channel_title}</i>) мажбурий каналлар рўйхатига қўшилди!",
+        "add_channel_error": "❌ Канал қўшишда хато юз берди. Бу канал аллақачон рўйхатда бўлиши мумкин.",
+        "remove_channel_success": "✅ Канал <b>{channel_id}</b> рўйхатдан ўчирилди (деактив).",
+        "activate_channel_success": "✅ Канал <b>{channel_id}</b> қайта фаоллаштирилди!",
+        "delete_channel_confirm": "⚠️ <b>Диққат!</b>\n\nКанал <b>{channel_id}</b> бутунлай базадан ўчирилади.\n\nДавом этишни хоҳлайсизми?",
+        "delete_channel_success": "✅ <b>Муваффақиятли!</b>\n\nКанал <b>{channel_id}</b> бутунлай базадан ўчирилди.",
+        "delete_channel_cancelled": "❌ Канал ўчириш бекор қилинди.",
+        "btn_confirm_delete": "✅ Ҳа, ўчириш",
+        "btn_cancel_action": "❌ Йўқ"
     },
     "ru": {
         "welcome": "👋 <b>Привет, {name}!</b>\n\nДобро пожаловать в бот Geo Ustoz.\n\nВыберите нужный раздел в меню ниже 👇",
@@ -406,7 +444,26 @@ BOT_LANGS = {
         "time_sec": "секунд",
         "leaderboard_title": "🏆 <b>ТЕСТ ЗАВЕРШЕН!</b> 🏆\n━━━━━━━━━━━━━━━━━━━━━━\n📚 <b>Тема:</b> {title}\n📝 <b>Количество вопросов:</b> {qcount} шт\n👥 <b>Участников:</b> {participants} чел\n━━━━━━━━━━━━━━━━━━━━━━\n\n📊 <b>ТОП РЕЗУЛЬТАТЫ:</b>\n\n{lines}\n\n━━━━━━━━━━━━━━━━━━━━━━\n🤖 <i>Geo Ustoz - Проверьте свои знания!</i>",
         "nobody_played": "🤷‍♂️ <i>Пока никто не участвовал.</i>",
-        "main_menu_loaded": "⚙️ Главное меню загружено:"
+        "main_menu_loaded": "⚙️ Главное меню загружено:",
+        # Admin - Управление каналами
+        "admin_only": "❌ Эта команда только для админов!",
+        "admin_channels_title": "📢 <b>Список обязательных каналов</b>",
+        "admin_channels_empty": "📢 <b>Обязательные каналы</b>\n\n📭 Пока список каналов пуст.\n\n<b>Команды:</b>\n• <code>/addchannel @имя_канала</code> - Добавить канал",
+        "admin_channels_list": "📢 <b>Список обязательных каналов</b>\n\n{list}\n\n<b>Команды:</b>\n• <code>/addchannel @имя</code> - Добавить канал\n• <code>/removechannel @имя</code> - Удалить (деактивировать)\n• <code>/activatechannel @имя</code> - Активировать\n• <code>/deletechannel @имя</code> - Удалить полностью",
+        "channel_active": "✅ Активен",
+        "channel_inactive": "❌ Отключен",
+        "add_channel_format": "❌ <b>Ошибка!</b>\n\nПравильный формат:\n<code>/addchannel @имя_канала</code>",
+        "add_channel_at_required": "❌ Имя канала должно начинаться с @!\n\nНапример: <code>@geo_ustoz</code>",
+        "add_channel_not_found": "❌ <b>Ошибка!</b>\n\nКанал не найден. Убедитесь, что бот добавлен в канал как администратор.\n\nОшибка: {error}",
+        "add_channel_success": "✅ <b>Успешно!</b>\n\n📢 Канал <b>{channel_id}</b> (<i>{channel_title}</i>) добавлен в список обязательных каналов!",
+        "add_channel_error": "❌ Ошибка при добавлении канала. Возможно, этот канал уже в списке.",
+        "remove_channel_success": "✅ Канал <b>{channel_id}</b> удален из списка (деактивирован).",
+        "activate_channel_success": "✅ Канал <b>{channel_id}</b> активирован!",
+        "delete_channel_confirm": "⚠️ <b>Внимание!</b>\n\nКанал <b>{channel_id}</b> будет полностью удален из базы данных.\n\nПродолжить?",
+        "delete_channel_success": "✅ <b>Успешно!</b>\n\nКанал <b>{channel_id}</b> полностью удален из базы данных.",
+        "delete_channel_cancelled": "❌ Удаление канала отменено.",
+        "btn_confirm_delete": "✅ Да, удалить",
+        "btn_cancel_action": "❌ Нет"
     }
 }
 
@@ -1399,39 +1456,40 @@ async def cmd_manage_channels(update: Update, context: ContextTypes.DEFAULT_TYPE
     lang = get_user_lang(user_id)
     
     if user_id not in SUPERADMINS:
-        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        await update.message.reply_text(get_bot_text('admin_only', lang))
         return
     
     channels = db.get_all_required_channels(active_only=False)
     
     if not channels:
-        text = "📢 <b>Majburiy Kanallar</b>\n\n📭 Hozircha kanallar ro'yxati bo'sh.\n\n<b>Komandalar:</b>\n• <code>/addchannel @kanal_nomi</code> - Yangi kanal qo'shish"
+        text = get_bot_text('admin_channels_empty', lang)
     else:
         lines = []
         for i, ch in enumerate(channels, 1):
-            status = "✅ Aktiv" if ch['is_active'] else "❌ O'chirilgan"
+            status = get_bot_text('channel_active', lang) if ch['is_active'] else get_bot_text('channel_inactive', lang)
             lines.append(f"{i}. <b>{ch['channel_id']}</b> - {status}")
         
-        text = f"📢 <b>Majburiy Kanallar Ro'yxati</b>\n\n{chr(10).join(lines)}\n\n<b>Komandalar:</b>\n• <code>/addchannel @nom</code> - Kanal qo'shish\n• <code>/removechannel @nom</code> - O'chirish (deaktiv)\n• <code>/activatechannel @nom</code> - Qayta yoqish\n• <code>/deletechannel @nom</code> - Butunlay o'chirish"
+        text = get_bot_text('admin_channels_list', lang, list=chr(10).join(lines))
     
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 async def cmd_add_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Yangi majburiy kanal qo'shish"""
     user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
     
     if user_id not in SUPERADMINS:
-        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        await update.message.reply_text(get_bot_text('admin_only', lang))
         return
     
     if not context.args:
-        await update.message.reply_text("❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/addchannel @kanal_nomi</code>", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_bot_text('add_channel_format', lang), parse_mode=ParseMode.HTML)
         return
     
     channel_id = context.args[0].strip()
     
     if not channel_id.startswith("@"):
-        await update.message.reply_text("❌ Kanal nomi @ belgisi bilan boshlanishi kerak!\n\nMasalan: <code>@geo_ustoz</code>", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_bot_text('add_channel_at_required', lang), parse_mode=ParseMode.HTML)
         return
     
     # Kanalni Telegramda tekshirish
@@ -1439,7 +1497,7 @@ async def cmd_add_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat = await context.bot.get_chat(channel_id)
         channel_title = chat.title or channel_id
     except Exception as e:
-        await update.message.reply_text(f"❌ <b>Xato!</b>\n\nKanalni topib bo'lmadi. Bot o'sha kanalga admin sifatida qo'shilganligiga ishonch hosil qiling.\n\nXato: {e}", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_bot_text('add_channel_not_found', lang, error=str(e)), parse_mode=ParseMode.HTML)
         return
     
     # Bazaga qo'shish
@@ -1450,20 +1508,21 @@ async def cmd_add_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         global REQUIRED_CHANNELS
         REQUIRED_CHANNELS = load_required_channels_from_db()
         
-        await update.message.reply_text(f"✅ <b>Muvaffaqiyatli!</b>\n\n📢 Kanal <b>{channel_id}</b> (<i>{channel_title}</i>) majburiy kanallar ro'yxatiga qo'shildi!", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_bot_text('add_channel_success', lang, channel_id=channel_id, channel_title=channel_title), parse_mode=ParseMode.HTML)
     else:
-        await update.message.reply_text(f"❌ Kanal qo'shishda xato yuz berdi. Bu kanal allaqachon ro'yxatda bo'lishi mumkin.", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_bot_text('add_channel_error', lang), parse_mode=ParseMode.HTML)
 
 async def cmd_remove_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Kanalni o'chirish (deaktivatsiya qilish)"""
     user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
     
     if user_id not in SUPERADMINS:
-        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        await update.message.reply_text(get_bot_text('admin_only', lang))
         return
     
     if not context.args:
-        await update.message.reply_text("❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/removechannel @kanal_nomi</code>", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_bot_text('add_channel_format', lang), parse_mode=ParseMode.HTML)
         return
     
     channel_id = context.args[0].strip()
@@ -1474,18 +1533,19 @@ async def cmd_remove_channel(update: Update, context: ContextTypes.DEFAULT_TYPE)
     global REQUIRED_CHANNELS
     REQUIRED_CHANNELS = load_required_channels_from_db()
     
-    await update.message.reply_text(f"✅ Kanal <b>{channel_id}</b> ro'yxatdan o'chirildi (deaktiv).", parse_mode=ParseMode.HTML)
+    await update.message.reply_text(get_bot_text('remove_channel_success', lang, channel_id=channel_id), parse_mode=ParseMode.HTML)
 
 async def cmd_activate_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Kanalni qayta faollashtirish"""
     user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
     
     if user_id not in SUPERADMINS:
-        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        await update.message.reply_text(get_bot_text('admin_only', lang))
         return
     
     if not context.args:
-        await update.message.reply_text("❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/activatechannel @kanal_nomi</code>", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_bot_text('add_channel_format', lang), parse_mode=ParseMode.HTML)
         return
     
     channel_id = context.args[0].strip()
@@ -1496,18 +1556,19 @@ async def cmd_activate_channel(update: Update, context: ContextTypes.DEFAULT_TYP
     global REQUIRED_CHANNELS
     REQUIRED_CHANNELS = load_required_channels_from_db()
     
-    await update.message.reply_text(f"✅ Kanal <b>{channel_id}</b> qayta faollashtirildi!", parse_mode=ParseMode.HTML)
+    await update.message.reply_text(get_bot_text('activate_channel_success', lang, channel_id=channel_id), parse_mode=ParseMode.HTML)
 
 async def cmd_delete_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Kanalni butunlay o'chirish (bazadan)"""
     user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
     
     if user_id not in SUPERADMINS:
-        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        await update.message.reply_text(get_bot_text('admin_only', lang))
         return
     
     if not context.args:
-        await update.message.reply_text("❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/deletechannel @kanal_nomi</code>", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_bot_text('add_channel_format', lang), parse_mode=ParseMode.HTML)
         return
     
     channel_id = context.args[0].strip()
@@ -1515,15 +1576,13 @@ async def cmd_delete_channel(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Tasdiqlash
     kb = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("✅ Ha, o'chirish", callback_data=f"confirm_delete_channel:{channel_id}"),
-            InlineKeyboardButton("❌ Yo'q", callback_data="cancel_delete_channel")
+            InlineKeyboardButton(get_bot_text('btn_confirm_delete', lang), callback_data=f"confirm_delete_channel:{channel_id}"),
+            InlineKeyboardButton(get_bot_text('btn_cancel_action', lang), callback_data="cancel_delete_channel")
         ]
     ])
     
     await update.message.reply_text(
-        f"⚠️ <b>Diqqat!</b>\n\n"
-        f"Kanal <b>{channel_id}</b> butunlay bazadan o'chiriladi.\n\n"
-        f"Davom etishni xohlaysizmi?",
+        get_bot_text('delete_channel_confirm', lang, channel_id=channel_id),
         reply_markup=kb,
         parse_mode=ParseMode.HTML
     )
@@ -1831,7 +1890,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Kanal o'chirishni tasdiqlash
     if data.startswith("confirm_delete_channel:"):
         if user_id not in SUPERADMINS:
-            await q.answer("❌ Sizda ruxsat yo'q!", show_alert=True)
+            await q.answer(get_bot_text('admin_only', lang), show_alert=True)
             return
         
         channel_id = data.replace("confirm_delete_channel:", "")
@@ -1842,15 +1901,15 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         REQUIRED_CHANNELS = load_required_channels_from_db()
         
         await q.message.edit_text(
-            f"✅ <b>Muvaffaqiyatli!</b>\n\nKanal <b>{channel_id}</b> butunlay bazadan o'chirildi.",
+            get_bot_text('delete_channel_success', lang, channel_id=channel_id),
             parse_mode=ParseMode.HTML
         )
-        await q.answer("✅ Kanal o'chirildi!", show_alert=False)
+        await q.answer(get_bot_text('delete_channel_success', lang, channel_id=channel_id), show_alert=False)
         return
     
     if data == "cancel_delete_channel":
-        await q.message.edit_text("❌ Kanal o'chirish bekor qilindi.")
-        await q.answer("Bekor qilindi", show_alert=False)
+        await q.message.edit_text(get_bot_text('delete_channel_cancelled', lang))
+        await q.answer(get_bot_text('delete_channel_cancelled', lang), show_alert=False)
         return
 
     is_superadmin = user_id in SUPERADMINS
