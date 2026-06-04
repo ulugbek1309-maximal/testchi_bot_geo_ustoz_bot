@@ -122,8 +122,15 @@ Yangi versiyada majburiy kanallarni ENV faylida emas, **bot ichida** boshqarishi
 ```
 /removechannel @kanal_nomi
 ```
+> ℹ️ Kanal bazada qoladi, lekin faol emas. Keyin qayta yoqish mumkin.
 
-**4. Kanalni qayta faollashtirish:**
+**4. Kanalni butunlay o'chirish (bazadan):**
+```
+/deletechannel @kanal_nomi
+```
+> ⚠️ **Diqqat:** Kanal butunlay bazadan o'chiriladi! Tasdiqlash kerak bo'ladi.
+
+**5. Kanalni qayta faollashtirish:**
 ```
 /activatechannel @kanal_nomi
 ```
@@ -149,12 +156,20 @@ Yangi versiyada majburiy kanallarni ENV faylida emas, **bot ichida** boshqarishi
 # 3. Barcha kanallarni ko'rish
 /managechannels
 
-# 4. Bitta kanalni o'chirish
+# 4. Bitta kanalni o'chirish (deaktivatsiya)
 /removechannel @geo_ustoz
 
 # 5. Qayta yoqish
 /activatechannel @geo_ustoz
+
+# 6. Butunlay o'chirish (bazadan)
+/deletechannel @testchi_uz
 ```
+
+### O'chirish usullari:
+
+1. **Deaktivatsiya** (`/removechannel`) - Kanal bazada qoladi, keyin qayta yoqish mumkin
+2. **Butunlay o'chirish** (`/deletechannel`) - Kanal butunlay bazadan o'chiriladi, tasdiqlash kerak
 
 ---
 
