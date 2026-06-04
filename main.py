@@ -1405,14 +1405,14 @@ async def cmd_manage_channels(update: Update, context: ContextTypes.DEFAULT_TYPE
     channels = db.get_all_required_channels(active_only=False)
     
     if not channels:
-        text = "📢 <b>Majburiy Kanallar</b>\n\n📭 Hozircha kanallar ro'yxati bo'sh.\n\nYangi kanal qo'shish uchun:\n<code>/addchannel @kanal_nomi</code>"
+        text = "📢 <b>Majburiy Kanallar</b>\n\n📭 Hozircha kanallar ro'yxati bo'sh.\n\n<b>Komandalar:</b>\n• <code>/addchannel @kanal_nomi</code> - Yangi kanal qo'shish"
     else:
         lines = []
         for i, ch in enumerate(channels, 1):
             status = "✅ Aktiv" if ch['is_active'] else "❌ O'chirilgan"
             lines.append(f"{i}. <b>{ch['channel_id']}</b> - {status}")
         
-        text = f"📢 <b>Majburiy Kanallar Ro'yxati</b>\n\n{chr(10).join(lines)}\n\n<b>Komandalar:</b>\n• <code>/addchannel @nom</code> - Kanal qo'shish\n• <code>/removechannel @nom</code> - O'chirish\n• <code>/activatechannel @nom</code> - Qayta yoqish"
+        text = f"📢 <b>Majburiy Kanallar Ro'yxati</b>\n\n{chr(10).join(lines)}\n\n<b>Komandalar:</b>\n• <code>/addchannel @nom</code> - Kanal qo'shish\n• <code>/removechannel @nom</code> - O'chirish (deaktiv)\n• <code>/activatechannel @nom</code> - Qayta yoqish\n• <code>/deletechannel @nom</code> - Butunlay o'chirish"
     
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
@@ -1497,6 +1497,36 @@ async def cmd_activate_channel(update: Update, context: ContextTypes.DEFAULT_TYP
     REQUIRED_CHANNELS = load_required_channels_from_db()
     
     await update.message.reply_text(f"✅ Kanal <b>{channel_id}</b> qayta faollashtirildi!", parse_mode=ParseMode.HTML)
+
+async def cmd_delete_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Kanalni butunlay o'chirish (bazadan)"""
+    user_id = update.effective_user.id
+    
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Bu komanda faqat adminlar uchun!")
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ <b>Xato!</b>\n\nTo'g'ri format:\n<code>/deletechannel @kanal_nomi</code>", parse_mode=ParseMode.HTML)
+        return
+    
+    channel_id = context.args[0].strip()
+    
+    # Tasdiqlash
+    kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Ha, o'chirish", callback_data=f"confirm_delete_channel:{channel_id}"),
+            InlineKeyboardButton("❌ Yo'q", callback_data="cancel_delete_channel")
+        ]
+    ])
+    
+    await update.message.reply_text(
+        f"⚠️ <b>Diqqat!</b>\n\n"
+        f"Kanal <b>{channel_id}</b> butunlay bazadan o'chiriladi.\n\n"
+        f"Davom etishni xohlaysizmi?",
+        reply_markup=kb,
+        parse_mode=ParseMode.HTML
+    )
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
@@ -1755,24 +1785,72 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(user_id)
 
     if data == "check_sub":
-        try:
-            member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
-            if member.status not in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
-                context.user_data['is_subscribed'] = True
-                context.user_data['last_sub_check_time'] = time.time()
-                try:
-                    await q.message.delete()
-                except:
-                    pass
-                await q.answer("✅ Obuna tasdiqlandi! Botdan foydalanishingiz mumkin.", show_alert=True)
+        # Bazadan kanallarni yangilash
+        global REQUIRED_CHANNELS
+        REQUIRED_CHANNELS = load_required_channels_from_db()
+        
+        # Agar kanallar bo'sh bo'lsa
+        if not REQUIRED_CHANNELS:
+            context.user_data['is_subscribed'] = True
+            try:
+                await q.message.delete()
+            except:
+                pass
+            await q.answer("✅ Hozirda majburiy kanallar yo'q!", show_alert=True)
+            msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
+            await update.effective_chat.send_message("✅ Botdan foydalanishingiz mumkin!", reply_markup=kb_main)
+            return
+        
+        # Barcha kanallarni tekshirish
+        unsubscribed = []
+        for channel in REQUIRED_CHANNELS:
+            try:
+                member = await context.bot.get_chat_member(chat_id=channel, user_id=user_id)
+                if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
+                    unsubscribed.append(channel)
+            except Exception as e:
+                logging.error(f"Kanal {channel} tekshirishda xato: {e}")
+                continue
+        
+        if not unsubscribed:
+            context.user_data['unsubscribed_channels'] = []
+            context.user_data['last_sub_check_time'] = time.time()
+            try:
+                await q.message.delete()
+            except:
+                pass
+            await q.answer("✅ Obuna tasdiqlandi! Botdan foydalanishingiz mumkin.", show_alert=True)
 
-                msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
-                await update.effective_chat.send_message("✅ Obuna muvaffaqiyatli tasdiqlandi!", reply_markup=kb_main)
-            else:
-                await q.answer("❌ Hali kanalga qo'shilmadingiz! Iltimos, kanalga qo'shilib tasdiqlang.", show_alert=True)
-        except Exception as e:
-            logging.error(f"Kanalni tekshirishda xatolik: {e}")
-            await q.answer("⚠️ XATOLIK: Botingiz kanalingizga ADMIN qilinmagan! Iltimos botni avval kanalga admin qiling.", show_alert=True)
+            msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
+            await update.effective_chat.send_message("✅ Obuna muvaffaqiyatli tasdiqlandi!", reply_markup=kb_main)
+        else:
+            channels_text = ", ".join(unsubscribed)
+            await q.answer(f"❌ Hali quyidagi kanallarga qo'shilmadingiz: {channels_text}", show_alert=True)
+        return
+    
+    # Kanal o'chirishni tasdiqlash
+    if data.startswith("confirm_delete_channel:"):
+        if user_id not in SUPERADMINS:
+            await q.answer("❌ Sizda ruxsat yo'q!", show_alert=True)
+            return
+        
+        channel_id = data.replace("confirm_delete_channel:", "")
+        db.delete_required_channel(channel_id)
+        
+        # Global ro'yxatni yangilash
+        global REQUIRED_CHANNELS
+        REQUIRED_CHANNELS = load_required_channels_from_db()
+        
+        await q.message.edit_text(
+            f"✅ <b>Muvaffaqiyatli!</b>\n\nKanal <b>{channel_id}</b> butunlay bazadan o'chirildi.",
+            parse_mode=ParseMode.HTML
+        )
+        await q.answer("✅ Kanal o'chirildi!", show_alert=False)
+        return
+    
+    if data == "cancel_delete_channel":
+        await q.message.edit_text("❌ Kanal o'chirish bekor qilindi.")
+        await q.answer("Bekor qilindi", show_alert=False)
         return
 
     is_superadmin = user_id in SUPERADMINS
@@ -4500,6 +4578,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("addchannel", cmd_add_channel))
     app.add_handler(CommandHandler("removechannel", cmd_remove_channel))
     app.add_handler(CommandHandler("activatechannel", cmd_activate_channel))
+    app.add_handler(CommandHandler("deletechannel", cmd_delete_channel))
 
     # 3. Tugmalar va Matnlar (Messages & Callbacks)
     app.add_handler(CallbackQueryHandler(on_callback))
