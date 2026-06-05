@@ -462,6 +462,11 @@ def global_protection():
     if not user: return
 
     # PIN KOD QULF EKRANINI MAJBURIY QILISH
+    # pin_lock va captcha sahifalariga redirect loop oldini olish
+    skip_pin_paths = ['/', '/pin-lock', '/captcha', '/force-sub', '/telegram-login']
+    if request.path in skip_pin_paths:
+        return  # Bu sahifalarda PIN tekshirmaymiz
+
     if not session.get(f"pin_unlocked_{token}"):
         if request.path.startswith('/solve/'):
             session[f"next_url_{token}"] = request.path
@@ -476,7 +481,13 @@ def global_protection():
     last_check = session.get(sub_cache_key, 0)
 
     if now - last_check > 300:
-        if not check_user_subscription(user_id):
+        try:
+            is_subbed = check_user_subscription(user_id)
+        except Exception as e:
+            logging.error(f"Obuna tekshirishda xato: {e}")
+            is_subbed = True  # Xato bo'lsa o'tkazib yuboramiz
+
+        if not is_subbed:
             session[sub_cache_key] = 0
             if request.path.startswith('/solve/'):
                 session[f"next_url_{token}"] = request.path
@@ -944,19 +955,29 @@ def index():
     is_lower_admin = user_id in LOWER_ADMINS
 
     try: balance = db.get_token_balance(user_id)
-    except: balance = 0.0
+    except Exception as e:
+        logging.error(f"Balance xatosi: {e}")
+        balance = 0.0
 
-    raw_tests = db.tests_for_owner(user_id)
-    tests = []
-    for t in raw_tests:
-        t_dict = to_dict(t)
-        t_dict['price_gwt'] = float(t_dict.get('price_gwt') or 0.0)
-        t_dict['price_stars'] = int(t_dict.get('price_stars') or 0)
-        q_count, finished_count = db.stats(t_dict["test_id"])
-        tests.append({"test": t_dict, "q_count": q_count, "finished_count": finished_count})
+    try:
+        raw_tests = db.tests_for_owner(user_id)
+        tests = []
+        for t in raw_tests:
+            t_dict = to_dict(t)
+            t_dict['price_gwt'] = float(t_dict.get('price_gwt') or 0.0)
+            t_dict['price_stars'] = int(t_dict.get('price_stars') or 0)
+            q_count, finished_count = db.stats(t_dict["test_id"])
+            tests.append({"test": t_dict, "q_count": q_count, "finished_count": finished_count})
+    except Exception as e:
+        logging.error(f"Tests yuklashda xato: {e}")
+        tests = []
 
-    chats = db.chats_for_user(user_id)
-    eligible_chats = [c for c in chats if c.get('bot_is_admin', 0) == 1]
+    try:
+        chats = db.chats_for_user(user_id)
+        eligible_chats = [c for c in chats if c.get('bot_is_admin', 0) == 1]
+    except Exception as e:
+        logging.error(f"Chats yuklashda xato: {e}")
+        eligible_chats = []
 
     return render_template(
         "index.html",
