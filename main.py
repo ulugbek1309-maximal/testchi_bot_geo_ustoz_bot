@@ -1438,43 +1438,63 @@ async def build_main_menu(user_id: int, bot_username: str, lang: str = "uz") -> 
     is_superadmin = user_id in SUPERADMINS
     is_lower_admin = user_id in LOWER_ADMINS
 
+    def t(uz, cyrl, ru):
+        if lang == "uz_cyrl": return cyrl
+        if lang == "ru": return ru
+        return uz
+
     # ===================== FOYDALANUVCHI MENYUSI =====================
     kb = [
-        # Asosiy
+        # 1. Asosiy kirish
         [KeyboardButton(text=get_bot_text('btn_cabinet', lang)),
          KeyboardButton(text=get_bot_text('btn_account', lang))],
-        # Test
+
+        # 2. Test yaratish
         [KeyboardButton(text=get_bot_text('btn_create_manual', lang)),
          KeyboardButton(text=get_bot_text('btn_create_word', lang))],
+
+        # 3. Test boshqarish
         [KeyboardButton(text=get_bot_text('btn_results', lang)),
          KeyboardButton(text=get_bot_text('btn_search', lang))],
-        # O'rganish
+
+        # 4. AI va O'rganish
         [KeyboardButton(text=get_bot_text('btn_ai', lang)),
-         KeyboardButton(text="🃏 Flashcards")],
-        [KeyboardButton(text="📦 Savol Banki"),
-         KeyboardButton(text="📜 Sertifikatlarim")],
-        # Moliya
+         KeyboardButton(text=t("🤖 AI Test Yaratish", "🤖 AI Тест Яратиш", "🤖 AI Тест"))],
+        [KeyboardButton(text=t("🃏 Flashcards", "🃏 Флэшкардлар", "🃏 Флэшкарты")),
+         KeyboardButton(text=t("📦 Savol Banki", "📦 Савол Банки", "📦 Банк вопросов"))],
+
+        # 5. Moliya va Premium
         [KeyboardButton(text=get_bot_text('btn_wallet', lang)),
          KeyboardButton(text=get_bot_text('btn_premium', lang))],
-        [KeyboardButton(text="🤝 Hamkor Dasturi"),
-         KeyboardButton(text=get_bot_text('btn_referral', lang))],
-        # Ijtimoiy
-        [KeyboardButton(text="👥 Guruhlarim"),
+        [KeyboardButton(text=t("💎 GWT Staking", "💎 GWT Стейкинг", "💎 GWT Стейкинг")),
+         KeyboardButton(text=t("🎟️ Kupon", "🎟️ Купон", "🎟️ Купон"))],
+
+        # 6. Ijtimoiy
+        [KeyboardButton(text=t("⚔️ Challenge", "⚔️ Челлендж", "⚔️ Челлендж")),
+         KeyboardButton(text=t("🤝 Hamkor Dasturi", "🤝 Ҳамкор Дастури", "🤝 Партнёрство"))],
+        [KeyboardButton(text=t("👥 Guruhlarim", "👥 Гуруҳларим", "👥 Мои группы")),
          KeyboardButton(text=get_bot_text('btn_top', lang))],
-        [KeyboardButton(text="🔔 Bildirishnomalar"),
-         KeyboardButton(text="📚 Kutubxona")],
-        # Qo'shimcha
+
+        # 7. Bilim va Maqola
+        [KeyboardButton(text=t("📚 Kutubxona", "📚 Кутубхона", "📚 Библиотека")),
+         KeyboardButton(text=t("📜 Sertifikatlarim", "📜 Сертификатларим", "📜 Сертификаты"))],
+
+        # 8. Bildirishnoma va Qo'shimcha
+        [KeyboardButton(text=t("🔔 Bildirishnomalar", "🔔 Билдиришномалар", "🔔 Уведомления")),
+         KeyboardButton(text=t("📧 Email Hisobot", "📧 Емейл Ҳисобот", "📧 Email отчёт"))],
+        [KeyboardButton(text=t("📊 Statistikam", "📊 Статистикам", "📊 Статистика")),
+         KeyboardButton(text=t("🏅 Yutuqlarim", "🏅 Ютуқларим", "🏅 Достижения"))],
+
+        # 9. Bot va Himoya
         [KeyboardButton(text=get_bot_text('btn_add_bot', lang)),
          KeyboardButton(text=get_bot_text('btn_lock', lang))],
-        [KeyboardButton(text="👨‍💻 Adminga murojaat"),
-         KeyboardButton(text="🤖 AI Test Yaratish")],
+        [KeyboardButton(text=t("👨‍💻 Adminga murojaat", "👨‍💻 Админга мурожаат", "👨‍💻 Написать админу")),
+         KeyboardButton(text=t("❓ Yordam (/help)", "❓ Ёрдам (/help)", "❓ Помощь (/help)"))],
     ]
 
-    # ===================== ADMIN MENYUSI (faqat adminga ko'rinadi) =====================
+    # ===================== ADMIN MENYUSI — faqat adminga =====================
     if is_superadmin or is_lower_admin:
-        kb.append([
-            KeyboardButton(text="⚙️ ADMIN PANEL"),
-        ])
+        kb.append([KeyboardButton(text="⚙️ ADMIN PANEL")])
 
     start_text = get_bot_text('welcome', lang, name="")
     return start_text, ReplyKeyboardMarkup(kb, resize_keyboard=True, is_persistent=True)
@@ -1483,22 +1503,28 @@ async def build_main_menu(user_id: int, bot_username: str, lang: str = "uz") -> 
 async def build_admin_menu(lang: str = "uz") -> InlineKeyboardMarkup:
     """Admin panel - barcha admin funksiyalari InlineKeyboard sifatida"""
     return InlineKeyboardMarkup([
-        # Foydalanuvchilar
+        # Foydalanuvchilar va Statistika
         [InlineKeyboardButton("👥 Foydalanuvchilar", callback_data="admin_users"),
          InlineKeyboardButton("📊 Global Statistika", callback_data="admin_stats")],
-        # Kanallar
+        # Kanallar va Xabarlar
         [InlineKeyboardButton("📢 Kanallar Boshqaruvi", callback_data="admin_channels"),
-         InlineKeyboardButton("💬 Xabarlar (Support)", callback_data="admin_chats")],
-        # Content
+         InlineKeyboardButton("💬 Support Xabarlari", callback_data="admin_chats")],
+        # Content boshqaruv
         [InlineKeyboardButton("🧩 Barcha Testlar", callback_data="admin_all_tests"),
          InlineKeyboardButton("📣 Broadcast", callback_data="admin_broadcast")],
-        # Monetizatsiya
-        [InlineKeyboardButton("💰 To'lov So'rovlari", callback_data="admin_pendings"),
-         InlineKeyboardButton("📣 Reklamalar", callback_data="admin_ads")],
-        # Xavfsizlik
-        [InlineKeyboardButton("🔐 Xavfsizlik (IP)", callback_data="admin_security"),
-         InlineKeyboardButton("🤖 AI Chatlar", callback_data="admin_ai_chats")],
         # Moliya
+        [InlineKeyboardButton("💰 To'lovlar", callback_data="admin_pendings"),
+         InlineKeyboardButton("📣 Reklamalar", callback_data="admin_ads")],
+        # Yangi: Kuponlar va Staking
+        [InlineKeyboardButton("🎟️ Kuponlar", callback_data="admin_coupons"),
+         InlineKeyboardButton("💎 Staking", callback_data="admin_staking")],
+        # Xavfsizlik
+        [InlineKeyboardButton("🔐 Xavfsizlik", callback_data="admin_security"),
+         InlineKeyboardButton("🤖 AI Chatlar", callback_data="admin_ai_chats")],
+        # Yangi: Sozlamalar va Hisobotlar
+        [InlineKeyboardButton("⚙️ Bot Sozlamalari", callback_data="admin_settings"),
+         InlineKeyboardButton("📊 Hisobotlar & Bulk", callback_data="admin_reports")],
+        # Premium va Affiliate
         [InlineKeyboardButton("💎 Premium Berish", callback_data="admin_give_premium"),
          InlineKeyboardButton("🏆 Top Affiliates", callback_data="admin_top_affiliates")],
     ])
@@ -3600,6 +3626,81 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
             return
 
+        elif data == "admin_coupons":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            token = db.get_or_create_user_api_key(user_id)
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/coupons?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "🎟️ <b>Kupon Boshqaruvi</b>\n\nKuponlarni yaratish va boshqarish:",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🎟️ Kupon panelini ochish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_staking":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            token = db.get_or_create_user_api_key(user_id)
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/staking?token={token}"
+            await q.answer()
+            # Qisqa statistika
+            stakes = db.get_all_staking_stats()
+            total = sum(float(dict(s).get('amount', 0)) for s in stakes)
+            await q.message.reply_text(
+                f"💎 <b>Staking Boshqaruvi</b>\n\n"
+                f"📦 Aktiv stakinglar: <b>{len(stakes)}</b>\n"
+                f"💰 Jami qulflangan: <b>{total:.2f} GWT</b>",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("💎 Staking statistikasi", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_settings":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            token = db.get_or_create_user_api_key(user_id)
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/settings?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "⚙️ <b>Bot Sozlamalari</b>\n\n"
+                "Premium narxlari, AI limiti, Staking APY\n"
+                "va boshqa barcha sozlamalar:",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("⚙️ Sozlamalarni ochish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_reports":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            token = db.get_or_create_user_api_key(user_id)
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/reports?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "📊 <b>Hisobotlar & Bulk Operatsiyalar</b>\n\n"
+                "• 🚩 Savol reportlarini ko'rish\n"
+                "• 💎 Bulk premium berish\n"
+                "• 🚫 Bulk ban qilish\n"
+                "• 📊 Tezkor statistika",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("📊 Hisobotlarni ochish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
     # affiliate stats callback
     if data == "affiliate_stats":
         stats = db.get_affiliate_stats(user_id)
@@ -3615,6 +3716,77 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💳 Balans: <b>{float(stats.get('balance', 0)):.2f} GWT</b>",
             parse_mode=ParseMode.HTML
         )
+        return
+
+    # ==========================================
+    # 📧 EMAIL REPORT CALLBACK
+    # ==========================================
+    if data == "email_report_weekly":
+        context.user_data['email_report_freq'] = 'weekly'
+        context.user_data[K["mode"]] = "email_report_input"
+        await q.answer()
+        try:
+            await q.message.edit_text(
+                "📧 <b>Email manzilingizni yozing:</b>\n\nMisol: name@gmail.com",
+                parse_mode=ParseMode.HTML
+            )
+        except Exception:
+            await update.effective_chat.send_message("📧 Email manzilingizni yozing:", parse_mode=ParseMode.HTML)
+        return
+
+    if data == "email_report_monthly":
+        context.user_data['email_report_freq'] = 'monthly'
+        context.user_data[K["mode"]] = "email_report_input"
+        await q.answer()
+        try:
+            await q.message.edit_text(
+                "📧 <b>Email manzilingizni yozing:</b>\n\nMisol: name@gmail.com",
+                parse_mode=ParseMode.HTML
+            )
+        except Exception:
+            await update.effective_chat.send_message("📧 Email manzilingizni yozing:", parse_mode=ParseMode.HTML)
+        return
+
+    if data == "email_report_off":
+        db.unsubscribe_email_report(user_id)
+        await q.answer("✅ Email hisobot o'chirildi!", show_alert=True)
+        try:
+            await q.message.edit_text("✅ Email hisobot o'chirildi.")
+        except Exception:
+            pass
+        return
+
+    # ==========================================
+    # 💎 STAKING INFO CALLBACK
+    # ==========================================
+    if data == "staking_info":
+        apy = safe_get_setting('staking_apy', 12)
+        lock_days = safe_get_setting('staking_lock_days', 30)
+        await q.answer()
+        await q.message.reply_text(
+            f"💎 <b>GWT Staking Shartlari</b>\n\n"
+            f"📈 APY: <b>{apy}%</b> (yillik)\n"
+            f"🔒 Qulflash: <b>{lock_days} kun</b>\n"
+            f"⚠️ Erta yechish jarima: <b>10%</b>\n\n"
+            f"<b>Boshlash:</b> /stake <miqdor>\n"
+            f"<b>Ko'rish:</b> /unstake",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # 🎟️ KUPON KIRITISH CALLBACK
+    # ==========================================
+    if data == "enter_coupon":
+        context.user_data[K["mode"]] = "coupon_input"
+        await q.answer()
+        try:
+            await q.message.edit_text(
+                "🎟️ <b>Kupon kodingizni yozing:</b>\n\nMisol: PROMO50",
+                parse_mode=ParseMode.HTML
+            )
+        except Exception:
+            await update.effective_chat.send_message("🎟️ Kupon kodingizni yozing:", parse_mode=ParseMode.HTML)
         return
 
     # ==========================================
@@ -4968,11 +5140,29 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
               "btn_add_bot", "btn_lock", "btn_finish_test_session", "btn_referral", "btn_top"]:
         all_btns.extend(get_all_localized_buttons(k))
 
-    # Yangi foydalanuvchi tugmalari
+    # Yangi foydalanuvchi tugmalari (barcha tillarda)
     new_user_btns = [
+        # O'zbek
         "🃏 Flashcards", "📦 Savol Banki", "📜 Sertifikatlarim",
         "🤝 Hamkor Dasturi", "👥 Guruhlarim", "🔔 Bildirishnomalar",
         "📚 Kutubxona", "🤖 AI Test Yaratish",
+        # Yangi
+        "💎 GWT Staking", "🎟️ Kupon", "⚔️ Challenge",
+        "📧 Email Hisobot", "📊 Statistikam", "🏅 Yutuqlarim",
+        "❓ Yordam (/help)",
+        # Kirill
+        "🃏 Флэшкардлар", "📦 Савол Банки", "📜 Сертификатларим",
+        "🤝 Ҳамкор Дастури", "👥 Гуруҳларим", "🔔 Билдиришномалар",
+        "📚 Кутубхона", "🤖 AI Тест Яратиш",
+        "💎 GWT Стейкинг", "🎟️ Купон", "⚔️ Челлендж",
+        "📧 Емейл Ҳисобот", "📊 Статистикам", "🏅 Ютуқларим",
+        "❓ Ёрдам (/help)",
+        # Rus
+        "🤖 AI Тест", "💎 GWT Стейкинг", "🎟️ Купон", "⚔️ Челлендж",
+        "📧 Email отчёт", "📊 Статистика", "🏅 Достижения",
+        "🤝 Партнёрство", "👥 Мои группы", "🔔 Уведомления",
+        "📚 Библиотека", "📜 Сертификаты",
+        "❓ Помощь (/help)",
     ]
     all_btns.extend(new_user_btns)
 
@@ -4982,7 +5172,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📈 Statistika", "📋 Kanallar ro'yxati", "⚙️ ADMIN PANEL",
     ]
     all_btns.extend(admin_btns)
-    all_btns.extend(["👨‍💻 Adminga murojaat", "🚪 Chatdan chiqish"])
+    all_btns.extend(["👨‍💻 Adminga murojaat", "👨‍💻 Админга мурожаат", "👨‍💻 Написать админу", "🚪 Chatdan chiqish"])
 
     if text in all_btns:
         context.user_data.pop(K["mode"], None)
@@ -5279,6 +5469,125 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Mavzuni yozing:",
             reply_markup=kb, parse_mode=ParseMode.HTML
         )
+        return
+
+    # ==========================================
+    # 💎 STAKING
+    # ==========================================
+    elif text in ("💎 GWT Staking", "💎 GWT Стейкинг"):
+        token = db.get_or_create_user_api_key(user_id)
+        url = f"{WEB_BASE_URL.rstrip('/')}/staking?token={token}"
+        apy = safe_get_setting('staking_apy', 12)
+        lock_days = safe_get_setting('staking_lock_days', 30)
+        balance = db.get_token_balance(user_id)
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💎 Staking sahifasini ochish", web_app=WebAppInfo(url=url))],
+            [InlineKeyboardButton(f"💎 Staking boshlash (APY: {apy}%)", callback_data="staking_info")],
+        ])
+        await update.effective_chat.send_message(
+            f"💎 <b>GWT Staking</b>\n\n"
+            f"💰 Balansingiz: <b>{balance:.4f} GWT</b>\n"
+            f"📈 APY: <b>{apy}%</b> (yillik)\n"
+            f"🔒 Qulflash muddati: <b>{lock_days} kun</b>\n\n"
+            f"Staking orqali GWT tokenlaringizni qulflab, passiv daromad oling!\n\n"
+            f"Bot orqali: /stake <miqdor>",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # 🎟️ KUPON
+    # ==========================================
+    elif text in ("🎟️ Kupon", "🎟️ Купон"):
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎟️ Kupon kiritish", callback_data="enter_coupon")]
+        ])
+        await update.effective_chat.send_message(
+            "🎟️ <b>Kupon kodi</b>\n\n"
+            "Kupon kodi orqali:\n"
+            "• 💎 Bepul Premium olish\n"
+            "• 🪙 GWT bonus olish\n"
+            "• 🏷️ Chegirma olish\n\n"
+            "Kupon kodi kiritish uchun:\n"
+            "<code>/coupon KODINGIZ</code>\n\n"
+            "Misol: <code>/coupon PROMO50</code>",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # ⚔️ CHALLENGE
+    # ==========================================
+    elif text in ("⚔️ Challenge", "⚔️ Челлендж"):
+        token = db.get_or_create_user_api_key(user_id)
+        url = f"{WEB_BASE_URL.rstrip('/')}/challenges?token={token}"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⚔️ Challengelarimni ko'rish", web_app=WebAppInfo(url=url))],
+        ])
+        await update.effective_chat.send_message(
+            "⚔️ <b>Challenge — Bellashuv!</b>\n\n"
+            "Do'stingizni bellashuvga taklif qiling!\n\n"
+            "Bot orqali challenge yuborish:\n"
+            "<code>/challenge @username test_id</code>\n\n"
+            "GWT stavka bilan:\n"
+            "<code>/challenge @username test_id 5</code>\n"
+            "(5 GWT stavka)\n\n"
+            "Mening challengelarim: /mychallenges",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # 📧 EMAIL HISOBOT
+    # ==========================================
+    elif text in ("📧 Email Hisobot", "📧 Емейл Ҳисобот", "📧 Email отчёт"):
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📧 Haftalik hisobotga obuna", callback_data="email_report_weekly")],
+            [InlineKeyboardButton("📅 Oylik hisobotga obuna", callback_data="email_report_monthly")],
+            [InlineKeyboardButton("❌ Bekor qilish", callback_data="email_report_off")],
+        ])
+        await update.effective_chat.send_message(
+            "📧 <b>Email Hisobot</b>\n\n"
+            "Haftalik yoki oylik statistikangizni emailga oling:\n\n"
+            "• ✅ Ishlangan testlar soni\n"
+            "• 📊 O'rtacha natijalaringiz\n"
+            "• 🔥 Streak va darajangiz\n"
+            "• 🏆 Reytingdagi o'rningiz\n\n"
+            "Bot orqali: <code>/emailreport email@gmail.com weekly</code>",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # 📊 STATISTIKAM
+    # ==========================================
+    elif text in ("📊 Statistikam", "📊 Статистикам", "📊 Статистика"):
+        token = db.get_or_create_user_api_key(user_id)
+        url = f"{WEB_BASE_URL.rstrip('/')}/stats?token={token}"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📊 To'liq statistika", web_app=WebAppInfo(url=url))],
+        ])
+        # Bot ichida ham qisqa statistika ko'rsatish
+        await cmd_stats(update, context)
+        return
+
+    # ==========================================
+    # 🏅 YUTUQLARIM
+    # ==========================================
+    elif text in ("🏅 Yutuqlarim", "🏅 Ютуқларим", "🏅 Достижения"):
+        token = db.get_or_create_user_api_key(user_id)
+        url = f"{WEB_BASE_URL.rstrip('/')}/achievements?token={token}"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏅 Barcha yutuqlar", web_app=WebAppInfo(url=url))],
+        ])
+        await cmd_achievements(update, context)
+        return
+
+    # ==========================================
+    # ❓ YORDAM
+    # ==========================================
+    elif text in ("❓ Yordam (/help)", "❓ Ёрдам (/help)", "❓ Помощь (/help)"):
+        await cmd_help(update, context)
         return
 
     # ==========================================
@@ -5656,6 +5965,61 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         wait_msg = await update.effective_chat.send_message(get_bot_text('ai_thinking', lang), parse_mode=ParseMode.HTML)
         await process_ai_message(update, context, user_id, text, wait_msg)
+        return
+
+    # ==========================================
+    # 📧 EMAIL REPORT input mode
+    # ==========================================
+    if mode == "email_report_input":
+        context.user_data.pop(K["mode"], None)
+        email = text.strip()
+        if "@" not in email or "." not in email:
+            await update.effective_chat.send_message(
+                "❌ Email manzili noto'g'ri. Qaytadan kiriting:"
+            )
+            context.user_data[K["mode"]] = "email_report_input"
+            return
+        freq = context.user_data.pop('email_report_freq', 'weekly')
+        db.subscribe_email_report(user_id, email, freq)
+        freq_txt = "Haftalik" if freq == "weekly" else "Oylik"
+        msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
+        await update.effective_chat.send_message(
+            f"✅ <b>Email hisobot yoqildi!</b>\n\n"
+            f"📧 Email: <code>{email}</code>\n"
+            f"📅 Chastota: <b>{freq_txt}</b>\n\n"
+            f"Bekor qilish: /emailreport off",
+            reply_markup=kb_main, parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # 🎟️ COUPON input mode
+    # ==========================================
+    if mode == "coupon_input":
+        context.user_data.pop(K["mode"], None)
+        code = text.strip().upper()
+        coupon, err = db.get_coupon(code)
+        if err:
+            msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
+            await update.effective_chat.send_message(
+                f"❌ {err}", reply_markup=kb_main
+            )
+            return
+        ok, use_err = db.use_coupon(coupon['id'], user_id)
+        if not ok:
+            await update.effective_chat.send_message(f"❌ {use_err}")
+            return
+        lines = [f"🎉 <b>Kupon ishlatildi!</b>\n\nKod: <code>{code}</code>\n"]
+        if coupon.get('months_free', 0) > 0:
+            db.add_premium_months(user_id, int(coupon['months_free']))
+            lines.append(f"💎 <b>{coupon['months_free']} oy Premium</b> berildi!")
+        if float(coupon.get('gwt_bonus', 0)) > 0:
+            db.system_sell_token(user_id, float(coupon['gwt_bonus']), method="COUPON")
+            lines.append(f"🪙 <b>{coupon['gwt_bonus']} GWT</b> hamyoningizga qo'shildi!")
+        msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
+        await update.effective_chat.send_message(
+            "\n".join(lines), reply_markup=kb_main, parse_mode=ParseMode.HTML
+        )
         return
 
     # ==========================================

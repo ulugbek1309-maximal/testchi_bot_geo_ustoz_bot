@@ -2072,14 +2072,36 @@ _PAGE_STYLE = """
 
 def _nav_html(token, lang="uz"):
     L = {
-        "uz": ["🏠 Bosh sahifa","📊 Statistika","🏅 Yutuqlar","🏆 Reyting","📚 Kutubxona","👥 Guruhlar","🔔 Bildirishnomalar"],
-        "uz_cyrl": ["🏠 Бош саҳифа","📊 Статистика","🏅 Ютуқлар","🏆 Рейтинг","📚 Кутубхона","👥 Гуруҳлар","🔔 Билдиришномалар"],
-        "ru": ["🏠 Главная","📊 Статистика","🏅 Достижения","🏆 Рейтинг","📚 Библиотека","👥 Группы","🔔 Уведомления"],
-    }.get(lang, None)
-    if L is None:
-        L = ["🏠 Bosh sahifa","📊 Statistika","🏅 Yutuqlar","🏆 Reyting","📚 Kutubxona","👥 Guruhlar","🔔 Bildirishnomalar"]
-    paths = ["/","/stats","/achievements","/leaderboard","/library","/my-groups","/notifications"]
-    links = "".join([f'<a href="{p}?token={token}">{name}</a>' for p, name in zip(paths, L)])
+        "uz": [
+            "🏠", "📊", "🏅", "🏆", "📚", "👥", "🔔",
+            "🃏", "💎", "⚔️", "🤝", "📜"
+        ],
+        "uz_cyrl": [
+            "🏠", "📊", "🏅", "🏆", "📚", "👥", "🔔",
+            "🃏", "💎", "⚔️", "🤝", "📜"
+        ],
+        "ru": [
+            "🏠", "📊", "🏅", "🏆", "📚", "👥", "🔔",
+            "🃏", "💎", "⚔️", "🤝", "📜"
+        ],
+    }.get(lang, ["🏠","📊","🏅","🏆","📚","👥","🔔","🃏","💎","⚔️","🤝","📜"])
+
+    titles = {
+        "uz":     ["Bosh sahifa","Statistika","Yutuqlar","Reyting","Kutubxona","Guruhlar","Bildirishnomalar","Flashcards","Staking","Challenge","Hamkor","Sertifikatlar"],
+        "uz_cyrl":["Бош саҳифа","Статистика","Ютуқлар","Рейтинг","Кутубхона","Гуруҳлар","Билдиришномалар","Флэшкардлар","Стейкинг","Челлендж","Ҳамкор","Сертификатлар"],
+        "ru":     ["Главная","Статистика","Достижения","Рейтинг","Библиотека","Группы","Уведомления","Флэшкарты","Стейкинг","Челлендж","Партнёр","Сертификаты"],
+    }.get(lang, ["Bosh sahifa","Statistika","Yutuqlar","Reyting","Kutubxona","Guruhlar","Bildirishnomalar","Flashcards","Staking","Challenge","Hamkor","Sertifikatlar"])
+
+    paths = [
+        "/", "/stats", "/achievements", "/leaderboard",
+        "/library", "/my-groups", "/notifications",
+        "/flashcards", "/staking", "/challenges", "/affiliate", "/my-certs"
+    ]
+
+    links = "".join([
+        f'<a href="{p}?token={token}" title="{t}">{icon}</a>'
+        for p, icon, t in zip(paths, L, titles)
+    ])
     return f'<div class="nav">{links}</div>'
 
 @app.route("/stats")
@@ -5460,6 +5482,68 @@ def api_staking_unstake():
     if not ok:
         return jsonify({"success": False, "error": result}), 400
     return jsonify({"success": True, "result": result})
+
+# ============================================================
+# 📜 MY CERTIFICATES (Foydalanuvchi sertifikatlari sahifasi)
+# ============================================================
+@app.route("/my-certs")
+def web_my_certs():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401)
+    uid = int(user["user_id"])
+    certs = db.get_user_certificates(uid)
+
+    lbl = {"ru": "Мои сертификаты", "uz_cyrl": "Менинг сертификатларим"}.get(lang, "Mening sertifikatlarim")
+    no_cert = {"ru": "Нет сертификатов", "uz_cyrl": "Сертификат йўқ"}.get(lang, "Hali sertifikat yo'q")
+    lbl_view = {"ru": "Посмотреть", "uz_cyrl": "Кўриш"}.get(lang, "Ko'rish")
+    lbl_print = {"ru": "Распечатать", "uz_cyrl": "Чоп этиш"}.get(lang, "Chop etish")
+
+    rows = ""
+    for cert in certs:
+        cert = dict(cert)
+        from datetime import datetime as _dt
+        issued = _dt.fromtimestamp(int(cert.get('issued_at') or 0), tz=TZ).strftime("%d.%m.%Y")
+        score = float(cert.get('score') or 0)
+        title = html.escape(cert.get('title') or 'Test')
+        code = cert.get('cert_code', '')
+        cert_url = f"/cert/{code}"
+        rows += f"""<div class="row" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <div><b>🏅 {title}</b><br>
+          <span style="color:#a0aec0;font-size:13px">
+            🎯 {score:g} ball · 📅 {issued}
+          </span></div>
+          <div style="display:flex;gap:8px">
+            <a class="btn" href="{cert_url}" target="_blank"
+              style="background:rgba(56,211,159,.15);color:#38d39f;border-color:rgba(56,211,159,.3);padding:8px 14px;text-decoration:none">
+              👀 {lbl_view}
+            </a>
+            <code style="background:rgba(0,0,0,.3);padding:6px 10px;border-radius:6px;font-size:12px;color:#a0aec0">
+              #{html.escape(code)}
+            </code>
+          </div>
+        </div>"""
+
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📜 {lbl}</h1>
+      <div class="card">
+        {rows if rows else f'<div class="empty">{no_cert}</div>'}
+      </div>
+      <div class="card" style="background:rgba(56,211,159,.05)">
+        <h2>ℹ️ {"Как получить сертификат?" if lang=="ru" else ("Сертификат қандай олинади?" if lang=="uz_cyrl" else "Sertifikat qanday olinadi?")}</h2>
+        <p style="color:#a0aec0;font-size:14px;margin-top:8px">
+          {"Пройдите тест и получите высокий балл — сертификат выдаётся автоматически." if lang=="ru" else
+           ("Тестни ишланг ва юқори балл олинг — сертификат автоматик берилади." if lang=="uz_cyrl" else
+            "Testni ishlang va yuqori ball oling — sertifikat avtomatik beriladi.")}
+        </p>
+      </div>
+    </div>
+    """
+    return html_page
 
 # ============================================================
 # TASK 6: CHALLENGE WEB, FREE-TEXT, SAVOL REPORT
