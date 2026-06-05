@@ -68,18 +68,6 @@ SUPERADMINS = {int(x) for x in (os.getenv("SUPERADMINS", "") or "").split(",") i
 LOWER_ADMINS = {int(x) for x in (os.getenv("LOWER_ADMINS", "") or "").split(",") if x.strip().isdigit()}
 
 ADMIN_CARD = os.getenv("ADMIN_CARD", "0000 0000 0000 0000 (Ism Familiya)")
-
-# Majburiy kanallarni bazadan yuklash funksiyasi
-def load_required_channels_from_db():
-    """Bazadan aktiv kanallarni yuklash"""
-    try:
-        return db.get_active_channel_ids()
-    except Exception as e:
-        logging.error(f"Kanallarni yuklashda xato: {e}")
-        return []
-
-# Boshlang'ich yuklash
-REQUIRED_CHANNELS = load_required_channels_from_db()
 PUBLIC_TEST_CHANNEL = os.getenv("PUBLIC_TEST_CHANNEL", "@your_public_channel")
 
 try:
@@ -95,7 +83,20 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 resend.api_key = RESEND_API_KEY
 
+# db avval yaratilishi kerak, keyin kanallar yuklanadi
 db = DB()
+
+# Majburiy kanallarni bazadan yuklash funksiyasi
+def load_required_channels_from_db():
+    """Bazadan aktiv kanallarni yuklash"""
+    try:
+        return db.get_active_channel_ids()
+    except Exception as e:
+        logging.error(f"Kanallarni yuklashda xato: {e}")
+        return []
+
+# db yaratilgandan KEYIN yuklash
+REQUIRED_CHANNELS = load_required_channels_from_db()
 
 # ==========================================
 # POCHTAGA KOD YUBORISH
