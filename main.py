@@ -1902,6 +1902,437 @@ async def cmd_ai_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lang, f"✅ Test tayyor!\n\n📝 <b>{h(title)}</b>\n❓ Savollar: {len(questions)}")
     await status.edit_text(done, reply_markup=kb, parse_mode=ParseMode.HTML)
 
+# ==========================================
+# 📢 BROADCAST (OMMAVIY XABAR)
+# ==========================================
+async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin barcha foydalanuvchilarga xabar yuboradi: /broadcast <xabar>"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text(get_bot_text('admin_only', lang))
+        return
+    if not context.args:
+        txt = {"ru": "📢 Foydalanish:\n/broadcast Xabar matni\n\nYoki /broadcastphoto rasm bilan",
+               "uz_cyrl": "📢 Фойдаланиш:\n/broadcast Хабар матни"}.get(
+               lang, "📢 Foydalanish:\n/broadcast Xabar matni\n\n/broadcastall - barchaga\n/broadcastpremium - faqat premium")
+        await update.message.reply_text(txt)
+        return
+
+    text = " ".join(context.args)
+    # Target aniqlash
+    cmd = update.message.text.split()[0].lower()
+    if "premium" in cmd:
+        target = "premium"
+        user_ids = db.get_all_user_ids(status_filter="premium")
+    else:
+        target = "all"
+        user_ids = db.get_all_user_ids()
+
+    broadcast_id = db.create_broadcast(user_id, text, target=target)
+
+    wait = await update.message.reply_text(
+        f"⏳ Yuborilmoqda... Jami: <b>{len(user_ids)}</b> ta foydalanuvchi",
+        parse_mode=ParseMode.HTML
+    )
+
+    sent = fail = 0
+    BATCH = 25
+    for i, uid in enumerate(user_ids):
+        try:
+            await context.bot.send_message(
+                chat_id=uid, text=text, parse_mode=ParseMode.HTML
+            )
+            sent += 1
+        except Exception:
+            fail += 1
+        # Har 25 ta xabarda progress yangilash
+        if (i + 1) % BATCH == 0:
+            try:
+                await wait.edit_text(
+                    f"⏳ Yuborilmoqda... {i+1}/{len(user_ids)}\n✅ {sent} | ❌ {fail}",
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception:
+                pass
+        # Telegram rate limit: 25/soniya
+        if (i + 1) % 25 == 0:
+            await asyncio.sleep(1)
+
+    db.update_broadcast_stats(broadcast_id, sent=sent, fail=fail, status='done')
+    await wait.edit_text(
+        f"✅ <b>Broadcast yakunlandi!</b>\n\n"
+        f"👥 Jami: <b>{len(user_ids)}</b>\n"
+        f"✅ Yuborildi: <b>{sent}</b>\n"
+        f"❌ Xato: <b>{fail}</b>",
+        parse_mode=ParseMode.HTML
+    )
+
+# ==========================================
+# 📋 TEST NUSXALASH
+# ==========================================
+async def cmd_copy_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/copytest <test_id> - Testni nusxalash"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args:
+        await update.message.reply_text(
+            "📋 Foydalanish: /copytest <test_id>\n\nTest ID ni test boshqaruv sahifasidan topishingiz mumkin.",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    test_id = context.args[0].strip()
+    test = db.get_test(test_id)
+    if not test:
+        await update.message.reply_text(get_bot_text('test_not_found', lang))
+        return
+    test = dict(test)
+    # Faqat egasi yoki admin nusxalay oladi
+    if int(test.get('owner_user_id', 0)) != user_id and user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Siz faqat o'z testingizni nusxalay olasiz!")
+        return
+
+    new_id = db.copy_test(test_id, user_id)
+    if not new_id:
+        await update.message.reply_text("❌ Nusxalashda xato yuz berdi.")
+        return
+
+    token = db.get_or_create_user_api_key(user_id)
+    test_url = f"{WEB_BASE_URL.rstrip('/')}/test/{new_id}?token={token}"
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("⚙️ Testni boshqarish", web_app=WebAppInfo(url=test_url))]])
+    await update.message.reply_text(
+        f"✅ <b>Test muvaffaqiyatli nusxalandi!</b>\n\n"
+        f"📝 Asl test: <b>{h(test.get('title'))}</b>\n"
+        f"🆕 Yangi test ID: <code>{new_id}</code>",
+        reply_markup=kb, parse_mode=ParseMode.HTML
+    )
+
+# ==========================================
+# 🔗 VAQTINCHALIK HAVOLA
+# ==========================================
+async def cmd_temp_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/templink <test_id> [soat] [max_foydalanish] - Vaqtinchalik havola"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args:
+        await update.message.reply_text(
+            "🔗 <b>Vaqtinchalik havola yaratish</b>\n\n"
+            "Foydalanish: <code>/templink test_id soat max_use</code>\n\n"
+            "Misol: <code>/templink abc123 24 100</code>\n"
+            "(24 soatlik, maksimal 100 marta ishlatilsin)",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    test_id = context.args[0].strip()
+    hours = int(context.args[1]) if len(context.args) > 1 else 24
+    max_uses = int(context.args[2]) if len(context.args) > 2 else 0
+
+    test = db.get_test(test_id)
+    if not test:
+        await update.message.reply_text(get_bot_text('test_not_found', lang))
+        return
+    if int(dict(test).get('owner_user_id', 0)) != user_id and user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Faqat o'z testingiz uchun havola yarata olasiz!")
+        return
+
+    token_link = db.create_temp_link(test_id, user_id, expires_hours=hours, max_uses=max_uses)
+    link_url = f"{WEB_BASE_URL.rstrip('/')}/t/{token_link}"
+
+    max_txt = f"• Maksimal foydalanish: <b>{max_uses}</b> marta\n" if max_uses else ""
+    await update.message.reply_text(
+        f"🔗 <b>Vaqtinchalik havola tayyor!</b>\n\n"
+        f"📝 Test: <b>{h(dict(test).get('title'))}</b>\n"
+        f"⏰ Muddati: <b>{hours}</b> soat\n"
+        f"{max_txt}"
+        f"\n🌐 Havola:\n<code>{link_url}</code>",
+        parse_mode=ParseMode.HTML
+    )
+
+# ==========================================
+# 🃏 FLASHCARD
+# ==========================================
+async def cmd_flashcard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/flashcard - Flashcard to'plamlari"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    token = db.get_or_create_user_api_key(user_id)
+    url = f"{WEB_BASE_URL.rstrip('/')}/flashcards?token={token}"
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("🃏 Flashcardlarni ochish", web_app=WebAppInfo(url=url))]])
+    txt = {
+        "ru": "🃏 <b>Flashcards</b>\n\nИзучайте слова и понятия с помощью карточек.",
+        "uz_cyrl": "🃏 <b>Флэшкардлар</b>\n\nКартлар ёрдамида билимларингизни мустаҳкамланг."
+    }.get(lang, "🃏 <b>Flashcardlar</b>\n\nKartlar yordamida bilimlaringizni mustahkamlang.")
+    await update.message.reply_text(txt, reply_markup=kb, parse_mode=ParseMode.HTML)
+
+async def cmd_new_flashset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/newflashset <nom> - Yangi flashcard to'plami"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args:
+        await update.message.reply_text("❌ Foydalanish: /newflashset To'plam nomi")
+        return
+    title = " ".join(context.args).strip()[:100]
+    set_id = db.create_flashcard_set(user_id, title)
+    await update.message.reply_text(
+        f"✅ <b>'{h(title)}'</b> to'plami yaratildi!\n\n"
+        f"🆔 To'plam ID: <code>{set_id}</code>\n\n"
+        f"Karta qo'shish: /addcard {set_id} [old] | [orqa]",
+        parse_mode=ParseMode.HTML
+    )
+
+async def cmd_add_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/addcard <set_id> savol | javob - Flashcard qo'shish"""
+    user_id = update.effective_user.id
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "❌ Foydalanish: /addcard <set_id> Savol | Javob\n\nMisol: /addcard 5 Capital of France | Paris"
+        )
+        return
+    try:
+        set_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ To'plam ID raqam bo'lishi kerak.")
+        return
+
+    rest = " ".join(context.args[1:])
+    if "|" not in rest:
+        await update.message.reply_text("❌ Savol va javobni | bilan ajrating.\nMisol: /addcard 5 Savol | Javob")
+        return
+    front, back = rest.split("|", 1)
+    card_id = db.add_flashcard(set_id, front.strip(), back.strip())
+    await update.message.reply_text(
+        f"✅ Karta qo'shildi!\n🃏 <b>{h(front.strip())}</b> → <i>{h(back.strip())}</i>",
+        parse_mode=ParseMode.HTML
+    )
+
+# ==========================================
+# 🤖 AI IZOH VA TARJIMA
+# ==========================================
+def ai_explain_question(question: str, correct_answer: str, lang: str = "uz") -> str:
+    """AI orqali savol uchun izoh oladi"""
+    if not GROQ_API_KEY:
+        return ""
+    lang_map = {"ru": "Russian", "uz_cyrl": "Uzbek (Cyrillic)", "uz": "Uzbek (Latin)"}
+    lang_name = lang_map.get(lang, "Uzbek (Latin)")
+    prompt = (
+        f"Quyidagi test savoliga qisqa va aniq izoh bering ({lang_name} tilida, 3-5 gap):\n\n"
+        f"Savol: {question}\n"
+        f"To'g'ri javob: {correct_answer}\n\n"
+        f"Nima uchun bu javob to'g'ri ekanligini tushuntiring."
+    )
+    try:
+        headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+        data = {
+            "model": GROQ_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.5,
+            "max_tokens": 300
+        }
+        res = requests.post(GROQ_URL, headers=headers, json=data, timeout=30)
+        res.raise_for_status()
+        return res.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logging.error(f"AI izoh xatosi: {e}")
+        return ""
+
+def ai_translate_text(text: str, target_lang: str = "ru") -> str:
+    """AI orqali matnni tarjima qiladi"""
+    if not GROQ_API_KEY:
+        return text
+    lang_map = {"ru": "Russian", "en": "English", "uz": "Uzbek (Latin)", "uz_cyrl": "Uzbek (Cyrillic)"}
+    target = lang_map.get(target_lang, target_lang)
+    prompt = f"Translate the following text to {target}. Return ONLY the translation, nothing else:\n\n{text}"
+    try:
+        headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+        data = {
+            "model": GROQ_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "max_tokens": 1000
+        }
+        res = requests.post(GROQ_URL, headers=headers, json=data, timeout=30)
+        res.raise_for_status()
+        return res.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logging.error(f"AI tarjima xatosi: {e}")
+        return text
+
+async def cmd_translate_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/translatetest <test_id> <til> - Testni tarjima qilish (ru/en)"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "🌐 <b>Test tarjimasi</b>\n\n"
+            "Foydalanish: /translatetest <test_id> <til>\n"
+            "Tillar: <code>ru</code> (Rus) | <code>en</code> (Ingliz)\n\n"
+            "Misol: /translatetest abc123 ru",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    test_id = context.args[0].strip()
+    target_lang = context.args[1].strip().lower()
+    if target_lang not in ("ru", "en"):
+        await update.message.reply_text("❌ Faqat 'ru' (rus) yoki 'en' (ingliz) tili qo'llab-quvvatlanadi.")
+        return
+
+    test = db.get_test(test_id)
+    if not test:
+        await update.message.reply_text(get_bot_text('test_not_found', lang))
+        return
+    test = dict(test)
+    if int(test.get('owner_user_id', 0)) != user_id and user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Faqat o'z testingizni tarjima qilishingiz mumkin!")
+        return
+
+    status = await update.message.reply_text("🌐 AI tarjima qilmoqda... ⏳")
+
+    # Savollarni olish
+    with db._conn() as c:
+        qs = c.execute("SELECT * FROM questions WHERE test_id=%s ORDER BY q_index", (test_id,)).fetchall()
+
+    if not qs:
+        await status.edit_text("❌ Testda savollar topilmadi.")
+        return
+
+    # Yangi test yaratish (tarjima)
+    new_id = uuid.uuid4().hex[:10]
+    lang_name = "Rus" if target_lang == "ru" else "Ingliz"
+    new_title = await asyncio.to_thread(ai_translate_text, test.get('title', 'Test'), target_lang)
+    db.create_test(new_id, user_id, user_id, f"[{lang_name}] {new_title}", 60, now_ts())
+
+    # Har bir savolni tarjima qilish
+    translated = 0
+    for q in qs:
+        q = dict(q)
+        t_question = await asyncio.to_thread(ai_translate_text, q['question'], target_lang)
+        options = json.loads(q['options_json'] or '[]')
+        t_options = []
+        for opt in options:
+            t_opt = await asyncio.to_thread(ai_translate_text, opt, target_lang)
+            t_options.append(t_opt)
+        db.add_question(new_id, q['q_index'], t_question, t_options, q['correct_index'])
+        translated += 1
+
+    token = db.get_or_create_user_api_key(user_id)
+    test_url = f"{WEB_BASE_URL.rstrip('/')}/test/{new_id}?token={token}"
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("⚙️ Boshqarish", web_app=WebAppInfo(url=test_url))]])
+    await status.edit_text(
+        f"✅ <b>Tarjima yakunlandi!</b>\n\n"
+        f"📝 Til: <b>{lang_name}</b>\n"
+        f"❓ Savollar: <b>{translated}</b> ta\n"
+        f"🆔 Yangi test: <code>{new_id}</code>",
+        reply_markup=kb, parse_mode=ParseMode.HTML
+    )
+
+# ==========================================
+# 📊 XATO TAHLILI (Error Analysis)
+# ==========================================
+async def cmd_error_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/myerrors - Foydalanuvchining eng ko'p xato qilgan savollarini ko'rsatish"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+
+    with db._conn() as c:
+        errors = c.execute("""
+            SELECT q.question, q.options_json, q.correct_index,
+                   COUNT(*) as total, SUM(a.is_correct) as correct_cnt,
+                   t.title as test_title
+            FROM answers a
+            JOIN sessions s ON a.session_id = s.session_id
+            JOIN questions q ON s.test_id = q.test_id AND a.q_index = q.q_index
+            JOIN tests t ON s.test_id = t.test_id
+            WHERE s.user_id = %s AND a.is_correct = 0
+            GROUP BY s.test_id, a.q_index
+            ORDER BY total DESC
+            LIMIT 10
+        """, (user_id,)).fetchall()
+
+    if not errors:
+        empty = {"ru": "🎉 Отлично! Ошибок не найдено.", "uz_cyrl": "🎉 Ажойиб! Хато топилмади."}.get(
+            lang, "🎉 Ajoyib! Hato topilmadi.")
+        await update.message.reply_text(empty)
+        return
+
+    title = {"ru": "📊 <b>Ваши частые ошибки (ТОП-10)</b>",
+             "uz_cyrl": "📊 <b>Сизнинг кўп хатоларингиз (ТОП-10)</b>"}.get(
+        lang, "📊 <b>Sizning ko'p xatolaringiz (TOP-10)</b>")
+    lines = [title, ""]
+    for i, e in enumerate(errors, 1):
+        e = dict(e)
+        options = json.loads(e['options_json'] or '[]')
+        ci = int(e['correct_index'] or 0)
+        correct_opt = options[ci] if ci < len(options) else "?"
+        lines.append(
+            f"{i}. <b>{h(e['question'][:80])}</b>\n"
+            f"   ✅ To'g'ri: <i>{h(correct_opt)}</i>\n"
+            f"   📌 Test: {h(e['test_title'])}"
+        )
+    await update.message.reply_text("\n\n".join(lines), parse_mode=ParseMode.HTML)
+
+# ==========================================
+# 🤝 AFFILIATE
+# ==========================================
+async def cmd_affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/affiliate - Hamkor dasturi ma'lumotlari"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    aff = db.get_or_create_affiliate(user_id)
+    stats = db.get_affiliate_stats(user_id) or aff
+
+    ref_link = f"https://t.me/{context.bot.username}?start=ref_{user_id}"
+    txt = {
+        "ru": (f"🤝 <b>Партнёрская программа</b>\n\n"
+               f"🔑 Ваш код: <code>{aff['ref_code']}</code>\n"
+               f"🔗 Ваша ссылка:\n<code>{ref_link}</code>\n\n"
+               f"👥 Рефералов: <b>{stats.get('referral_count', 0)}</b>\n"
+               f"💎 Из них Premium: <b>{stats.get('premium_referrals', 0)}</b>\n"
+               f"💰 Заработано: <b>{float(aff.get('total_earned', 0)):.2f}</b> GWT"),
+        "uz_cyrl": (f"🤝 <b>Ҳамкор дастури</b>\n\n"
+                    f"🔑 Кодингиз: <code>{aff['ref_code']}</code>\n"
+                    f"🔗 Ҳаволангиз:\n<code>{ref_link}</code>\n\n"
+                    f"👥 Рефераллар: <b>{stats.get('referral_count', 0)}</b>\n"
+                    f"💰 Топилган: <b>{float(aff.get('total_earned', 0)):.2f}</b> GWT")
+    }.get(lang,
+        f"🤝 <b>Hamkor dasturi</b>\n\n"
+        f"🔑 Kodingiz: <code>{aff['ref_code']}</code>\n"
+        f"🔗 Havolangiz:\n<code>{ref_link}</code>\n\n"
+        f"👥 Referal soni: <b>{stats.get('referral_count', 0)}</b>\n"
+        f"💎 Premium refelar: <b>{stats.get('premium_referrals', 0)}</b>\n"
+        f"💰 Jami topilgan: <b>{float(aff.get('total_earned', 0)):.2f}</b> GWT"
+    )
+    await update.message.reply_text(txt, parse_mode=ParseMode.HTML)
+
+# ==========================================
+# 🏆 SERTIFIKAT
+# ==========================================
+async def cmd_mycerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/mycerts - Mening sertifikatlarim"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    certs = db.get_user_certificates(user_id)
+    if not certs:
+        empty = {"ru": "📜 У вас пока нет сертификатов.\n\nПройдите тесты чтобы получить сертификат!",
+                 "uz_cyrl": "📜 Сизда ҳали сертификатлар йўқ."}.get(
+            lang, "📜 Sizda hali sertifikatlar yo'q.\n\nTestlarni yechib sertifikat oling!")
+        await update.message.reply_text(empty)
+        return
+
+    title = {"ru": "📜 <b>Мои сертификаты</b>",
+             "uz_cyrl": "📜 <b>Менинг сертификатларим</b>"}.get(lang, "📜 <b>Mening sertifikatlarim</b>")
+    lines = [title, ""]
+    for cert in certs:
+        cert = dict(cert)
+        cert_url = f"{WEB_BASE_URL.rstrip('/')}/cert/{cert['cert_code']}"
+        lines.append(
+            f"🏅 <b>{h(cert.get('title', '?'))}</b>\n"
+            f"   🎯 Ball: {cert.get('score', 0)}\n"
+            f"   🔑 Kod: <code>{cert.get('cert_code')}</code>\n"
+            f"   🔗 <a href='{cert_url}'>Sertifikatni ko'rish</a>"
+        )
+    await update.message.reply_text("\n\n".join(lines), parse_mode=ParseMode.HTML,
+                                     disable_web_page_preview=True)
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         try:
@@ -5074,6 +5505,30 @@ if __name__ == "__main__":
 
     # AI Test Generator
     app.add_handler(CommandHandler("aitest", cmd_ai_test))
+
+    # Broadcast
+    app.add_handler(CommandHandler(["broadcast", "broadcastall", "broadcastpremium"], cmd_broadcast))
+
+    # Test nusxalash va vaqtinchalik havola
+    app.add_handler(CommandHandler("copytest", cmd_copy_test))
+    app.add_handler(CommandHandler("templink", cmd_temp_link))
+
+    # Flashcard
+    app.add_handler(CommandHandler("flashcard", cmd_flashcard))
+    app.add_handler(CommandHandler("newflashset", cmd_new_flashset))
+    app.add_handler(CommandHandler("addcard", cmd_add_card))
+
+    # AI izoh va tarjima
+    app.add_handler(CommandHandler("translatetest", cmd_translate_test))
+
+    # Xato tahlili
+    app.add_handler(CommandHandler(["myerrors", "xatolarim"], cmd_error_analysis))
+
+    # Affiliate
+    app.add_handler(CommandHandler(["affiliate", "hamkor"], cmd_affiliate))
+
+    # Sertifikat
+    app.add_handler(CommandHandler(["mycerts", "sertifikatlarim"], cmd_mycerts))
 
     # 3. Tugmalar va Matnlar (Messages & Callbacks)
     app.add_handler(CallbackQueryHandler(on_callback))

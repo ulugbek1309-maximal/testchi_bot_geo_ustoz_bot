@@ -382,7 +382,7 @@ class DB:
                 PRIMARY KEY (user_id, test_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
 
-            # 28. Savol bo'yicha javob statistikasi (qaysi savol ko'p xato qilingan)
+            # 28. Savol bo'yicha javob statistikasi
             c.execute('''CREATE TABLE IF NOT EXISTS question_stats (
                 test_id VARCHAR(50),
                 q_index INT,
@@ -390,6 +390,207 @@ class DB:
                 correct_answers INT DEFAULT 0,
                 PRIMARY KEY (test_id, q_index)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 29. Broadcast xabarlari
+            c.execute('''CREATE TABLE IF NOT EXISTS broadcasts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                admin_id BIGINT,
+                message TEXT,
+                media_id VARCHAR(255),
+                media_type VARCHAR(20),
+                target VARCHAR(50) DEFAULT 'all',
+                sent_count INT DEFAULT 0,
+                fail_count INT DEFAULT 0,
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 30. Vaqtinchalik havolalar (test uchun)
+            c.execute('''CREATE TABLE IF NOT EXISTS temp_links (
+                token VARCHAR(64) PRIMARY KEY,
+                test_id VARCHAR(50),
+                created_by BIGINT,
+                expires_at BIGINT,
+                max_uses INT DEFAULT 0,
+                use_count INT DEFAULT 0,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 31. Savol banki
+            c.execute('''CREATE TABLE IF NOT EXISTS question_bank (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                owner_id BIGINT,
+                question TEXT,
+                options_json TEXT,
+                correct_index INT,
+                photo_id VARCHAR(255),
+                category_id INT DEFAULT NULL,
+                tags VARCHAR(255),
+                use_count INT DEFAULT 0,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 32. Sertifikatlar
+            c.execute('''CREATE TABLE IF NOT EXISTS certificates (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT,
+                test_id VARCHAR(50),
+                session_id VARCHAR(64),
+                score DECIMAL(10,2),
+                cert_code VARCHAR(32) UNIQUE,
+                issued_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 33. O'quv rejalari (haftalik jadval)
+            c.execute('''CREATE TABLE IF NOT EXISTS study_plans (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                group_id VARCHAR(50),
+                week_start DATE,
+                day_of_week TINYINT,
+                test_id VARCHAR(50),
+                note VARCHAR(255),
+                created_by BIGINT,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 34. Reklamalar boshqaruvi
+            c.execute('''CREATE TABLE IF NOT EXISTS advertisements (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(255),
+                body TEXT,
+                media_id VARCHAR(255),
+                media_type VARCHAR(20),
+                url VARCHAR(500),
+                target VARCHAR(50) DEFAULT 'all',
+                show_count INT DEFAULT 0,
+                click_count INT DEFAULT 0,
+                is_active TINYINT DEFAULT 1,
+                starts_at BIGINT,
+                ends_at BIGINT,
+                created_by BIGINT,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 35. Reklama ko'rishlar (duplicate oldini olish)
+            c.execute('''CREATE TABLE IF NOT EXISTS ad_impressions (
+                ad_id INT,
+                user_id BIGINT,
+                seen_at BIGINT,
+                clicked TINYINT DEFAULT 0,
+                PRIMARY KEY (ad_id, user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 36. Affiliate (hamkor) tizimi
+            c.execute('''CREATE TABLE IF NOT EXISTS affiliates (
+                user_id BIGINT PRIMARY KEY,
+                ref_code VARCHAR(20) UNIQUE,
+                total_referrals INT DEFAULT 0,
+                total_earned DECIMAL(10,2) DEFAULT 0,
+                balance DECIMAL(10,2) DEFAULT 0,
+                is_active TINYINT DEFAULT 1,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 37. 2FA kodlari
+            c.execute('''CREATE TABLE IF NOT EXISTS twofa_codes (
+                user_id BIGINT,
+                phone VARCHAR(20),
+                code VARCHAR(10),
+                expires_at BIGINT,
+                verified TINYINT DEFAULT 0,
+                PRIMARY KEY (user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 38. Ban sabablari
+            c.execute('''CREATE TABLE IF NOT EXISTS ban_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT,
+                admin_id BIGINT,
+                reason TEXT,
+                action VARCHAR(20) DEFAULT 'ban',
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 39. IP Whitelist
+            c.execute('''CREATE TABLE IF NOT EXISTS ip_whitelist (
+                ip VARCHAR(50) PRIMARY KEY,
+                label VARCHAR(100),
+                added_by BIGINT,
+                added_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 40. A/B Test variantlari
+            c.execute('''CREATE TABLE IF NOT EXISTS ab_tests (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                test_id VARCHAR(50),
+                q_index INT,
+                variant_a TEXT,
+                variant_b TEXT,
+                options_a_json TEXT,
+                options_b_json TEXT,
+                correct_a INT,
+                correct_b INT,
+                a_count INT DEFAULT 0,
+                b_count INT DEFAULT 0,
+                a_correct INT DEFAULT 0,
+                b_correct INT DEFAULT 0,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 41. Flashcard to'plamlari
+            c.execute('''CREATE TABLE IF NOT EXISTS flashcard_sets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                owner_id BIGINT,
+                title VARCHAR(255),
+                description TEXT,
+                category_id INT DEFAULT NULL,
+                is_public TINYINT DEFAULT 0,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 42. Flashcard kartalar
+            c.execute('''CREATE TABLE IF NOT EXISTS flashcards (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                set_id INT,
+                front TEXT,
+                back TEXT,
+                hint TEXT,
+                photo_id VARCHAR(255),
+                difficulty TINYINT DEFAULT 1,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 43. Flashcard foydalanish tarixi
+            c.execute('''CREATE TABLE IF NOT EXISTS flashcard_progress (
+                user_id BIGINT,
+                card_id INT,
+                correct_count INT DEFAULT 0,
+                wrong_count INT DEFAULT 0,
+                last_seen BIGINT,
+                PRIMARY KEY (user_id, card_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 44. AI izohlar (savol bo'yicha)
+            c.execute('''CREATE TABLE IF NOT EXISTS ai_explanations (
+                test_id VARCHAR(50),
+                q_index INT,
+                explanation TEXT,
+                lang VARCHAR(10) DEFAULT 'uz',
+                created_at BIGINT,
+                PRIMARY KEY (test_id, q_index, lang)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 45. Migratsiyalar: yangi ustunlar
+            try: c.execute("ALTER TABLE users ADD COLUMN phone VARCHAR(20) DEFAULT NULL;")
+            except: pass
+            try: c.execute("ALTER TABLE users ADD COLUMN twofa_enabled TINYINT DEFAULT 0;")
+            except: pass
+            try: c.execute("ALTER TABLE users ADD COLUMN ban_reason TEXT DEFAULT NULL;")
+            except: pass
+            try: c.execute("ALTER TABLE tests ADD COLUMN ab_enabled TINYINT DEFAULT 0;")
+            except: pass
+            try: c.execute("ALTER TABLE tests ADD COLUMN has_certificate TINYINT DEFAULT 0;")
+            except: pass
 
             # ==============================================================
             # 🔗 BLOKCHEYN VA HAMYONLAR JADVALLARI
@@ -1776,3 +1977,483 @@ class DB:
         except Exception as e:
             logging.error(f"process_test_completion xatosi: {e}")
         return result
+
+
+    # ================= 📢 BROADCAST =================
+    def create_broadcast(self, admin_id, message, media_id=None, media_type=None, target='all'):
+        with self._conn() as c:
+            c.execute("""INSERT INTO broadcasts (admin_id, message, media_id, media_type, target, status, created_at)
+                VALUES (%s,%s,%s,%s,%s,'pending',%s)""",
+                (admin_id, message, media_id, media_type, target, int(time.time())))
+            return c.lastrowid
+
+    def update_broadcast_stats(self, broadcast_id, sent=0, fail=0, status=None):
+        with self._conn() as c:
+            if status:
+                c.execute("UPDATE broadcasts SET sent_count=sent_count+%s, fail_count=fail_count+%s, status=%s WHERE id=%s",
+                          (sent, fail, status, broadcast_id))
+            else:
+                c.execute("UPDATE broadcasts SET sent_count=sent_count+%s, fail_count=fail_count+%s WHERE id=%s",
+                          (sent, fail, broadcast_id))
+
+    def get_broadcasts(self, limit=20):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM broadcasts ORDER BY created_at DESC LIMIT %s", (limit,)).fetchall()
+
+    def get_all_user_ids(self, status_filter=None):
+        with self._conn() as c:
+            if status_filter:
+                return [r['user_id'] for r in c.execute(
+                    "SELECT user_id FROM users WHERE status=%s", (status_filter,)).fetchall()]
+            return [r['user_id'] for r in c.execute("SELECT user_id FROM users").fetchall()]
+
+    # ================= 🔗 VAQTINCHALIK HAVOLALAR =================
+    def create_temp_link(self, test_id, created_by, expires_hours=24, max_uses=0):
+        import secrets
+        token = secrets.token_urlsafe(32)
+        expires_at = int(time.time()) + expires_hours * 3600
+        with self._conn() as c:
+            c.execute("""INSERT INTO temp_links (token, test_id, created_by, expires_at, max_uses, use_count, created_at)
+                VALUES (%s,%s,%s,%s,%s,0,%s)""",
+                (token, test_id, created_by, expires_at, max_uses, int(time.time())))
+        return token
+
+    def get_temp_link(self, token):
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM temp_links WHERE token=%s", (token,)).fetchone()
+            if not row: return None
+            row = dict(row)
+            if row['expires_at'] < int(time.time()): return None
+            if row['max_uses'] > 0 and row['use_count'] >= row['max_uses']: return None
+            return row
+
+    def use_temp_link(self, token):
+        with self._conn() as c:
+            c.execute("UPDATE temp_links SET use_count=use_count+1 WHERE token=%s", (token,))
+
+    def get_test_temp_links(self, test_id):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM temp_links WHERE test_id=%s ORDER BY created_at DESC", (test_id,)).fetchall()
+
+    def delete_temp_link(self, token):
+        with self._conn() as c:
+            c.execute("DELETE FROM temp_links WHERE token=%s", (token,))
+
+    # ================= 📦 SAVOL BANKI =================
+    def add_to_question_bank(self, owner_id, question, options, correct_index, photo_id=None, category_id=None, tags=None):
+        with self._conn() as c:
+            c.execute("""INSERT INTO question_bank
+                (owner_id, question, options_json, correct_index, photo_id, category_id, tags, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (owner_id, question, json.dumps(options, ensure_ascii=False),
+                 correct_index, photo_id, category_id, tags, int(time.time())))
+            return c.lastrowid
+
+    def get_question_bank(self, owner_id=None, category_id=None, limit=50):
+        with self._conn() as c:
+            sql = "SELECT * FROM question_bank WHERE 1=1"
+            params = []
+            if owner_id:
+                sql += " AND owner_id=%s"
+                params.append(owner_id)
+            if category_id:
+                sql += " AND category_id=%s"
+                params.append(category_id)
+            sql += " ORDER BY created_at DESC LIMIT %s"
+            params.append(limit)
+            return c.execute(sql, tuple(params)).fetchall()
+
+    def import_test_to_bank(self, test_id, owner_id):
+        """Testdagi barcha savollarni savol bankiga qo'shadi"""
+        with self._conn() as c:
+            qs = c.execute("SELECT * FROM questions WHERE test_id=%s", (test_id,)).fetchall()
+        added = 0
+        for q in qs:
+            q = dict(q)
+            self.add_to_question_bank(
+                owner_id, q['question'],
+                json.loads(q['options_json'] or '[]'),
+                q['correct_index'], q.get('photo_id')
+            )
+            added += 1
+        return added
+
+    def create_test_from_bank(self, owner_id, question_ids, title, chat_id=None):
+        """Savol bankidan test yaratish"""
+        test_id = uuid.uuid4().hex[:10]
+        chat_id = chat_id or owner_id
+        self.create_test(test_id, owner_id, chat_id, title, 60, int(time.time()))
+        with self._conn() as c:
+            for i, qid in enumerate(question_ids):
+                q = to_dict_safe(c.execute("SELECT * FROM question_bank WHERE id=%s", (qid,)).fetchone())
+                if q:
+                    c.execute("""INSERT INTO questions (test_id, q_index, question, options_json, correct_index, photo_id)
+                        VALUES (%s,%s,%s,%s,%s,%s)""",
+                        (test_id, i, q['question'], q['options_json'], q['correct_index'], q.get('photo_id')))
+                    c.execute("UPDATE question_bank SET use_count=use_count+1 WHERE id=%s", (qid,))
+        return test_id
+
+    # ================= 📋 TEST NUSXALASH =================
+    def copy_test(self, test_id, new_owner_id, new_title=None):
+        """Testni nusxalash"""
+        with self._conn() as c:
+            test = to_dict_safe(c.execute("SELECT * FROM tests WHERE test_id=%s", (test_id,)).fetchone())
+            if not test: return None
+            qs = c.execute("SELECT * FROM questions WHERE test_id=%s ORDER BY q_index", (test_id,)).fetchall()
+
+        new_id = uuid.uuid4().hex[:10]
+        title = new_title or f"[Nusxa] {test['title']}"
+        self.create_test(new_id, new_owner_id, new_owner_id, title,
+                         test.get('per_question_sec', 60), int(time.time()),
+                         scoring_type=test.get('scoring_type','standard'),
+                         time_limit=test.get('time_limit', 0))
+        with self._conn() as c:
+            for q in qs:
+                q = dict(q)
+                c.execute("""INSERT INTO questions (test_id, q_index, question, options_json, correct_index, question_score, photo_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                    (new_id, q['q_index'], q['question'], q['options_json'],
+                     q['correct_index'], q.get('question_score', 1.0), q.get('photo_id')))
+        return new_id
+
+    # ================= 🏆 SERTIFIKATLAR =================
+    def issue_certificate(self, user_id, test_id, session_id, score):
+        """Sertifikat chiqarish (faqat birinchi marta)"""
+        import secrets
+        with self._conn() as c:
+            exists = c.execute(
+                "SELECT cert_code FROM certificates WHERE user_id=%s AND test_id=%s",
+                (user_id, test_id)).fetchone()
+            if exists:
+                return dict(exists)['cert_code']
+            code = secrets.token_hex(8).upper()
+            c.execute("""INSERT INTO certificates (user_id, test_id, session_id, score, cert_code, issued_at)
+                VALUES (%s,%s,%s,%s,%s,%s)""",
+                (user_id, test_id, session_id, score, code, int(time.time())))
+            return code
+
+    def get_certificate(self, cert_code):
+        with self._conn() as c:
+            row = c.execute("""SELECT c.*, t.title, u.first_name, u.username
+                FROM certificates c
+                JOIN tests t ON c.test_id=t.test_id
+                JOIN users u ON c.user_id=u.user_id
+                WHERE c.cert_code=%s""", (cert_code,)).fetchone()
+            return dict(row) if row else None
+
+    def get_user_certificates(self, user_id):
+        with self._conn() as c:
+            return c.execute("""SELECT c.*, t.title FROM certificates c
+                JOIN tests t ON c.test_id=t.test_id
+                WHERE c.user_id=%s ORDER BY c.issued_at DESC""", (user_id,)).fetchall()
+
+    def get_test_certificate_count(self, test_id):
+        with self._conn() as c:
+            r = c.execute("SELECT COUNT(*) as cnt FROM certificates WHERE test_id=%s", (test_id,)).fetchone()
+            return r['cnt'] if r else 0
+
+    # ================= 📅 O'QUV REJASI =================
+    def add_study_plan(self, group_id, week_start, day_of_week, test_id, note, created_by):
+        with self._conn() as c:
+            c.execute("""INSERT INTO study_plans (group_id, week_start, day_of_week, test_id, note, created_by, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (group_id, week_start, day_of_week, test_id, note, created_by, int(time.time())))
+
+    def get_study_plan(self, group_id, week_start=None):
+        with self._conn() as c:
+            if week_start:
+                return c.execute("""SELECT sp.*, t.title FROM study_plans sp
+                    JOIN tests t ON sp.test_id=t.test_id
+                    WHERE sp.group_id=%s AND sp.week_start=%s ORDER BY sp.day_of_week""",
+                    (group_id, week_start)).fetchall()
+            return c.execute("""SELECT sp.*, t.title FROM study_plans sp
+                JOIN tests t ON sp.test_id=t.test_id
+                WHERE sp.group_id=%s ORDER BY sp.week_start DESC, sp.day_of_week""",
+                (group_id,)).fetchall()
+
+    def delete_study_plan_item(self, plan_id):
+        with self._conn() as c:
+            c.execute("DELETE FROM study_plans WHERE id=%s", (plan_id,))
+
+    # ================= 📣 REKLAMALAR =================
+    def create_ad(self, title, body, media_id, media_type, url, target, starts_at, ends_at, created_by):
+        with self._conn() as c:
+            c.execute("""INSERT INTO advertisements
+                (title, body, media_id, media_type, url, target, starts_at, ends_at, created_by, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (title, body, media_id, media_type, url, target, starts_at, ends_at, created_by, int(time.time())))
+            return c.lastrowid
+
+    def get_active_ads(self, user_id=None):
+        now = int(time.time())
+        with self._conn() as c:
+            ads = c.execute("""SELECT * FROM advertisements
+                WHERE is_active=1 AND starts_at<=%s AND ends_at>=%s
+                ORDER BY created_at DESC""", (now, now)).fetchall()
+            if user_id is None:
+                return ads
+            seen = {r['ad_id'] for r in c.execute(
+                "SELECT ad_id FROM ad_impressions WHERE user_id=%s", (user_id,)).fetchall()}
+            return [a for a in ads if dict(a)['id'] not in seen]
+
+    def record_ad_impression(self, ad_id, user_id, clicked=False):
+        with self._conn() as c:
+            c.execute("""INSERT INTO ad_impressions (ad_id, user_id, seen_at, clicked)
+                VALUES (%s,%s,%s,%s)
+                ON DUPLICATE KEY UPDATE seen_at=%s, clicked=IF(%s=1,1,clicked)""",
+                (ad_id, user_id, int(time.time()), 1 if clicked else 0,
+                 int(time.time()), 1 if clicked else 0))
+            c.execute("UPDATE advertisements SET show_count=show_count+1 WHERE id=%s", (ad_id,))
+            if clicked:
+                c.execute("UPDATE advertisements SET click_count=click_count+1 WHERE id=%s", (ad_id,))
+
+    def get_all_ads(self, active_only=False):
+        with self._conn() as c:
+            if active_only:
+                return c.execute("SELECT * FROM advertisements WHERE is_active=1 ORDER BY created_at DESC").fetchall()
+            return c.execute("SELECT * FROM advertisements ORDER BY created_at DESC").fetchall()
+
+    def toggle_ad(self, ad_id, is_active):
+        with self._conn() as c:
+            c.execute("UPDATE advertisements SET is_active=%s WHERE id=%s", (is_active, ad_id))
+
+    def delete_ad(self, ad_id):
+        with self._conn() as c:
+            c.execute("DELETE FROM advertisements WHERE id=%s", (ad_id,))
+            c.execute("DELETE FROM ad_impressions WHERE ad_id=%s", (ad_id,))
+
+    # ================= 🤝 AFFILIATE =================
+    def get_or_create_affiliate(self, user_id):
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM affiliates WHERE user_id=%s", (user_id,)).fetchone()
+            if row: return dict(row)
+            import secrets
+            code = secrets.token_hex(4).upper()
+            c.execute("""INSERT INTO affiliates (user_id, ref_code, created_at)
+                VALUES (%s,%s,%s)""", (user_id, code, int(time.time())))
+            return {"user_id": user_id, "ref_code": code, "total_referrals": 0,
+                    "total_earned": 0, "balance": 0, "is_active": 1}
+
+    def get_affiliate_stats(self, user_id):
+        with self._conn() as c:
+            aff = to_dict_safe(c.execute("SELECT * FROM affiliates WHERE user_id=%s", (user_id,)).fetchone())
+            if not aff: return None
+            refs = c.execute("SELECT COUNT(*) as cnt FROM users WHERE referrer_id=%s", (user_id,)).fetchone()
+            premium_refs = c.execute("""SELECT COUNT(*) as cnt FROM users
+                WHERE referrer_id=%s AND status='premium'""", (user_id,)).fetchone()
+            aff['referral_count'] = refs['cnt'] if refs else 0
+            aff['premium_referrals'] = premium_refs['cnt'] if premium_refs else 0
+            return aff
+
+    def add_affiliate_earning(self, user_id, amount):
+        with self._conn() as c:
+            c.execute("""UPDATE affiliates SET
+                total_earned=total_earned+%s, balance=balance+%s, total_referrals=total_referrals+1
+                WHERE user_id=%s""", (amount, amount, user_id))
+
+    def get_top_affiliates(self, limit=20):
+        with self._conn() as c:
+            return c.execute("""SELECT a.*, u.first_name, u.username
+                FROM affiliates a JOIN users u ON a.user_id=u.user_id
+                WHERE a.is_active=1
+                ORDER BY a.total_referrals DESC LIMIT %s""", (limit,)).fetchall()
+
+    # ================= 🔐 2FA =================
+    def set_2fa_code(self, user_id, phone, code, expires_minutes=10):
+        expires_at = int(time.time()) + expires_minutes * 60
+        with self._conn() as c:
+            c.execute("""INSERT INTO twofa_codes (user_id, phone, code, expires_at, verified)
+                VALUES (%s,%s,%s,%s,0)
+                ON DUPLICATE KEY UPDATE phone=%s, code=%s, expires_at=%s, verified=0""",
+                (user_id, phone, code, expires_at, phone, code, expires_at))
+
+    def verify_2fa_code(self, user_id, code):
+        with self._conn() as c:
+            row = c.execute("""SELECT * FROM twofa_codes
+                WHERE user_id=%s AND code=%s AND expires_at>%s AND verified=0""",
+                (user_id, code, int(time.time()))).fetchone()
+            if not row: return False
+            c.execute("UPDATE twofa_codes SET verified=1 WHERE user_id=%s", (user_id,))
+            c.execute("UPDATE users SET twofa_enabled=1 WHERE user_id=%s", (user_id,))
+            return True
+
+    def disable_2fa(self, user_id):
+        with self._conn() as c:
+            c.execute("UPDATE users SET twofa_enabled=0 WHERE user_id=%s", (user_id,))
+            c.execute("DELETE FROM twofa_codes WHERE user_id=%s", (user_id,))
+
+    # ================= 🚫 BAN SABABI =================
+    def ban_user_with_reason(self, user_id, admin_id, reason):
+        with self._conn() as c:
+            c.execute("UPDATE users SET status='banned', ban_reason=%s WHERE user_id=%s", (reason, user_id))
+            c.execute("""INSERT INTO ban_logs (user_id, admin_id, reason, action, created_at)
+                VALUES (%s,%s,%s,'ban',%s)""", (user_id, admin_id, reason, int(time.time())))
+
+    def unban_user(self, user_id, admin_id, reason="Unban"):
+        with self._conn() as c:
+            c.execute("UPDATE users SET status='free', ban_reason=NULL WHERE user_id=%s", (user_id,))
+            c.execute("""INSERT INTO ban_logs (user_id, admin_id, reason, action, created_at)
+                VALUES (%s,%s,%s,'unban',%s)""", (user_id, admin_id, reason, int(time.time())))
+
+    def get_ban_history(self, user_id):
+        with self._conn() as c:
+            return c.execute("""SELECT bl.*, u.first_name as admin_name
+                FROM ban_logs bl LEFT JOIN users u ON bl.admin_id=u.user_id
+                WHERE bl.user_id=%s ORDER BY bl.created_at DESC""", (user_id,)).fetchall()
+
+    # ================= 🌐 IP WHITELIST =================
+    def add_ip_whitelist(self, ip, label, added_by):
+        with self._conn() as c:
+            c.execute("INSERT IGNORE INTO ip_whitelist (ip, label, added_by, added_at) VALUES (%s,%s,%s,%s)",
+                      (ip, label, added_by, int(time.time())))
+
+    def remove_ip_whitelist(self, ip):
+        with self._conn() as c:
+            c.execute("DELETE FROM ip_whitelist WHERE ip=%s", (ip,))
+
+    def get_ip_whitelist(self):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM ip_whitelist ORDER BY added_at DESC").fetchall()
+
+    def is_ip_whitelisted(self, ip):
+        with self._conn() as c:
+            return bool(c.execute("SELECT 1 FROM ip_whitelist WHERE ip=%s", (ip,)).fetchone())
+
+    # ================= 🔬 A/B TEST =================
+    def create_ab_test(self, test_id, q_index, variant_a, variant_b,
+                       options_a, options_b, correct_a, correct_b):
+        with self._conn() as c:
+            c.execute("""INSERT INTO ab_tests
+                (test_id, q_index, variant_a, variant_b, options_a_json, options_b_json,
+                 correct_a, correct_b, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON DUPLICATE KEY UPDATE
+                variant_a=%s, variant_b=%s, options_a_json=%s, options_b_json=%s,
+                correct_a=%s, correct_b=%s""",
+                (test_id, q_index, variant_a, variant_b,
+                 json.dumps(options_a, ensure_ascii=False),
+                 json.dumps(options_b, ensure_ascii=False),
+                 correct_a, correct_b, int(time.time()),
+                 variant_a, variant_b,
+                 json.dumps(options_a, ensure_ascii=False),
+                 json.dumps(options_b, ensure_ascii=False),
+                 correct_a, correct_b))
+
+    def record_ab_result(self, test_id, q_index, variant, is_correct):
+        with self._conn() as c:
+            if variant == 'a':
+                c.execute("""UPDATE ab_tests SET a_count=a_count+1,
+                    a_correct=a_correct+%s WHERE test_id=%s AND q_index=%s""",
+                    (1 if is_correct else 0, test_id, q_index))
+            else:
+                c.execute("""UPDATE ab_tests SET b_count=b_count+1,
+                    b_correct=b_correct+%s WHERE test_id=%s AND q_index=%s""",
+                    (1 if is_correct else 0, test_id, q_index))
+
+    def get_ab_results(self, test_id):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM ab_tests WHERE test_id=%s", (test_id,)).fetchall()
+
+    # ================= 🃏 FLASHCARD =================
+    def create_flashcard_set(self, owner_id, title, description="", is_public=0, category_id=None):
+        with self._conn() as c:
+            c.execute("""INSERT INTO flashcard_sets (owner_id, title, description, category_id, is_public, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s)""",
+                (owner_id, title, description, category_id, is_public, int(time.time())))
+            return c.lastrowid
+
+    def add_flashcard(self, set_id, front, back, hint="", photo_id=None, difficulty=1):
+        with self._conn() as c:
+            c.execute("""INSERT INTO flashcards (set_id, front, back, hint, photo_id, difficulty, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (set_id, front, back, hint, photo_id, difficulty, int(time.time())))
+            return c.lastrowid
+
+    def get_flashcard_set(self, set_id):
+        with self._conn() as c:
+            return to_dict_safe(c.execute("SELECT * FROM flashcard_sets WHERE id=%s", (set_id,)).fetchone())
+
+    def get_flashcards(self, set_id, user_id=None):
+        with self._conn() as c:
+            cards = c.execute("SELECT * FROM flashcards WHERE set_id=%s ORDER BY id", (set_id,)).fetchall()
+            if not user_id:
+                return cards
+            # Progress bilan qaytarish
+            result = []
+            for card in cards:
+                card = dict(card)
+                prog = c.execute("SELECT * FROM flashcard_progress WHERE user_id=%s AND card_id=%s",
+                                 (user_id, card['id'])).fetchone()
+                card['progress'] = dict(prog) if prog else {'correct_count': 0, 'wrong_count': 0}
+                result.append(card)
+            return result
+
+    def get_user_flashcard_sets(self, user_id):
+        with self._conn() as c:
+            return c.execute("""SELECT fs.*, COUNT(f.id) as card_count
+                FROM flashcard_sets fs
+                LEFT JOIN flashcards f ON fs.id=f.set_id
+                WHERE fs.owner_id=%s
+                GROUP BY fs.id
+                ORDER BY fs.created_at DESC""", (user_id,)).fetchall()
+
+    def get_public_flashcard_sets(self, limit=50):
+        with self._conn() as c:
+            return c.execute("""SELECT fs.*, COUNT(f.id) as card_count, u.first_name
+                FROM flashcard_sets fs
+                LEFT JOIN flashcards f ON fs.id=f.set_id
+                JOIN users u ON fs.owner_id=u.user_id
+                WHERE fs.is_public=1
+                GROUP BY fs.id
+                ORDER BY fs.created_at DESC LIMIT %s""", (limit,)).fetchall()
+
+    def record_flashcard_answer(self, user_id, card_id, is_correct):
+        with self._conn() as c:
+            if is_correct:
+                c.execute("""INSERT INTO flashcard_progress (user_id, card_id, correct_count, wrong_count, last_seen)
+                    VALUES (%s,%s,1,0,%s)
+                    ON DUPLICATE KEY UPDATE correct_count=correct_count+1, last_seen=%s""",
+                    (user_id, card_id, int(time.time()), int(time.time())))
+            else:
+                c.execute("""INSERT INTO flashcard_progress (user_id, card_id, correct_count, wrong_count, last_seen)
+                    VALUES (%s,%s,0,1,%s)
+                    ON DUPLICATE KEY UPDATE wrong_count=wrong_count+1, last_seen=%s""",
+                    (user_id, card_id, int(time.time()), int(time.time())))
+
+    # ================= 🤖 AI IZOHLAR =================
+    def get_ai_explanation(self, test_id, q_index, lang='uz'):
+        with self._conn() as c:
+            row = c.execute("SELECT explanation FROM ai_explanations WHERE test_id=%s AND q_index=%s AND lang=%s",
+                            (test_id, q_index, lang)).fetchone()
+            return row['explanation'] if row else None
+
+    def save_ai_explanation(self, test_id, q_index, explanation, lang='uz'):
+        with self._conn() as c:
+            c.execute("""INSERT INTO ai_explanations (test_id, q_index, explanation, lang, created_at)
+                VALUES (%s,%s,%s,%s,%s)
+                ON DUPLICATE KEY UPDATE explanation=%s, created_at=%s""",
+                (test_id, q_index, explanation, lang, int(time.time()),
+                 explanation, int(time.time())))
+
+    # ================= 📊 FOYDALANUVCHI XARITASI (Soatlik faollik) =================
+    def get_user_activity_heatmap(self, user_id):
+        """Foydalanuvchi qaysi soatlarda faolroq (0-23 soat bo'yicha)"""
+        with self._conn() as c:
+            rows = c.execute("""
+                SELECT HOUR(FROM_UNIXTIME(finished_at)) as hour_val,
+                       COUNT(*) as cnt
+                FROM sessions
+                WHERE user_id=%s AND state='finished'
+                GROUP BY hour_val ORDER BY hour_val
+            """, (user_id,)).fetchall()
+            result = {i: 0 for i in range(24)}
+            for r in rows:
+                result[int(r['hour_val'])] = int(r['cnt'])
+            return result
+
+    # ================= 🔧 YORDAMCHI =================
+
+def to_dict_safe(row):
+    """PyMySQL Row yoki None ni xavfsiz dict ga aylantiradi"""
+    if row is None: return None
+    return dict(row)

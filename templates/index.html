@@ -332,6 +332,15 @@
           <a href="/admin/stats?token={{ token }}" style="color: #38d39f; border-color: rgba(56, 211, 159, 0.4);">
               {% if lang == 'uz' %}📈 Statistika{% elif lang == 'uz_cyrl' %}📈 Статистика{% else %}📈 Статистика{% endif %}
           </a>
+          <a href="/admin/broadcast?token={{ token }}" style="color: #f87171; border-color: rgba(248, 113, 113, 0.4);">
+              {% if lang == 'uz' %}📢 Broadcast{% elif lang == 'uz_cyrl' %}📢 Broadcast{% else %}📢 Рассылка{% endif %}
+          </a>
+          <a href="/admin/ads?token={{ token }}" style="color: #c084fc; border-color: rgba(192, 132, 252, 0.4);">
+              {% if lang == 'uz' %}📣 Reklamalar{% elif lang == 'uz_cyrl' %}📣 Рекламалар{% else %}📣 Реклама{% endif %}
+          </a>
+          <a href="/admin/security?token={{ token }}" style="color: #f97316; border-color: rgba(249, 115, 22, 0.4);">
+              {% if lang == 'uz' %}🔐 Xavfsizlik{% elif lang == 'uz_cyrl' %}🔐 Хавфсизлик{% else %}🔐 Безопасность{% endif %}
+          </a>
         {% endif %}
 
         <a href="/account?token={{ token }}">
@@ -395,6 +404,21 @@
         <a href="/notifications?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
             <div style="font-size: 35px;">🔔</div>
             <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Bildirishnomalar' if lang == 'uz' else ('Билдиришномалар' if lang == 'uz_cyrl' else 'Уведомления') }}</div>
+        </a>
+
+        <a href="/flashcards?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">🃏</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">Flashcards</div>
+        </a>
+
+        <a href="/question-bank?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">📦</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Savol banki' if lang == 'uz' else ('Савол банки' if lang == 'uz_cyrl' else 'Банк вопросов') }}</div>
+        </a>
+
+        <a href="/affiliate?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">🤝</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Hamkor dasturi' if lang == 'uz' else ('Ҳамкор дастури' if lang == 'uz_cyrl' else 'Партнёрство') }}</div>
         </a>
     </div>
 

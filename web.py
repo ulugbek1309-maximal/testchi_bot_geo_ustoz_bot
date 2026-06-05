@@ -2526,6 +2526,820 @@ def web_test_analytics(test_id):
     """
     return html_page
 
+# ==========================================
+# 📜 SERTIFIKAT SAHIFASI
+# ==========================================
+@app.route("/cert/<cert_code>")
+def web_certificate(cert_code):
+    cert = db.get_certificate(cert_code)
+    lang = session.get("lang", "uz")
+    if not cert:
+        return f"<h2>❌ Sertifikat topilmadi: {html.escape(cert_code)}</h2>", 404
+
+    issued = datetime.fromtimestamp(int(cert.get('issued_at') or 0), tz=TZ).strftime("%d.%m.%Y")
+    name = html.escape((cert.get('first_name') or '') + ' ' + (cert.get('username') and f"@{cert['username']}" or '')).strip()
+    title = html.escape(cert.get('title') or 'Test')
+    score = float(cert.get('score') or 0)
+    code = html.escape(cert_code)
+
+    return f"""<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sertifikat - {title}</title>
+  <style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{font-family:'Georgia',serif;background:linear-gradient(135deg,#1a1a2e,#16213e);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
+    .cert{{background:linear-gradient(135deg,#fff9f0,#fff);border:3px solid #d4af37;border-radius:20px;padding:50px 40px;max-width:700px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3),inset 0 0 0 8px rgba(212,175,55,.15)}}
+    .logo{{font-size:48px;margin-bottom:10px}}
+    .cert-title{{font-size:13px;letter-spacing:4px;text-transform:uppercase;color:#888;margin-bottom:20px}}
+    .presents{{font-size:18px;color:#555;margin-bottom:10px}}
+    .name{{font-size:36px;font-weight:700;color:#1a1a2e;border-bottom:2px solid #d4af37;padding-bottom:12px;margin-bottom:20px}}
+    .body-text{{font-size:16px;color:#444;line-height:1.6;margin-bottom:20px}}
+    .test-title{{font-size:22px;font-weight:700;color:#d4af37;margin:10px 0}}
+    .score{{font-size:48px;font-weight:900;color:#2d7d46;margin:20px 0}}
+    .score-label{{font-size:14px;color:#888}}
+    .footer{{margin-top:30px;padding-top:20px;border-top:1px dashed #d4af37;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}}
+    .date{{font-size:14px;color:#888}}
+    .code{{font-family:monospace;font-size:13px;color:#aaa;background:#f5f5f5;padding:4px 10px;border-radius:6px}}
+    .seal{{font-size:40px}}
+    @media print{{body{{background:#fff}}.cert{{box-shadow:none;border:3px solid #d4af37}}}}
+    .print-btn{{margin-top:20px;padding:12px 24px;background:#d4af37;color:#fff;border:none;border-radius:10px;font-size:15px;cursor:pointer;font-weight:600}}
+    .print-btn:hover{{background:#c49b2e}}
+  </style>
+</head>
+<body>
+  <div class="cert">
+    <div class="logo">🎓</div>
+    <div class="cert-title">Geo Ustoz Platform</div>
+    <div class="presents">Ushbu sertifikat taqdim etiladi</div>
+    <div class="name">{name}</div>
+    <div class="body-text">quyidagi test muvaffaqiyatli yakunlaganligi uchun</div>
+    <div class="test-title">{title}</div>
+    <div class="score">{score:g}</div>
+    <div class="score-label">ball</div>
+    <div class="footer">
+      <div class="date">📅 {issued}</div>
+      <div class="seal">🏅</div>
+      <div class="code">#{code}</div>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨️ Chop etish</button>
+  </div>
+</body>
+</html>"""
+
+# ==========================================
+# 🔗 VAQTINCHALIK HAVOLA
+# ==========================================
+@app.route("/t/<token_val>")
+def temp_link_redirect(token_val):
+    lang = session.get("lang", "uz")
+    link = db.get_temp_link(token_val)
+    if not link:
+        return f"""<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0f172a;color:#fff">
+            <h2>❌ Havola yaroqsiz yoki muddati tugagan</h2>
+            <p style="color:#888;margin-top:10px">Bu vaqtinchalik havola endi ishlamaydi.</p></body></html>""", 404
+    link = dict(link)
+    db.use_temp_link(token_val)
+    # Token bo'lmasa - foydalanuvchi botdan kiritishi kerak
+    user_token = request.args.get("token", "")
+    target = f"/solve/{link['test_id']}?token={user_token}&via_temp=1" if user_token else f"/solve/{link['test_id']}"
+    return redirect(target)
+
+# ==========================================
+# 🃏 FLASHCARD SAHIFALARI
+# ==========================================
+@app.route("/flashcards")
+def web_flashcards():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401)
+    uid = int(user["user_id"])
+
+    my_sets = db.get_user_flashcard_sets(uid)
+    public_sets = db.get_public_flashcard_sets(limit=20)
+    cats = db.get_categories()
+
+    my_rows = ""
+    for s in my_sets:
+        s = dict(s)
+        my_rows += f"""<div class="row" style="justify-content:space-between">
+          <div><b>{html.escape(s.get('title',''))}</b>
+          <span style="color:#a0aec0;font-size:13px;margin-left:8px">{s.get('card_count',0)} karta</span></div>
+          <a class="btn" href="/flashcards/{s['id']}?token={token}">▶️ O'rganish</a>
+        </div>"""
+
+    pub_rows = ""
+    for s in public_sets:
+        s = dict(s)
+        if s.get('owner_id') == uid:
+            continue
+        pub_rows += f"""<div class="row" style="justify-content:space-between">
+          <div><b>{html.escape(s.get('title',''))}</b>
+          <span style="color:#a0aec0;font-size:13px;margin-left:8px">{s.get('card_count',0)} karta · {html.escape(s.get('first_name','') or '')}</span></div>
+          <a class="btn" href="/flashcards/{s['id']}?token={token}">▶️</a>
+        </div>"""
+
+    my_empty = "Hali to'plam yo'q"
+    pub_empty = "Hali ommaviy to'plam yo'q"
+    q_empty_fc = "Hali to'plam yo'q"
+
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>🃏 Flashcards</h1>
+      <div class="card">
+        <h2>➕ {new_lbl}</h2>
+        <div style="display:flex;gap:10px">
+          <input type="text" id="fs-title" placeholder="{name_ph}" style="flex:1;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <button class="btn" onclick="createSet()" style="background:#667eea;color:#fff;border:none">Yaratish</button>
+        </div>
+      </div>
+      <div class="card"><h2>📚 {title_lbl}</h2>
+        {my_rows if my_rows else '<div class="empty">' + my_empty + '</div>'}
+      </div>
+      <div class="card"><h2>🌐 {pub_lbl}</h2>
+        {pub_rows if pub_rows else '<div class="empty">' + pub_empty + '</div>'}
+      </div>
+    </div>
+    <script>
+    const token="{token}";
+    function createSet(){{
+      const title=document.getElementById('fs-title').value.trim();
+      if(!title)return;
+      fetch('/api/flashcard/create',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,title}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();else alert(d.error||'Xato');}});
+    }}
+    </script>"""
+    return html_page
+
+@app.route("/flashcards/<int:set_id>")
+def web_flashcard_study(set_id):
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401)
+    uid = int(user["user_id"])
+    fset = db.get_flashcard_set(set_id)
+    if not fset:
+        return abort(404)
+    cards = db.get_flashcards(set_id, user_id=uid)
+    cards_json = json.dumps([{
+        "id": c["id"] if isinstance(c, dict) else dict(c)["id"],
+        "front": (c if isinstance(c, dict) else dict(c)).get("front",""),
+        "back":  (c if isinstance(c, dict) else dict(c)).get("back",""),
+        "hint":  (c if isinstance(c, dict) else dict(c)).get("hint",""),
+    } for c in cards], ensure_ascii=False)
+
+    title = html.escape((fset.get('title') or '') if isinstance(fset, dict) else dict(fset).get('title',''))
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap" style="max-width:600px">
+      {_nav_html(token, lang)}
+      <h1>🃏 {title}</h1>
+      <div class="card" style="text-align:center">
+        <div id="progress" style="color:#a0aec0;font-size:14px;margin-bottom:16px">0 / {len(cards)}</div>
+        <div id="card-box" onclick="flipCard()" style="min-height:200px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px">
+          <div id="card-front" style="font-size:22px;font-weight:700">Boshlash uchun bosing ▶️</div>
+          <div id="card-back" style="font-size:18px;color:#38d39f;margin-top:16px;display:none"></div>
+          <div id="card-hint" style="font-size:13px;color:#718096;margin-top:8px;display:none"></div>
+        </div>
+        <div id="actions" style="display:none;gap:12px;justify-content:center;margin-top:20px">
+          <button class="btn" onclick="answer(false)" style="background:#f56565;color:#fff;border:none;padding:14px 28px;font-size:16px">❌ Bilmadim</button>
+          <button class="btn" onclick="answer(true)" style="background:#48bb78;color:#fff;border:none;padding:14px 28px;font-size:16px">✅ Bildim</button>
+        </div>
+        <div id="done-box" style="display:none;padding:30px">
+          <div style="font-size:48px">🎉</div>
+          <div style="font-size:20px;font-weight:700;margin:12px 0">Tugatdingiz!</div>
+          <div id="done-stats" style="color:#a0aec0"></div>
+          <button class="btn" onclick="restart()" style="margin-top:16px;background:#667eea;color:#fff;border:none">🔄 Qayta boshlash</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>➕ Karta qo'shish</h2>
+        <input type="text" id="fc-front" placeholder="Old (savol)" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff;margin-bottom:8px">
+        <input type="text" id="fc-back" placeholder="Orqa (javob)" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff;margin-bottom:8px">
+        <input type="text" id="fc-hint" placeholder="Maslahat (ixtiyoriy)" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff;margin-bottom:8px">
+        <button class="btn" onclick="addCard()" style="background:#48bb78;color:#fff;border:none">➕ Qo'shish</button>
+      </div>
+    </div>
+    <script>
+    const token="{token}", setId={set_id};
+    const cards={cards_json};
+    let idx=0, flipped=false, correct=0, wrong=0;
+    function showCard(){{
+      if(idx>=cards.length){{
+        document.getElementById('card-box').style.display='none';
+        document.getElementById('actions').style.display='none';
+        document.getElementById('done-box').style.display='block';
+        document.getElementById('done-stats').innerHTML='✅ '+correct+' | ❌ '+wrong;
+        return;
+      }}
+      document.getElementById('progress').textContent=(idx+1)+' / '+cards.length;
+      document.getElementById('card-front').textContent=cards[idx].front;
+      document.getElementById('card-back').textContent=cards[idx].back;
+      document.getElementById('card-back').style.display='none';
+      document.getElementById('card-hint').textContent=cards[idx].hint||'';
+      document.getElementById('card-hint').style.display='none';
+      document.getElementById('actions').style.display='none';
+      flipped=false;
+    }}
+    function flipCard(){{
+      if(flipped)return;
+      flipped=true;
+      document.getElementById('card-back').style.display='block';
+      if(cards[idx].hint)document.getElementById('card-hint').style.display='block';
+      document.getElementById('actions').style.display='flex';
+    }}
+    function answer(ok){{
+      if(ok)correct++;else wrong++;
+      fetch('/api/flashcard/answer',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,card_id:cards[idx].id,correct:ok}})}});
+      idx++;showCard();
+    }}
+    function restart(){{idx=0;correct=0;wrong=0;
+      document.getElementById('done-box').style.display='none';
+      document.getElementById('card-box').style.display='flex';
+      showCard();}}
+    function addCard(){{
+      const front=document.getElementById('fc-front').value.trim();
+      const back=document.getElementById('fc-back').value.trim();
+      const hint=document.getElementById('fc-hint').value.trim();
+      if(!front||!back)return;
+      fetch('/api/flashcard/add',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,set_id:setId,front,back,hint}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();else alert(d.error||'Xato');}});
+    }}
+    if(cards.length>0){{showCard();}}
+    </script>"""
+    return html_page
+
+# ==========================================
+# 📣 ADMIN - BROADCAST WEB PANEL
+# ==========================================
+@app.route("/admin/broadcast")
+def admin_broadcast():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    broadcasts = [dict(b) for b in db.get_broadcasts(limit=15)]
+    rows = ""
+    for b in broadcasts:
+        status_color = "#48bb78" if b.get('status') == 'done' else "#ed8936"
+        rows += f"""<div class="row">
+          <div>
+            <b style="font-size:14px">{html.escape((b.get('message') or '')[:60])}...</b><br>
+            <span style="color:#a0aec0;font-size:12px">
+              👥 {b.get('target','all')} · ✅{b.get('sent_count',0)} · ❌{b.get('fail_count',0)}
+            </span>
+          </div>
+          <span style="color:{status_color};font-weight:700;font-size:13px">{b.get('status','?')}</span>
+        </div>"""
+
+    all_count = len(db.get_all_user_ids())
+    prem_count = len(db.get_all_user_ids(status_filter='premium'))
+
+    bc_empty = "Hali broadcast yo'q"
+    page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📢 Broadcast - Ommaviy Xabar</h1>
+      <div class="card">
+        <div class="stat-grid" style="margin-bottom:20px">
+          <div class="stat-box"><div class="stat-num">{all_count}</div><div class="stat-lbl">Jami foydalanuvchi</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:#fbbf24">{prem_count}</div><div class="stat-lbl">Premium</div></div>
+        </div>
+        <h2>📝 Yangi xabar</h2>
+        <div id="bc-alert" style="display:none;padding:12px;border-radius:8px;margin-bottom:12px;font-size:14px"></div>
+        <textarea id="bc-text" placeholder="Xabar matni (HTML: b, i, a teglar)" style="width:100%;height:120px;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff;font-size:14px;resize:vertical"></textarea>
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn" onclick="sendBroadcast('all')" style="background:#3b82f6;color:#fff;border:none;flex:1">
+            📢 Barchaga ({all_count})
+          </button>
+          <button class="btn" onclick="sendBroadcast('premium')" style="background:#d4af37;color:#fff;border:none;flex:1">
+            💎 Faqat Premium ({prem_count})
+          </button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 So'nggi broadcastlar</h2>
+        {rows if rows else '<div class="empty">' + bc_empty + '</div>'}
+      </div>
+    </div>
+    <script>
+    const token="{token}";
+    function showAlert(msg,ok){{
+      const el=document.getElementById('bc-alert');
+      el.style.display='block';
+      el.style.background=ok?'rgba(72,187,120,.2)':'rgba(245,101,101,.2)';
+      el.style.color=ok?'#68d391':'#fc8181';
+      el.innerHTML=msg;
+      setTimeout(()=>el.style.display='none',5000);
+    }}
+    function sendBroadcast(target){{
+      const text=document.getElementById('bc-text').value.trim();
+      if(!text){{showAlert('❌ Xabar matni kiritilmagan!',false);return;}}
+      if(!confirm('Haqiqatan ham '+target+' foydalanuvchilarga xabar yubormoqchimisiz?'))return;
+      const btn=event.target;btn.disabled=true;btn.textContent='⏳ Yuborilmoqda...';
+      fetch('/api/admin/broadcast',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,message:text,target}})}})
+      .then(r=>r.json()).then(d=>{{
+        btn.disabled=false;btn.textContent='Yuborish';
+        if(d.success){{showAlert('✅ Broadcast boshlandi! '+d.queued+' ta xabar navbatda.',true);}}
+        else showAlert('❌ '+(d.error||'Xato'),false);
+      }}).catch(()=>{{btn.disabled=false;showAlert('❌ Server xatosi',false);}});
+    }}
+    </script>"""
+    return page
+
+# ==========================================
+# 📣 REKLAMALAR BOSHQARUVI
+# ==========================================
+@app.route("/admin/ads")
+def admin_ads():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    ads = [dict(a) for a in db.get_all_ads()]
+    rows = ""
+    ad_empty_div = "<div class='empty'>Hali reklama yo'q</div>"
+    for a in ads:
+        active = int(a.get('is_active') or 0)
+        badge = '<span style="color:#68d391">✅ Aktiv</span>' if active else '<span style="color:#fc8181">❌ To\'xtatilgan</span>'
+        rows += f"""<div class="row">
+          <div style="flex:1">
+            <b>{html.escape(a.get('title') or '')}</b> {badge}<br>
+            <span style="color:#a0aec0;font-size:13px">
+              👁 {a.get('show_count',0)} ko'rish · 🖱 {a.get('click_count',0)} klik ·
+              CTR {round(a['click_count']*100/max(1,a['show_count']),1)}%
+            </span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="toggleAd({a['id']},{1 if not active else 0})"
+              style="background:{'#f56565' if active else '#48bb78'};color:#fff;border:none;padding:8px 12px">
+              {'⏸' if active else '▶️'}
+            </button>
+            <button class="btn" onclick="deleteAd({a['id']})"
+              style="background:#718096;color:#fff;border:none;padding:8px 12px">🗑</button>
+          </div>
+        </div>"""
+
+    page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📣 Reklamalar Boshqaruvi</h1>
+      <div class="card">
+        <h2>➕ Yangi Reklama</h2>
+        <div id="ad-alert" style="display:none;padding:12px;border-radius:8px;margin-bottom:12px"></div>
+        <input type="text" id="ad-title" placeholder="Sarlavha" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff;margin-bottom:8px">
+        <textarea id="ad-body" placeholder="Reklama matni (HTML qo'llab-quvvatlanadi)" style="width:100%;height:80px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff;margin-bottom:8px;resize:vertical"></textarea>
+        <input type="text" id="ad-url" placeholder="Havola URL (ixtiyoriy)" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff;margin-bottom:8px">
+        <div style="display:flex;gap:10px">
+          <input type="number" id="ad-days" placeholder="Necha kun (default: 30)" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <button class="btn" onclick="createAd()" style="background:#3b82f6;color:#fff;border:none">Yaratish</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 Mavjud Reklamalar ({len(ads)} ta)</h2>
+        {rows if rows else ad_empty_div}
+      </div>
+    </div>
+    <script>
+    const token="{token}";
+    function showAlert(el,msg,ok){{
+      const e=document.getElementById(el);e.style.display='block';
+      e.style.background=ok?'rgba(72,187,120,.2)':'rgba(245,101,101,.2)';
+      e.style.color=ok?'#68d391':'#fc8181';e.innerHTML=msg;
+      setTimeout(()=>e.style.display='none',4000);
+    }}
+    function createAd(){{
+      const title=document.getElementById('ad-title').value.trim();
+      const body=document.getElementById('ad-body').value.trim();
+      const url=document.getElementById('ad-url').value.trim();
+      const days=parseInt(document.getElementById('ad-days').value)||30;
+      if(!title||!body){{showAlert('ad-alert','❌ Sarlavha va matn kiritilishi shart',false);return;}}
+      fetch('/api/admin/ad/create',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,title,body,url,days}})}})
+      .then(r=>r.json()).then(d=>{{
+        if(d.success)location.reload();
+        else showAlert('ad-alert','❌ '+(d.error||'Xato'),false);
+      }});
+    }}
+    function toggleAd(id,val){{
+      fetch('/api/admin/ad/toggle',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,ad_id:id,is_active:val}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();}});
+    }}
+    function deleteAd(id){{
+      if(!confirm('Reklama o\'chirilsinmi?'))return;
+      fetch('/api/admin/ad/delete',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,ad_id:id}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();}});
+    }}
+    </script>"""
+    return page
+
+# ==========================================
+# 🤝 AFFILIATE PANEL (Foydalanuvchi)
+# ==========================================
+@app.route("/affiliate")
+def web_affiliate():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401)
+    uid = int(user["user_id"])
+    aff = db.get_or_create_affiliate(uid)
+    stats = db.get_affiliate_stats(uid) or aff
+
+    ref_link = f"https://t.me/bot?start=ref_{uid}"  # bot username web.py da get_bot_username() orqali olish mumkin
+    try:
+        bot_username = get_bot_username()
+        ref_link = f"https://t.me/{bot_username}?start=ref_{uid}"
+    except Exception:
+        pass
+
+    earned = float(aff.get('total_earned') or 0)
+    balance = float(aff.get('balance') or 0)
+    ref_count = int(stats.get('referral_count') or aff.get('total_referrals') or 0)
+    prem_refs = int(stats.get('premium_referrals') or 0)
+    code = html.escape(aff.get('ref_code') or '')
+
+    top = db.get_top_affiliates(limit=10)
+    top_rows = ""
+    top_empty_div = "<div class='empty'>Hali hamkorlar yo'q</div>"
+    for i, a in enumerate(top, 1):
+        a = dict(a)
+        name = html.escape(a.get('first_name') or a.get('username') or f"User{a['user_id']}")
+        top_rows += f"<div class='row'><span>{'🥇' if i==1 else '🥈' if i==2 else '🥉' if i==3 else str(i)+'.'} {name}</span><span>{a.get('total_referrals',0)} ta</span></div>"
+
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>🤝 Hamkor Dasturi</h1>
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num">{ref_count}</div><div class="stat-lbl">Referal</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:#fbbf24">{prem_refs}</div><div class="stat-lbl">Premium referal</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:#38d39f">{earned:.2f}</div><div class="stat-lbl">Jami topilgan GWT</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:#6cb2ff">{balance:.2f}</div><div class="stat-lbl">Balans (GWT)</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>🔗 Referal havolangiz</h2>
+        <p style="color:#a0aec0;margin-bottom:12px">Do'stlaringizni taklif qiling va har bir ro'yxatdan o'tgan uchun bonus oling!</p>
+        <div style="background:rgba(0,0,0,.3);padding:14px;border-radius:10px;font-family:monospace;word-break:break-all;margin-bottom:12px">
+          {html.escape(ref_link)}
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn" onclick="copyLink()" style="background:#667eea;color:#fff;border:none;flex:1">📋 Nusxalash</button>
+          <span style="display:flex;align-items:center;color:#a0aec0;font-size:14px">Kod: <b style="margin-left:6px">{code}</b></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>🏆 Top Hamkorlar</h2>
+        {top_rows if top_rows else top_empty_div}
+      </div>
+    </div>
+    <script>
+    function copyLink(){{
+      navigator.clipboard.writeText("{ref_link}").then(()=>alert('✅ Nusxalandi!'));
+    }}
+    </script>"""
+    return html_page
+
+# ==========================================
+# 🌐 IP WHITELIST ADMIN
+# ==========================================
+@app.route("/admin/security")
+def admin_security():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    whitelist = [dict(w) for w in db.get_ip_whitelist()]
+    ban_log_rows = ""
+    try:
+        with db._conn() as c:
+            recent_bans = c.execute("""SELECT bl.*, u.first_name, u.username
+                FROM ban_logs bl LEFT JOIN users u ON bl.user_id=u.user_id
+                ORDER BY bl.created_at DESC LIMIT 20""").fetchall()
+        for b in recent_bans:
+            b = dict(b)
+            action_color = "#fc8181" if b.get('action') == 'ban' else "#68d391"
+            ban_log_rows += f"""<div class="row">
+              <div>
+                <b>{html.escape(b.get('first_name') or str(b.get('user_id')))}</b>
+                <span style="color:{action_color};font-weight:700;margin-left:8px">{b.get('action','?').upper()}</span><br>
+                <span style="color:#a0aec0;font-size:13px">{html.escape(b.get('reason') or '')}</span>
+              </div>
+            </div>"""
+    except Exception:
+        ban_log_rows = '<div class="empty">—</div>'
+
+    wl_rows = "".join([
+        f'<div class="row"><span><b>{html.escape(w.get("ip",""))}</b> · {html.escape(w.get("label",""))}</span>'
+        f'<button class="btn" onclick="removeIP(\'{html.escape(w.get("ip",""))}\''
+        f')" style="background:#f56565;color:#fff;border:none;padding:8px 12px">🗑</button></div>'
+        for w in whitelist
+    ])
+    wl_empty = "<div class='empty'>Whitelist bo'sh (hamma IP ruxsat)</div>"
+    if not wl_rows:
+        wl_rows = wl_empty
+
+    page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>🔐 Xavfsizlik Boshqaruvi</h1>
+      <div class="card">
+        <h2>🌐 IP Whitelist</h2>
+        <p style="color:#a0aec0;font-size:13px;margin-bottom:14px">Ro'yxatga qo'shilgan IP lardan har doim kirish ruxsat etiladi (DDoS filtri ularga tegmaydi)</p>
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <input type="text" id="wl-ip" placeholder="IP manzil (masalan: 192.168.1.1)" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <input type="text" id="wl-label" placeholder="Izoh" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <button class="btn" onclick="addIP()" style="background:#48bb78;color:#fff;border:none">Qo'shish</button>
+        </div>
+        {wl_rows}
+      </div>
+      <div class="card">
+        <h2>🚫 So'nggi Ban/Unban tarixi</h2>
+        {ban_log_rows}
+      </div>
+    </div>
+    <script>
+    const token="{token}";
+    function addIP(){{
+      const ip=document.getElementById('wl-ip').value.trim();
+      const label=document.getElementById('wl-label').value.trim();
+      if(!ip)return;
+      fetch('/api/admin/security/whitelist/add',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,ip,label}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();else alert(d.error||'Xato');}});
+    }}
+    function removeIP(ip){{
+      if(!confirm('IP o\'chirilsinmi? '+ip))return;
+      fetch('/api/admin/security/whitelist/remove',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,ip}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();}});
+    }}
+    </script>"""
+    return page
+
+# ==========================================
+# 📦 SAVOL BANKI
+# ==========================================
+@app.route("/question-bank")
+def web_question_bank():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401)
+    uid = int(user["user_id"])
+    questions = db.get_question_bank(owner_id=uid, limit=100)
+    cats = db.get_categories()
+
+    q_rows = ""
+    qb_empty_div = "<div class='empty'>Savol banki bo'sh. Testdan import qiling.</div>"
+    for q in questions:
+        q = dict(q)
+        opts = json.loads(q.get('options_json') or '[]')
+        ci = int(q.get('correct_index') or 0)
+        correct_opt = html.escape(opts[ci] if ci < len(opts) else '?')
+        q_rows += f"""<div class="row">
+          <div style="flex:1">
+            <b style="font-size:14px">{html.escape((q.get('question') or '')[:80])}</b><br>
+            <span style="color:#68d391;font-size:13px">✅ {correct_opt}</span>
+            <span style="color:#a0aec0;font-size:12px;margin-left:8px">· {q.get('use_count',0)} marta ishlatilgan</span>
+          </div>
+        </div>"""
+
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📦 Savol Banki</h1>
+      <div class="card">
+        <h2>ℹ️ Ma'lumot</h2>
+        <p style="color:#a0aec0">Savol bankiga savollar qo'shib, ulardan turli testlar yaratishingiz mumkin.</p>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+          <input type="text" id="import-tid" placeholder="Test ID (importlash uchun)"
+            style="flex:1;min-width:150px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <button class="btn" onclick="importTest()" style="background:#667eea;color:#fff;border:none">📥 Import</button>
+        </div>
+        <div id="import-msg" style="display:none;margin-top:8px;font-size:13px"></div>
+      </div>
+      <div class="card">
+        <h2>📋 Savollarim ({len(questions)} ta)</h2>
+        {q_rows if q_rows else qb_empty_div}
+      </div>
+    </div>
+    <script>
+    const token="{token}";
+    function importTest(){{
+      const tid=document.getElementById('import-tid').value.trim();
+      if(!tid)return;
+      fetch('/api/qbank/import',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token,test_id:tid}})}})
+      .then(r=>r.json()).then(d=>{{
+        const el=document.getElementById('import-msg');
+        el.style.display='block';
+        if(d.success){{el.style.color='#68d391';el.textContent='✅ '+d.count+' ta savol import qilindi!';setTimeout(()=>location.reload(),1500);}}
+        else{{el.style.color='#fc8181';el.textContent='❌ '+(d.error||'Xato');}}
+      }});
+    }}
+    </script>"""
+    return html_page
+
+# ==========================================
+# 📡 BARCHA YANGI API ENDPOINTLAR
+# ==========================================
+@app.route("/api/flashcard/create", methods=["POST"])
+def api_flashcard_create():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"success": False, "error": "Title required"}), 400
+    set_id = db.create_flashcard_set(int(user["user_id"]), title,
+                                      is_public=int(data.get("is_public", 0)))
+    return jsonify({"success": True, "set_id": set_id})
+
+@app.route("/api/flashcard/add", methods=["POST"])
+def api_flashcard_add():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+    card_id = db.add_flashcard(
+        int(data.get("set_id", 0)),
+        (data.get("front") or "").strip(),
+        (data.get("back") or "").strip(),
+        (data.get("hint") or "").strip()
+    )
+    return jsonify({"success": True, "card_id": card_id})
+
+@app.route("/api/flashcard/answer", methods=["POST"])
+def api_flashcard_answer():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False}), 401
+    db.record_flashcard_answer(int(user["user_id"]),
+                                int(data.get("card_id", 0)),
+                                bool(data.get("correct", False)))
+    return jsonify({"success": True})
+
+@app.route("/api/admin/broadcast", methods=["POST"])
+def api_admin_broadcast():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    message = (data.get("message") or "").strip()
+    target = data.get("target", "all")
+    if not message:
+        return jsonify({"success": False, "error": "Message required"}), 400
+    if target == "premium":
+        user_ids = db.get_all_user_ids(status_filter="premium")
+    else:
+        user_ids = db.get_all_user_ids()
+    # Web orqali broadcast — faqat DB ga yozamiz, bot async yuboradi
+    broadcast_id = db.create_broadcast(int(user["user_id"]), message, target=target)
+    return jsonify({"success": True, "broadcast_id": broadcast_id, "queued": len(user_ids)})
+
+@app.route("/api/admin/ad/create", methods=["POST"])
+def api_admin_ad_create():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    days = int(data.get("days", 30))
+    now = int(time.time())
+    ad_id = db.create_ad(
+        title=data.get("title",""), body=data.get("body",""),
+        media_id=None, media_type=None, url=data.get("url",""),
+        target="all", starts_at=now, ends_at=now + days*86400,
+        created_by=int(user["user_id"])
+    )
+    return jsonify({"success": True, "ad_id": ad_id})
+
+@app.route("/api/admin/ad/toggle", methods=["POST"])
+def api_admin_ad_toggle():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    db.toggle_ad(int(data.get("ad_id", 0)), int(data.get("is_active", 0)))
+    return jsonify({"success": True})
+
+@app.route("/api/admin/ad/delete", methods=["POST"])
+def api_admin_ad_delete():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    db.delete_ad(int(data.get("ad_id", 0)))
+    return jsonify({"success": True})
+
+@app.route("/api/admin/security/whitelist/add", methods=["POST"])
+def api_whitelist_add():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    ip = (data.get("ip") or "").strip()
+    label = (data.get("label") or "").strip()
+    if not ip:
+        return jsonify({"success": False, "error": "IP required"}), 400
+    db.add_ip_whitelist(ip, label, int(user["user_id"]))
+    return jsonify({"success": True})
+
+@app.route("/api/admin/security/whitelist/remove", methods=["POST"])
+def api_whitelist_remove():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    db.remove_ip_whitelist((data.get("ip") or "").strip())
+    return jsonify({"success": True})
+
+@app.route("/api/qbank/import", methods=["POST"])
+def api_qbank_import():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+    test_id = data.get("test_id", "").strip()
+    test = db.get_test(test_id)
+    if not test:
+        return jsonify({"success": False, "error": "Test topilmadi"}), 404
+    count = db.import_test_to_bank(test_id, int(user["user_id"]))
+    return jsonify({"success": True, "count": count})
+
+@app.route("/api/admin/user/ban", methods=["POST"])
+def api_admin_ban():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    target_id = int(data.get("user_id", 0))
+    reason = (data.get("reason") or "Admin tomonidan ban").strip()
+    action = data.get("action", "ban")
+    if action == "unban":
+        db.unban_user(target_id, int(user["user_id"]), reason)
+    else:
+        db.ban_user_with_reason(target_id, int(user["user_id"]), reason)
+    return jsonify({"success": True})
+
+@app.route("/api/cert/verify/<cert_code>")
+def api_cert_verify(cert_code):
+    cert = db.get_certificate(cert_code)
+    if not cert:
+        return jsonify({"valid": False, "error": "Sertifikat topilmadi"})
+    return jsonify({"valid": True, "user": cert.get("first_name"), "test": cert.get("title"),
+                    "score": float(cert.get("score") or 0), "issued_at": cert.get("issued_at")})
+
+@app.route("/api/temp-link/list/<test_id>")
+def api_temp_link_list(test_id):
+    token = request.args.get("token")
+    user = validate_token(token)
+    if not user:
+        return jsonify({"success": False}), 401
+    links = [dict(l) for l in db.get_test_temp_links(test_id)]
+    return jsonify({"success": True, "links": links})
+
+@app.route("/api/temp-link/delete", methods=["POST"])
+def api_temp_link_delete():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False}), 401
+    db.delete_temp_link(data.get("link_token", ""))
+    return jsonify({"success": True})
+
+@app.route("/api/activity/heatmap")
+def api_activity_heatmap():
+    user = validate_token(request.args.get("token"))
+    if not user:
+        return jsonify({"success": False}), 401
+    heatmap = db.get_user_activity_heatmap(int(user["user_id"]))
+    return jsonify({"success": True, "data": heatmap})
+
 @app.route("/create-visual-test", methods=["GET", "POST"])
 def create_visual_test():
     if request.method == "POST":
