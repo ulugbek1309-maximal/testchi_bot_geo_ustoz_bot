@@ -2350,6 +2350,369 @@ async def cmd_affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt, parse_mode=ParseMode.HTML)
 
 # ==========================================
+# 🎟️ KUPON TIZIMI
+# ==========================================
+async def cmd_coupon(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/coupon KOD — Kupon kodi ishlatish"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args:
+        await update.message.reply_text(
+            "🎟️ <b>Kupon kodi ishlatish</b>\n\n"
+            "Foydalanish: /coupon KODINGIZ\n\n"
+            "Misol: <code>/coupon PROMO50</code>",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    code = context.args[0].strip().upper()
+    coupon, err = db.get_coupon(code)
+    if err:
+        await update.message.reply_text(f"❌ {err}")
+        return
+    # Avval ishlatilganligini tekshirish
+    ok, use_err = db.use_coupon(coupon['id'], user_id)
+    if not ok:
+        await update.message.reply_text(f"❌ {use_err}")
+        return
+    # Bonuslarni berish
+    msg_lines = [f"🎉 <b>Kupon muvaffaqiyatli ishlatildi!</b>\n\nKod: <code>{code}</code>\n"]
+    if coupon.get('months_free', 0) > 0:
+        db.add_premium_months(user_id, int(coupon['months_free']))
+        msg_lines.append(f"💎 <b>{coupon['months_free']} oy Premium</b> berildi!")
+    if float(coupon.get('gwt_bonus', 0)) > 0:
+        db.system_sell_token(user_id, float(coupon['gwt_bonus']), method="COUPON")
+        msg_lines.append(f"🪙 <b>{coupon['gwt_bonus']} GWT</b> hamyoningizga qo'shildi!")
+    if coupon.get('discount_pct', 0) > 0:
+        msg_lines.append(f"🏷️ Keyingi xaridingizda <b>{coupon['discount_pct']}% chegirma</b> aktiv!")
+    await update.message.reply_text("\n".join(msg_lines), parse_mode=ParseMode.HTML)
+
+async def cmd_createcoupon(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/createcoupon KOD OYLAR GWT LIMIT — Admin kupon yaratadi"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text(get_bot_text('admin_only', lang))
+        return
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "🎟️ <b>Kupon yaratish</b>\n\n"
+            "Format: /createcoupon KOD [oy] [gwt] [max_foydalanish] [soat]\n\n"
+            "Misol: /createcoupon PROMO50 1 0 100 168\n"
+            "(1 oy premium, 100 kishi, 168 soat = 1 hafta)",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    code = context.args[0].strip().upper()
+    months = int(context.args[1]) if len(context.args) > 1 else 0
+    gwt = float(context.args[2]) if len(context.args) > 2 else 0
+    max_uses = int(context.args[3]) if len(context.args) > 3 else 0
+    expire_h = int(context.args[4]) if len(context.args) > 4 else None
+    try:
+        db.create_coupon(code, months_free=months, gwt_bonus=gwt,
+                         max_uses=max_uses, expires_hours=expire_h, created_by=user_id)
+        exp_txt = f"{expire_h} soat" if expire_h else "Cheksiz"
+        await update.message.reply_text(
+            f"✅ <b>Kupon yaratildi!</b>\n\n"
+            f"🔑 Kod: <code>{code}</code>\n"
+            f"💎 Premium: {months} oy\n"
+            f"🪙 GWT bonus: {gwt}\n"
+            f"👥 Limit: {max_uses if max_uses else 'Cheksiz'}\n"
+            f"⏰ Muddat: {exp_txt}",
+            parse_mode=ParseMode.HTML
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Xato: {e}")
+
+async def cmd_listcoupons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/listcoupons — Kuponlar ro'yxati (admin)"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text(get_bot_text('admin_only', lang))
+        return
+    coupons = db.get_all_coupons()
+    if not coupons:
+        await update.message.reply_text("📭 Hali kuponlar yo'q.")
+        return
+    lines = ["🎟️ <b>Kuponlar ro'yxati:</b>\n"]
+    for c in coupons[:20]:
+        c = dict(c)
+        status = "✅" if c.get('is_active') else "❌"
+        exp = ""
+        if c.get('expires_at'):
+            from datetime import datetime
+            exp = f" | ⏰ {datetime.fromtimestamp(c['expires_at']).strftime('%d.%m.%Y')}"
+        lines.append(
+            f"{status} <code>{c['code']}</code> — "
+            f"💎{c.get('months_free',0)}oy 🪙{c.get('gwt_bonus',0)} "
+            f"| {c.get('use_count',0)}/{c.get('max_uses',0) or '∞'}{exp}"
+        )
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+# ==========================================
+# ⚔️ CHALLENGE (BELLASHUV)
+# ==========================================
+async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/challenge @username test_id [gwt_bet] — Bellashuvga taklif"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "⚔️ <b>Challenge (Bellashuv)</b>\n\n"
+            "Format: /challenge @username test_id [gwt_stavka]\n\n"
+            "Misol: <code>/challenge @friend abc123def 5</code>\n"
+            "(5 GWT stavka bilan)",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    target_username = context.args[0].lstrip("@")
+    test_id = context.args[1].strip()
+    gwt_bet = float(context.args[2]) if len(context.args) > 2 else 0
+
+    # Testni tekshirish
+    test = db.get_test(test_id)
+    if not test:
+        await update.message.reply_text(get_bot_text('test_not_found', lang))
+        return
+
+    # Raqibni topish
+    with db._conn() as c:
+        rival = c.execute("SELECT user_id, first_name FROM users WHERE username=%s", (target_username,)).fetchone()
+    if not rival:
+        await update.message.reply_text(f"❌ @{target_username} topilmadi. Avval /start ni bosishi kerak.")
+        return
+    rival = dict(rival)
+    rival_id = rival['user_id']
+
+    if rival_id == user_id:
+        await update.message.reply_text("❌ O'zingizga challenge yubora olmaysiz!")
+        return
+
+    # GWT stavka tekshirish
+    if gwt_bet > 0:
+        balance = db.get_token_balance(user_id)
+        if balance < gwt_bet:
+            await update.message.reply_text(f"❌ Yetarli GWT yo'q. Balansingiz: {balance} GWT")
+            return
+
+    expire_h = int(db.get_setting('challenge_expire_h', 24))
+    challenge_id = db.create_challenge(test_id, user_id, rival_id, gwt_bet, expire_hours=expire_h)
+
+    # Raqibga xabar yuborish
+    test_title = h(dict(test).get('title', 'Test'))
+    sender_name = h(update.effective_user.first_name)
+    bet_txt = f"\n🪙 Stavka: <b>{gwt_bet} GWT</b>" if gwt_bet > 0 else ""
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Qabul qilaman", callback_data=f"challenge_accept_{challenge_id}")],
+        [InlineKeyboardButton("❌ Rad etaman", callback_data=f"challenge_reject_{challenge_id}")]
+    ])
+    try:
+        await context.bot.send_message(
+            chat_id=rival_id,
+            text=f"⚔️ <b>Challenge taklifi!</b>\n\n"
+                 f"👤 <b>{sender_name}</b> sizi bellashuvga taklif qildi!\n"
+                 f"📝 Test: <b>{test_title}</b>{bet_txt}\n"
+                 f"⏰ Muddat: {expire_h} soat",
+            reply_markup=kb,
+            parse_mode=ParseMode.HTML
+        )
+        await update.message.reply_text(
+            f"✅ Challenge <b>{rival['first_name']}</b> ga yuborildi!\n"
+            f"📝 Test: <b>{test_title}</b>{bet_txt}\n"
+            f"🆔 Challenge ID: <code>{challenge_id}</code>",
+            parse_mode=ParseMode.HTML
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Xabar yuborishda xato: {e}")
+
+async def cmd_mychallenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/mychallenges — Mening challengelarim"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    challenges = db.get_user_challenges(user_id)
+    if not challenges:
+        await update.message.reply_text("⚔️ Hali challengelar yo'q.\n\nYangi challenge: /challenge @username test_id")
+        return
+    lines = ["⚔️ <b>Mening challengelarim:</b>\n"]
+    medals = {"finished": "🏁", "pending": "⏳", "expired": "❌", "rejected": "🚫"}
+    for ch in challenges[:10]:
+        ch = dict(ch)
+        is_challenger = ch['challenger_id'] == user_id
+        rival_name = h(ch.get('challenged_name' if is_challenger else 'challenger_name', 'Noma\'lum'))
+        status_emoji = medals.get(ch.get('status', 'pending'), '⏳')
+        result = ""
+        if ch.get('status') == 'finished':
+            won = ch.get('winner_id') == user_id
+            result = " 🏆 Yutdingiz!" if won else " 💔 Yutqazdingiz"
+        lines.append(
+            f"{status_emoji} vs <b>{rival_name}</b> — {h(ch.get('title','Test'))}{result}"
+        )
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+# ==========================================
+# 💎 STAKING (GWT TOKEN QULFLASH)
+# ==========================================
+async def cmd_stake(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/stake MIQDOR — GWT tokenlarni staking qilish"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    apy = db.get_setting('staking_apy', 12)
+    lock_days = db.get_setting('staking_lock_days', 30)
+
+    if not context.args:
+        balance = db.get_token_balance(user_id)
+        stakes = db.get_user_staking(user_id)
+        total_staked = sum(float(dict(s).get('amount', 0)) for s in stakes)
+        total_reward = sum(float(dict(s).get('total_reward', 0)) for s in stakes)
+        await update.message.reply_text(
+            f"💎 <b>GWT Staking</b>\n\n"
+            f"📊 Joriy APY: <b>{apy}%</b> (yillik)\n"
+            f"🔒 Qulflash muddati: <b>{lock_days} kun</b>\n\n"
+            f"💰 Balansingiz: <b>{balance} GWT</b>\n"
+            f"📦 Staking'da: <b>{total_staked:.4f} GWT</b>\n"
+            f"🎁 Jami mukofot: <b>{total_reward:.4f} GWT</b>\n\n"
+            f"Staking boshlash: /stake <miqdor>\n"
+            f"Yechish: /unstake <id>",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    try:
+        amount = float(context.args[0])
+        if amount <= 0:
+            raise ValueError
+    except ValueError:
+        await update.message.reply_text("❌ Noto'g'ri miqdor. Raqam kiriting.")
+        return
+
+    ok, result = db.start_staking(user_id, amount, lock_days=int(lock_days))
+    if not ok:
+        await update.message.reply_text(f"❌ {result}")
+        return
+
+    daily = amount * float(apy) / 365 / 100
+    await update.message.reply_text(
+        f"✅ <b>Staking boshlandi!</b>\n\n"
+        f"🪙 Miqdor: <b>{amount} GWT</b>\n"
+        f"📈 APY: <b>{apy}%</b>\n"
+        f"🎁 Kunlik mukofot: <b>~{daily:.4f} GWT</b>\n"
+        f"🔒 Qulflash: <b>{lock_days} kun</b>\n\n"
+        f"⚠️ Erta yechsangiz 10% jarima!",
+        parse_mode=ParseMode.HTML
+    )
+
+async def cmd_unstake(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/unstake ID — Staking yechish"""
+    user_id = update.effective_user.id
+    if not context.args:
+        stakes = db.get_user_staking(user_id)
+        if not stakes:
+            await update.message.reply_text("❌ Aktiv staking'laringiz yo'q.")
+            return
+        lines = ["💎 <b>Aktiv staking'laringiz:</b>\n"]
+        for s in stakes:
+            s = dict(s)
+            unlock_dt = datetime.fromtimestamp(int(s.get('unlock_at', 0)), tz=TZ).strftime("%d.%m.%Y")
+            locked = int(s.get('unlock_at', 0)) > now_ts()
+            status = f"🔒 {unlock_dt} gacha" if locked else "✅ Yechish mumkin"
+            lines.append(
+                f"ID: <code>{s['id']}</code> | "
+                f"{s.get('amount')} GWT | "
+                f"Mukofot: {float(s.get('total_reward',0)):.4f} GWT | {status}"
+            )
+        lines.append("\nYechish: /unstake <ID>")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+        return
+
+    try:
+        staking_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ ID raqam bo'lishi kerak.")
+        return
+
+    ok, result = db.unstake(staking_id, user_id)
+    if not ok:
+        await update.message.reply_text(f"❌ {result}")
+        return
+
+    penalty_txt = "\n⚠️ Erta yechish uchun 10% jarima qo'llanildi!" if result.get('early') else ""
+    await update.message.reply_text(
+        f"✅ <b>Staking yechildi!</b>\n\n"
+        f"💰 Qaytarildi: <b>{result['amount']:.4f} GWT</b>\n"
+        f"🎁 Mukofot: <b>{result['reward']:.4f} GWT</b>{penalty_txt}",
+        parse_mode=ParseMode.HTML
+    )
+
+# ==========================================
+# 📊 SAVOL REPORT (XATO BILDIRISH)
+# ==========================================
+async def cmd_report_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/report test_id q_index sabab — Savolda xato bildirish"""
+    user_id = update.effective_user.id
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "🚩 <b>Savolda xato bildirish</b>\n\n"
+            "Format: /report test_id savol_raqami [sabab]\n\n"
+            "Sabab turlari:\n"
+            "• <code>wrong_answer</code> — Noto'g'ri javob\n"
+            "• <code>grammar</code> — Imlo xatosi\n"
+            "• <code>unclear</code> — Tushunarsiz savol\n"
+            "• <code>other</code> — Boshqa",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    test_id = context.args[0]
+    try:
+        q_index = int(context.args[1]) - 1
+    except ValueError:
+        await update.message.reply_text("❌ Savol raqami noto'g'ri.")
+        return
+    report_type = context.args[2] if len(context.args) > 2 else "other"
+    comment = " ".join(context.args[3:]) if len(context.args) > 3 else ""
+    db.report_question(test_id, q_index, user_id, report_type, comment)
+    await update.message.reply_text(
+        "✅ Xabaringiz admin ko'rib chiqadi. Rahmat!",
+        parse_mode=ParseMode.HTML
+    )
+
+# ==========================================
+# 📧 EMAIL HISOBOT
+# ==========================================
+async def cmd_emailreport(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/emailreport [email] [weekly/monthly] — Email hisobotga obuna"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args:
+        await update.message.reply_text(
+            "📧 <b>Email Hisobot</b>\n\n"
+            "Haftalik/oylik statistikangizni emailga olish uchun:\n\n"
+            "/emailreport email@example.com weekly\n"
+            "/emailreport email@example.com monthly\n\n"
+            "Bekor qilish: /emailreport off"
+        )
+        return
+    if context.args[0].lower() == "off":
+        db.unsubscribe_email_report(user_id)
+        await update.message.reply_text("✅ Email hisobot o'chirildi.")
+        return
+    email = context.args[0].strip()
+    if "@" not in email or "." not in email:
+        await update.message.reply_text("❌ Email manzili noto'g'ri.")
+        return
+    frequency = context.args[1].lower() if len(context.args) > 1 else "weekly"
+    if frequency not in ("weekly", "monthly"):
+        frequency = "weekly"
+    db.subscribe_email_report(user_id, email, frequency)
+    freq_txt = "Haftalik" if frequency == "weekly" else "Oylik"
+    await update.message.reply_text(
+        f"✅ <b>Email hisobot yoqildi!</b>\n\n"
+        f"📧 Email: <code>{email}</code>\n"
+        f"📅 Chastota: <b>{freq_txt}</b>\n\n"
+        f"Bekor qilish: /emailreport off",
+        parse_mode=ParseMode.HTML
+    )
+
+# ==========================================
 # 🏆 SERTIFIKAT
 # ==========================================
 async def cmd_mycerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2591,6 +2954,17 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         )]
 
     await query.answer(items, cache_time=10)
+
+# ==========================================
+# 💎 STAKING KUNLIK MUKOFOTLARI
+# ==========================================
+async def job_staking_rewards(context: ContextTypes.DEFAULT_TYPE):
+    """Har 6 soatda staking mukofotlarini hisoblash va foydalanuvchilarga xabar"""
+    try:
+        db.process_staking_rewards()
+        logging.info("✅ Staking mukofotlari hisoblandi")
+    except Exception as e:
+        logging.error(f"Staking rewards job xatosi: {e}")
 
 # ==========================================
 # 📅 TASK 9: SCHEDULED TESTS (bot job)
@@ -3217,6 +3591,101 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # affiliate stats callback
     if data == "affiliate_stats":
+        stats = db.get_affiliate_stats(user_id)
+        if not stats:
+            await q.answer("Statistika yo'q", show_alert=True)
+            return
+        await q.answer()
+        await q.message.reply_text(
+            f"📊 <b>Hamkorlik Statistikasi</b>\n\n"
+            f"👥 Jami refetallar: <b>{stats.get('referral_count', 0)}</b>\n"
+            f"💎 Premium refetallar: <b>{stats.get('premium_referrals', 0)}</b>\n"
+            f"💰 Jami topilgan: <b>{float(stats.get('total_earned', 0)):.2f} GWT</b>\n"
+            f"💳 Balans: <b>{float(stats.get('balance', 0)):.2f} GWT</b>",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # ⚔️ CHALLENGE CALLBACK HANDLERLARI
+    # ==========================================
+    if data.startswith("challenge_accept_"):
+        challenge_id = int(data.replace("challenge_accept_", ""))
+        ch = db.get_challenge(challenge_id)
+        if not ch:
+            await q.answer("Challenge topilmadi!", show_alert=True)
+            return
+        ch = dict(ch)
+        if ch.get('challenged_id') != user_id:
+            await q.answer("Bu challenge sizga tegishli emas!", show_alert=True)
+            return
+        if ch.get('status') != 'pending':
+            await q.answer("Bu challenge allaqachon boshlanib bo'lgan!", show_alert=True)
+            return
+
+        # GWT stavka tekshirish
+        if float(ch.get('gwt_bet', 0)) > 0:
+            balance = db.get_token_balance(user_id)
+            if balance < float(ch['gwt_bet']):
+                await q.answer(f"Yetarli GWT yo'q! Kerak: {ch['gwt_bet']} GWT", show_alert=True)
+                return
+
+        with db._conn() as c:
+            c.execute("UPDATE challenges SET status='active' WHERE id=%s", (challenge_id,))
+
+        lang = get_user_lang(user_id)
+        token = db.get_or_create_user_api_key(user_id)
+        solve_url = f"{WEB_BASE_URL.rstrip('/')}/solve/{ch['test_id']}?token={token}&challenge_id={challenge_id}"
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Testni boshlash", web_app=WebAppInfo(url=solve_url))]])
+
+        await q.message.edit_text(
+            f"✅ <b>Challenge qabul qilindi!</b>\n\n"
+            f"📝 Test: <b>{h(dict(db.get_test(ch['test_id']) or {}).get('title',''))}</b>\n"
+            f"⚔️ Raqibingiz: <b>{h(dict(db.get_user(ch['challenger_id']) or {}).get('first_name',''))}</b>",
+            reply_markup=kb,
+            parse_mode=ParseMode.HTML
+        )
+        # Challenger ga ham xabar
+        try:
+            token_c = db.get_or_create_user_api_key(ch['challenger_id'])
+            solve_url_c = f"{WEB_BASE_URL.rstrip('/')}/solve/{ch['test_id']}?token={token_c}&challenge_id={challenge_id}"
+            kb_c = InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Testni boshlash", web_app=WebAppInfo(url=solve_url_c))]])
+            await context.bot.send_message(
+                chat_id=ch['challenger_id'],
+                text=f"⚔️ <b>Challenge qabul qilindi!</b>\n\n"
+                     f"<b>{h(update.effective_user.first_name)}</b> challengeni qabul qildi!\n"
+                     f"Endi testni boshlang:",
+                reply_markup=kb_c,
+                parse_mode=ParseMode.HTML
+            )
+        except Exception:
+            pass
+        await q.answer("✅ Challenge qabul qilindi!", show_alert=False)
+        return
+
+    if data.startswith("challenge_reject_"):
+        challenge_id = int(data.replace("challenge_reject_", ""))
+        ch = db.get_challenge(challenge_id)
+        if not ch:
+            await q.answer("Challenge topilmadi!", show_alert=True)
+            return
+        ch = dict(ch)
+        if ch.get('challenged_id') != user_id:
+            await q.answer("Bu challenge sizga tegishli emas!", show_alert=True)
+            return
+        with db._conn() as c:
+            c.execute("UPDATE challenges SET status='rejected' WHERE id=%s", (challenge_id,))
+        try:
+            await context.bot.send_message(
+                chat_id=ch['challenger_id'],
+                text=f"❌ <b>{h(update.effective_user.first_name)}</b> challengeni rad etdi.",
+                parse_mode=ParseMode.HTML
+            )
+        except Exception:
+            pass
+        await q.message.edit_text("❌ Challenge rad etildi.")
+        await q.answer("Rad etildi", show_alert=False)
+        return
         stats = db.get_affiliate_stats(user_id)
         if not stats:
             await q.answer("Statistika yo'q", show_alert=True)
@@ -6216,6 +6685,12 @@ if __name__ == "__main__":
         except Exception as e:
             logging.error(f"Scheduled test job xatosi: {e}")
 
+        # Staking kunlik mukofotlari (har 6 soatda)
+        try:
+            app.job_queue.run_repeating(job_staking_rewards, interval=6*3600, first=600)
+        except Exception as e:
+            logging.error(f"Staking job xatosi: {e}")
+
 
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
@@ -6284,6 +6759,25 @@ if __name__ == "__main__":
 
     # Help
     app.add_handler(CommandHandler("help", cmd_help))
+
+    # Kupon tizimi
+    app.add_handler(CommandHandler("coupon", cmd_coupon))
+    app.add_handler(CommandHandler("createcoupon", cmd_createcoupon))
+    app.add_handler(CommandHandler("listcoupons", cmd_listcoupons))
+
+    # Challenge (bellashuv)
+    app.add_handler(CommandHandler("challenge", cmd_challenge))
+    app.add_handler(CommandHandler("mychallenges", cmd_mychallenges))
+
+    # Staking
+    app.add_handler(CommandHandler("stake", cmd_stake))
+    app.add_handler(CommandHandler("unstake", cmd_unstake))
+
+    # Savol report
+    app.add_handler(CommandHandler("report", cmd_report_question))
+
+    # Email hisobot
+    app.add_handler(CommandHandler("emailreport", cmd_emailreport))
 
     # Broadcast (async, parallel)
     app.add_handler(CommandHandler(["broadcast", "broadcastall", "broadcastpremium"], cmd_broadcast))

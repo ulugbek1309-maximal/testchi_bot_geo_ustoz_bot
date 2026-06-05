@@ -4775,6 +4775,1017 @@ def api_schedule_test():
     db.schedule_test_open(test_id, open_ts)
     return jsonify({"success": True, "open_at": open_at_str, "test_id": test_id})
 
+# ============================================================
+# ⚙️ TASK 4: ADMIN SOZLAMALARI PANELI
+# ============================================================
+@app.route("/admin/settings")
+def admin_settings():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    settings = [dict(s) for s in db.get_all_settings()]
+    saved_msg = request.args.get("msg", "")
+
+    rows = ""
+    for s in settings:
+        key  = html.escape(s.get("key_name", ""))
+        val  = html.escape(str(s.get("value_text") or s.get("value_int") or ""))
+        desc = html.escape(s.get("description") or "")
+        rows += f"""<div class="srow">
+          <div class="sinfo">
+            <code class="skey">{key}</code>
+            <span class="sdesc">{desc}</span>
+          </div>
+          <div class="sinput">
+            <input type="text" id="s_{key}" value="{val}" placeholder="{val}"
+              onkeydown="if(event.key==='Enter')saveSetting('{key}')">
+            <button onclick="saveSetting('{key}')">💾</button>
+          </div>
+        </div>"""
+
+    page = f"""<!DOCTYPE html>
+<html lang="uz"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>⚙️ Bot Sozlamalari</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,sans-serif}}
+body{{background:#0f172a;color:#f3f6ff;min-height:100vh;padding:20px}}
+.wrap{{max-width:960px;margin:0 auto}}
+h1{{font-size:22px;color:#38d39f;margin-bottom:4px}}
+.sub{{color:#718096;font-size:13px;margin-bottom:20px}}
+.back{{color:#6cb2ff;font-size:14px;text-decoration:none}}
+.card{{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:20px;margin-bottom:16px}}
+.card h2{{font-size:16px;color:#6cb2ff;margin-bottom:14px}}
+.srow{{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);gap:12px;flex-wrap:wrap}}
+.srow:last-child{{border-bottom:none}}
+.sinfo{{flex:1;min-width:200px}}
+code.skey{{font-size:13px;color:#fbbf24;background:rgba(251,191,36,.1);padding:2px 8px;border-radius:4px}}
+.sdesc{{display:block;font-size:12px;color:#718096;margin-top:4px}}
+.sinput{{display:flex;gap:8px;min-width:220px}}
+.sinput input{{flex:1;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;font-size:13px}}
+.sinput button{{padding:9px 14px;background:#38d39f;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700}}
+.alert{{padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;display:none}}
+.alert-ok{{background:rgba(56,211,159,.2);color:#38d39f;border:1px solid rgba(56,211,159,.3)}}
+.alert-err{{background:rgba(245,101,101,.2);color:#fc8181;border:1px solid rgba(245,101,101,.3)}}
+.tab-btns{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}}
+.tab-btn{{padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.07);color:#f3f6ff;cursor:pointer;font-size:13px}}
+.tab-btn.active{{background:rgba(56,211,159,.2);border-color:#38d39f;color:#38d39f}}
+.tab{{display:none}}.tab.active{{display:block}}
+</style></head>
+<body><div class="wrap">
+<a class="back" href="/?token={token}">← Orqaga</a>
+<br><br>
+<h1>⚙️ Bot Sozlamalari</h1>
+<p class="sub">Barcha sozlamalar real-time saqlanadi va bot ishiga darhol ta'sir qiladi</p>
+{"<div class='alert alert-ok' style='display:block'>✅ " + html.escape(saved_msg) + "</div>" if saved_msg else ""}
+<div id="alert-box" class="alert"></div>
+
+<div class="tab-btns">
+  <button class="tab-btn active" onclick="showTab('general')">⚙️ Umumiy</button>
+  <button class="tab-btn" onclick="showTab('premium')">💎 Premium</button>
+  <button class="tab-btn" onclick="showTab('finance')">💰 Moliya</button>
+  <button class="tab-btn" onclick="showTab('security')">🔒 Xavfsizlik</button>
+  <button class="tab-btn" onclick="showTab('moderation')">🛡️ Moderatsiya</button>
+</div>
+
+<div id="tab-general" class="tab card active">
+<h2>⚙️ Umumiy Sozlamalar</h2>
+{_settings_rows(settings, ['site_name','support_username','maintenance_mode',
+  'ai_daily_limit','max_q_per_test','min_q_per_test'])}
+</div>
+
+<div id="tab-premium" class="tab card">
+<h2>💎 Premium Narxlari (so'm)</h2>
+{_settings_rows(settings, ['premium_price_1','premium_price_3','premium_price_6','premium_price_12'])}
+</div>
+
+<div id="tab-finance" class="tab card">
+<h2>💰 Moliyaviy Sozlamalar</h2>
+{_settings_rows(settings, ['gwt_price_usd','staking_apy','staking_lock_days',
+  'registration_bonus','referral_premium_n','challenge_expire_h'])}
+</div>
+
+<div id="tab-security" class="tab card">
+<h2>🔒 Xavfsizlik</h2>
+{_settings_rows(settings, ['auto_moderation','max_broadcast_delay'])}
+<div style="margin-top:16px">
+  <a href="/admin/security?token={token}" style="color:#6cb2ff;font-size:14px">→ IP Whitelist boshqaruvi</a>
+</div>
+</div>
+
+<div id="tab-moderation" class="tab card">
+<h2>🛡️ Moderatsiya Qoidalari</h2>
+<div id="mod-rules-list"></div>
+<div style="display:flex;gap:10px;margin-top:14px">
+  <input type="text" id="new-rule-val" placeholder="Taqiqlangan so'z yoki ibora"
+    style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff">
+  <button onclick="addRule()" style="padding:10px 18px;background:#f56565;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">
+    ➕ Qo'shish
+  </button>
+</div>
+</div>
+
+</div>
+<script>
+const TOKEN = "{token}";
+
+function showAlert(msg, ok) {{
+  const el = document.getElementById('alert-box');
+  el.className = 'alert ' + (ok ? 'alert-ok' : 'alert-err');
+  el.style.display = 'block';
+  el.textContent = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display='none', 3500);
+}}
+
+function showTab(name) {{
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if(name === 'moderation') loadRules();
+}}
+
+function saveSetting(key) {{
+  const val = document.getElementById('s_' + key)?.value?.trim();
+  if(val === undefined) return;
+  fetch('/api/admin/settings/save', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{token: TOKEN, key, value: val}})
+  }}).then(r=>r.json()).then(d => {{
+    if(d.success) showAlert('✅ ' + key + ' saqlandi!', true);
+    else showAlert('❌ ' + (d.error||'Xato'), false);
+  }}).catch(()=>showAlert('❌ Server xatosi', false));
+}}
+
+function loadRules() {{
+  fetch('/api/admin/moderation/rules?token=' + TOKEN)
+    .then(r=>r.json()).then(d => {{
+      const el = document.getElementById('mod-rules-list');
+      if(!d.rules || !d.rules.length) {{
+        el.innerHTML = "<p style='color:#718096;font-size:13px'>Hali qoidalar yo'q</p>";
+        return;
+      }}
+      el.innerHTML = d.rules.map(r =>
+        `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+          <span style="color:#f3f6ff;font-size:14px"><code style="color:#f87171">${{r.value}}</code></span>
+          <button onclick="deleteRule(${{r.id}})" style="background:#f56565;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px">O'chirish</button>
+        </div>`
+      ).join('');
+    }});
+}}
+
+function addRule() {{
+  const val = document.getElementById('new-rule-val').value.trim();
+  if(!val) return;
+  fetch('/api/admin/moderation/add', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{token: TOKEN, value: val, rule_type: 'banned_word'}})
+  }}).then(r=>r.json()).then(d => {{
+    if(d.success) {{ document.getElementById('new-rule-val').value=''; loadRules(); showAlert('✅ Qoida qo\'shildi', true); }}
+    else showAlert('❌ ' + (d.error||'Xato'), false);
+  }});
+}}
+
+function deleteRule(id) {{
+  if(!confirm('Qoidani o\'chirasizmi?')) return;
+  fetch('/api/admin/moderation/delete', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{token: TOKEN, rule_id: id}})
+  }}).then(r=>r.json()).then(d => {{
+    if(d.success) {{ loadRules(); showAlert('✅ O\'chirildi', true); }}
+    else showAlert('❌ ' + (d.error||'Xato'), false);
+  }});
+}}
+</script>
+</body></html>"""
+    return page
+
+def _settings_rows(settings, keys):
+    """Berilgan kalit nomlari uchun settings qatorlarini HTML sifatida qaytaradi"""
+    result = ""
+    settings_map = {dict(s)['key_name']: dict(s) for s in settings}
+    for key in keys:
+        s = settings_map.get(key, {})
+        if not s:
+            continue
+        val  = html.escape(str(s.get("value_text") or s.get("value_int") or ""))
+        desc = html.escape(s.get("description") or "")
+        result += f"""<div class="srow">
+          <div class="sinfo">
+            <code class="skey">{html.escape(key)}</code>
+            <span class="sdesc">{desc}</span>
+          </div>
+          <div class="sinput">
+            <input type="text" id="s_{html.escape(key)}" value="{val}" placeholder="{val}"
+              onkeydown="if(event.key==='Enter')saveSetting('{html.escape(key)}')">
+            <button onclick="saveSetting('{html.escape(key)}')">💾</button>
+          </div>
+        </div>"""
+    return result or "<p style='color:#718096'>Sozlamalar topilmadi</p>"
+
+# Settings API
+@app.route("/api/admin/settings/save", methods=["POST"])
+def api_settings_save():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    key   = (data.get("key") or "").strip()
+    value = (data.get("value") or "").strip()
+    if not key:
+        return jsonify({"success": False, "error": "Key kerak"}), 400
+    db.set_setting(key, value, int(user["user_id"]))
+    return jsonify({"success": True})
+
+@app.route("/api/admin/moderation/rules")
+def api_moderation_rules():
+    user = validate_token(request.args.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    rules = [dict(r) for r in db.get_moderation_rules()]
+    return jsonify({"success": True, "rules": rules})
+
+@app.route("/api/admin/moderation/add", methods=["POST"])
+def api_moderation_add():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    db.add_moderation_rule(
+        data.get("rule_type", "banned_word"),
+        (data.get("value") or "").strip(),
+        int(user["user_id"])
+    )
+    return jsonify({"success": True})
+
+@app.route("/api/admin/moderation/delete", methods=["POST"])
+def api_moderation_delete():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    db.delete_moderation_rule(int(data.get("rule_id", 0)))
+    return jsonify({"success": True})
+
+# ============================================================
+# TASK 5: PDF HISOBOT, KUPON PANEL, STAKING PANEL
+# ============================================================
+@app.route("/export-pdf/<test_id>")
+def export_pdf(test_id):
+    """Test natijalarini HTML-to-PDF sahifasi (print bilan)"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user: return abort(401)
+    test = db.get_test(test_id)
+    if not test: return abort(404)
+    test = dict(test)
+    if int(test.get("owner_user_id", 0)) != int(user["user_id"]) and int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    results = db.all_results(test_id)
+    analytics = dict(db.get_test_analytics(test_id) or {})
+    scoring = test.get("scoring_type", "standard")
+    title = html.escape(test.get("title", "Test"))
+    from datetime import datetime as _dt
+    now_str = _dt.now(tz=TZ).strftime("%d.%m.%Y %H:%M")
+
+    rows = ""
+    for i, r in enumerate(results, 1):
+        r = dict(r)
+        name = html.escape((r.get("username") and f"@{r['username']}") or
+                           f"{r.get('first_name','')}{r.get('last_name','')}".strip() or
+                           f"User{r.get('user_id','')}")
+        score = float(r.get("score") or 0)
+        dur = int(r.get("duration_sec") or 0)
+        m, s = divmod(dur, 60)
+        rows += f"<tr><td>{i}</td><td>{name}</td><td><b>{score:g}</b></td><td>{m}:{s:02d}</td></tr>"
+
+    page = f"""<!DOCTYPE html>
+<html lang="uz"><head>
+<meta charset="UTF-8">
+<title>Hisobot — {title}</title>
+<style>
+  @page {{size:A4; margin:20mm}}
+  *{{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}}
+  body{{padding:24px;color:#1a202c}}
+  .header{{text-align:center;border-bottom:2px solid #38d39f;padding-bottom:14px;margin-bottom:20px}}
+  .header h1{{font-size:22px;color:#2d3748}}
+  .header .meta{{color:#718096;font-size:13px;margin-top:6px}}
+  .stats{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}}
+  .stat-box{{border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center}}
+  .stat-num{{font-size:22px;font-weight:700;color:#38d39f}}
+  .stat-lbl{{font-size:11px;color:#718096;margin-top:4px}}
+  table{{width:100%;border-collapse:collapse;font-size:13px}}
+  th{{background:#2d3748;color:white;padding:10px 12px;text-align:left}}
+  td{{padding:9px 12px;border-bottom:1px solid #e2e8f0}}
+  tr:nth-child(even) td{{background:#f7fafc}}
+  tr:first-child td{{background:#f0fff4;font-weight:700}}
+  .footer{{margin-top:20px;text-align:center;color:#718096;font-size:12px;border-top:1px solid #e2e8f0;padding-top:12px}}
+  @media print{{
+    .no-print{{display:none!important}}
+    body{{padding:0}}
+  }}
+</style></head>
+<body>
+<div class="no-print" style="padding:12px;background:#0f172a;color:#f3f6ff;text-align:center;margin-bottom:20px;border-radius:8px">
+  <button onclick="window.print()" style="background:#38d39f;color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-right:10px">🖨️ Chop etish / PDF</button>
+  <a href="/export-excel/{test_id}?token={token}" style="color:#6cb2ff;font-size:14px">📥 Excel</a>
+  <a href="/export-csv/{test_id}?token={token}" style="color:#6cb2ff;font-size:14px;margin-left:12px">📊 CSV</a>
+</div>
+<div class="header">
+  <h1>📊 Test Hisoboti</h1>
+  <div class="meta">
+    <b>{title}</b> &nbsp;|&nbsp; Sana: {now_str}
+  </div>
+</div>
+<div class="stats">
+  <div class="stat-box"><div class="stat-num">{int(analytics.get("total_sessions") or 0)}</div><div class="stat-lbl">Qatnashchilar</div></div>
+  <div class="stat-box"><div class="stat-num">{round(float(analytics.get("avg_score") or 0),1)}</div><div class="stat-lbl">O'rtacha ball</div></div>
+  <div class="stat-box"><div class="stat-num">{round(float(analytics.get("max_score") or 0),1)}</div><div class="stat-lbl">Eng yuqori</div></div>
+  <div class="stat-box"><div class="stat-num">{round(float(analytics.get("min_score") or 0),1)}</div><div class="stat-lbl">Eng past</div></div>
+</div>
+<table>
+  <thead><tr><th>#</th><th>Foydalanuvchi</th><th>Ball</th><th>Vaqt</th></tr></thead>
+  <tbody>{rows or "<tr><td colspan='4' style='text-align:center;color:#718096'>Hali natijalar yo'q</td></tr>"}</tbody>
+</table>
+<div class="footer">Geo Ustoz — Avtomatlashtirilgan Test Tizimi · {now_str}</div>
+</body></html>"""
+    return page
+
+@app.route("/admin/coupons")
+def admin_coupons():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    coupons = [dict(c) for c in db.get_all_coupons()]
+    coupon_empty = "Hali kuponlar yo'q"
+
+    rows = ""
+    for c in coupons:
+        from datetime import datetime as _dt
+        exp = _dt.fromtimestamp(int(c['expires_at']), tz=TZ).strftime("%d.%m.%Y") if c.get('expires_at') else "∞"
+        status = "✅" if c.get('is_active') else "❌"
+        rows += f"""<div class="row" style="flex-wrap:wrap;gap:8px">
+          <div style="flex:1;min-width:180px">
+            <code style="color:#fbbf24;font-size:15px">{html.escape(c.get('code',''))}</code>
+            <span class="badge" style="margin-left:8px">{status}</span><br>
+            <span style="color:#a0aec0;font-size:12px">
+              💎{c.get('months_free',0)}oy 🪙{c.get('gwt_bonus',0)}GWT
+              | {c.get('use_count',0)}/{c.get('max_uses',0) or '∞'} | ⏰{exp}
+            </span>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn" onclick="toggleCoupon({c['id']},{0 if c.get('is_active') else 1})"
+              style="background:{'#f56565' if c.get('is_active') else '#48bb78'};color:#fff;border:none;padding:7px 12px">
+              {"⏸" if c.get('is_active') else "▶️"}
+            </button>
+            <button class="btn" onclick="deleteCoupon({c['id']})"
+              style="background:#718096;color:#fff;border:none;padding:7px 12px">🗑</button>
+          </div>
+        </div>"""
+
+    page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>🎟️ Kupon Boshqaruvi</h1>
+      <div class="card">
+        <h2>➕ Yangi Kupon Yaratish</h2>
+        <div id="cp-alert" style="display:none;padding:10px;border-radius:8px;margin-bottom:12px;font-size:13px"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+          <div><label style="font-size:12px;color:#a0aec0">Kod</label>
+            <input id="cp-code" type="text" placeholder="PROMO50"
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;margin-top:4px"></div>
+          <div><label style="font-size:12px;color:#a0aec0">Premium (oy)</label>
+            <input id="cp-months" type="number" min="0" value="0"
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;margin-top:4px"></div>
+          <div><label style="font-size:12px;color:#a0aec0">GWT Bonus</label>
+            <input id="cp-gwt" type="number" min="0" step="0.1" value="0"
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;margin-top:4px"></div>
+          <div><label style="font-size:12px;color:#a0aec0">Max foydalanish (0=∞)</label>
+            <input id="cp-max" type="number" min="0" value="0"
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;margin-top:4px"></div>
+          <div><label style="font-size:12px;color:#a0aec0">Muddat (soat, 0=∞)</label>
+            <input id="cp-hours" type="number" min="0" value="168"
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;margin-top:4px"></div>
+        </div>
+        <button class="btn" onclick="createCoupon()"
+          style="background:#38d39f;color:#000;border:none;padding:12px 24px;font-weight:700">
+          ➕ Kupon Yaratish
+        </button>
+      </div>
+      <div class="card">
+        <h2>📋 Kuponlar ({len(coupons)} ta)</h2>
+        {rows if rows else "<div class='empty'>" + coupon_empty + "</div>"}
+      </div>
+    </div>
+    <script>
+    const TOKEN = "{token}";
+    function showAlert(el,msg,ok){{
+      const e=document.getElementById(el);e.style.display='block';
+      e.style.background=ok?'rgba(56,211,159,.2)':'rgba(245,101,101,.2)';
+      e.style.color=ok?'#68d391':'#fc8181';e.textContent=msg;
+      setTimeout(()=>e.style.display='none',4000);
+    }}
+    function createCoupon(){{
+      const code=document.getElementById('cp-code').value.trim();
+      if(!code)return showAlert('cp-alert','❌ Kod kiritilmagan',false);
+      fetch('/api/admin/coupon/create',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,code,
+          months_free:+document.getElementById('cp-months').value,
+          gwt_bonus:+document.getElementById('cp-gwt').value,
+          max_uses:+document.getElementById('cp-max').value,
+          expire_hours:+document.getElementById('cp-hours').value||null}})}})
+      .then(r=>r.json()).then(d=>{{
+        if(d.success){{showAlert('cp-alert','✅ Kupon yaratildi!',true);setTimeout(()=>location.reload(),1200);}}
+        else showAlert('cp-alert','❌ '+(d.error||'Xato'),false);
+      }});
+    }}
+    function toggleCoupon(id,val){{
+      fetch('/api/admin/coupon/toggle',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,coupon_id:id,is_active:val}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();}});
+    }}
+    function deleteCoupon(id){{
+      if(!confirm('Kupon o\'chirilsinmi?'))return;
+      fetch('/api/admin/coupon/delete',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,coupon_id:id}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();}});
+    }}
+    </script>"""
+    return page
+
+@app.route("/admin/staking")
+def admin_staking():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    stakes = [dict(s) for s in db.get_all_staking_stats()]
+    apy = db.get_setting('staking_apy', 12)
+    lock_days = db.get_setting('staking_lock_days', 30)
+    total_staked = sum(float(s.get('amount', 0)) for s in stakes)
+    total_reward = sum(float(s.get('total_reward', 0)) for s in stakes)
+
+    rows = ""
+    for s in stakes:
+        name = html.escape(s.get('first_name') or f"User{s.get('user_id','')}")
+        from datetime import datetime as _dt
+        unlock = _dt.fromtimestamp(int(s.get('unlock_at', 0)), tz=TZ).strftime("%d.%m")
+        rows += f"""<div class="row">
+          <div><b>{name}</b><br><span style="color:#a0aec0;font-size:12px">
+            💰{float(s.get('amount',0)):.2f} GWT | 🎁{float(s.get('total_reward',0)):.4f} | 🔒{unlock}
+          </span></div>
+        </div>"""
+
+    page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>💎 Staking Boshqaruvi</h1>
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num">{len(stakes)}</div><div class="stat-lbl">Aktiv staking</div></div>
+          <div class="stat-box"><div class="stat-num">{total_staked:.2f}</div><div class="stat-lbl">Jami qulflangan GWT</div></div>
+          <div class="stat-box"><div class="stat-num">{total_reward:.2f}</div><div class="stat-lbl">Berilgan mukofot</div></div>
+          <div class="stat-box"><div class="stat-num">{apy}%</div><div class="stat-lbl">APY</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 Aktiv Stakinglar</h2>
+        {rows if rows else "<div class='empty'>Hali staking yo'q</div>"}
+      </div>
+    </div>"""
+    return page
+
+@app.route("/staking")
+def web_staking():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user: return abort(401)
+    uid = int(user["user_id"])
+    balance = db.get_token_balance(uid)
+    stakes = db.get_user_staking(uid)
+    apy = db.get_setting('staking_apy', 12)
+    lock_days = db.get_setting('staking_lock_days', 30)
+
+    stake_rows = ""
+    for s in stakes:
+        s = dict(s)
+        from datetime import datetime as _dt
+        unlock_str = _dt.fromtimestamp(int(s.get('unlock_at', 0)), tz=TZ).strftime("%d.%m.%Y")
+        locked = int(s.get('unlock_at', 0)) > int(time.time())
+        lock_icon = "🔒" if locked else "✅"
+        stake_rows += f"""<div class="row" style="justify-content:space-between">
+          <div>
+            <b>{lock_icon} {float(s.get('amount',0)):.4f} GWT</b><br>
+            <span style="color:#68d391;font-size:13px">🎁 +{float(s.get('total_reward',0)):.4f} GWT</span><br>
+            <span style="color:#a0aec0;font-size:12px">Unlock: {unlock_str}</span>
+          </div>
+          <button class="btn" onclick="unstake({s['id']})"
+            style="background:{'#f56565' if locked else '#48bb78'};color:#fff;border:none;padding:9px 16px">
+            {'⚠️ Erta yechish' if locked else '✅ Yechish'}
+          </button>
+        </div>"""
+
+    daily = float(balance) * float(apy) / 365 / 100
+    lbl_title = {"ru":"Стейкинг GWT","uz_cyrl":"Стейкинг GWT"}.get(lang,"Staking GWT")
+    no_stake = {"ru":"Нет активных стейкингов","uz_cyrl":"Актив стейкинг йўқ"}.get(lang,"Hali staking yo'q")
+
+    page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>💎 {lbl_title}</h1>
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num">{balance:.4f}</div><div class="stat-lbl">Balansingiz (GWT)</div></div>
+          <div class="stat-box"><div class="stat-num">{apy}%</div><div class="stat-lbl">Yillik APY</div></div>
+          <div class="stat-box"><div class="stat-num">{lock_days}</div><div class="stat-lbl">Qulflash (kun)</div></div>
+          <div class="stat-box"><div class="stat-num">~{daily:.4f}</div><div class="stat-lbl">Kunlik mukofot</div></div>
+        </div>
+        <div style="margin-top:16px">
+          <h2 style="font-size:15px;margin-bottom:10px">💰 Yangi Staking Boshlash</h2>
+          <div id="stk-alert" style="display:none;padding:10px;border-radius:8px;margin-bottom:10px;font-size:13px"></div>
+          <div style="display:flex;gap:10px">
+            <input type="number" id="stk-amount" placeholder="Miqdor (GWT)" min="0.01" step="0.01"
+              style="flex:1;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff">
+            <button class="btn" onclick="startStaking()"
+              style="background:#fbbf24;color:#000;border:none;padding:11px 20px;font-weight:700">
+              🔒 Qulflash
+            </button>
+          </div>
+          <p style="color:#718096;font-size:12px;margin-top:8px">⚠️ Erta yechsangiz 10% jarima qo'llaniladi</p>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 Aktiv Stakinglarim ({len(stakes)} ta)</h2>
+        {stake_rows if stake_rows else "<div class='empty'>" + no_stake + "</div>"}
+      </div>
+    </div>
+    <script>
+    const TOKEN="{token}";
+    function showAlert(el,msg,ok){{
+      const e=document.getElementById(el);e.style.display='block';
+      e.style.background=ok?'rgba(56,211,159,.2)':'rgba(245,101,101,.2)';
+      e.style.color=ok?'#68d391':'#fc8181';e.textContent=msg;
+      setTimeout(()=>e.style.display='none',4000);
+    }}
+    function startStaking(){{
+      const amount=document.getElementById('stk-amount').value;
+      if(!amount||+amount<=0)return showAlert('stk-alert','❌ Miqdor kiriting',false);
+      fetch('/api/staking/start',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,amount:+amount}})}})
+      .then(r=>r.json()).then(d=>{{
+        if(d.success){{showAlert('stk-alert','✅ Staking boshlandi!',true);setTimeout(()=>location.reload(),1200);}}
+        else showAlert('stk-alert','❌ '+(d.error||'Xato'),false);
+      }});
+    }}
+    function unstake(id){{
+      if(!confirm('Yechishni tasdiqlaysizmi?'))return;
+      fetch('/api/staking/unstake',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,staking_id:id}})}})
+      .then(r=>r.json()).then(d=>{{
+        if(d.success){{showAlert('stk-alert','✅ Yechildi!',true);setTimeout(()=>location.reload(),1200);}}
+        else showAlert('stk-alert','❌ '+(d.error||'Xato'),false);
+      }});
+    }}
+    </script>"""
+    return page
+
+# Coupon & Staking API endpoints
+@app.route("/api/admin/coupon/create", methods=["POST"])
+def api_coupon_create():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    code = (data.get("code") or "").strip().upper()
+    if not code:
+        return jsonify({"success": False, "error": "Kod kerak"}), 400
+    expire_h = data.get("expire_hours")
+    if expire_h is not None and int(expire_h) <= 0:
+        expire_h = None
+    try:
+        db.create_coupon(code,
+            months_free=int(data.get("months_free") or 0),
+            gwt_bonus=float(data.get("gwt_bonus") or 0),
+            max_uses=int(data.get("max_uses") or 0),
+            expires_hours=int(expire_h) if expire_h else None,
+            created_by=int(user["user_id"]))
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route("/api/admin/coupon/toggle", methods=["POST"])
+def api_coupon_toggle():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    db.toggle_coupon(int(data.get("coupon_id", 0)), int(data.get("is_active", 0)))
+    return jsonify({"success": True})
+
+@app.route("/api/admin/coupon/delete", methods=["POST"])
+def api_coupon_delete():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    db.delete_coupon(int(data.get("coupon_id", 0)))
+    return jsonify({"success": True})
+
+@app.route("/api/coupon/use", methods=["POST"])
+def api_coupon_use():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
+    code = (data.get("code") or "").strip().upper()
+    coupon, err = db.get_coupon(code)
+    if err:
+        return jsonify({"success": False, "error": err}), 400
+    ok, use_err = db.use_coupon(coupon['id'], int(user["user_id"]))
+    if not ok:
+        return jsonify({"success": False, "error": use_err}), 400
+    applied = {}
+    if coupon.get('months_free', 0) > 0:
+        db.add_premium_months(int(user["user_id"]), int(coupon['months_free']))
+        applied['months'] = coupon['months_free']
+    if float(coupon.get('gwt_bonus', 0)) > 0:
+        db.system_sell_token(int(user["user_id"]), float(coupon['gwt_bonus']), method="COUPON")
+        applied['gwt'] = coupon['gwt_bonus']
+    return jsonify({"success": True, "applied": applied})
+
+@app.route("/api/staking/start", methods=["POST"])
+def api_staking_start():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
+    amount = float(data.get("amount") or 0)
+    if amount <= 0:
+        return jsonify({"success": False, "error": "Miqdor 0 dan katta bo'lishi kerak"}), 400
+    lock_days = int(db.get_setting('staking_lock_days', 30))
+    ok, result = db.start_staking(int(user["user_id"]), amount, lock_days)
+    if not ok:
+        return jsonify({"success": False, "error": result}), 400
+    return jsonify({"success": True, "staking_id": result})
+
+@app.route("/api/staking/unstake", methods=["POST"])
+def api_staking_unstake():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
+    ok, result = db.unstake(int(data.get("staking_id", 0)), int(user["user_id"]))
+    if not ok:
+        return jsonify({"success": False, "error": result}), 400
+    return jsonify({"success": True, "result": result})
+
+# ============================================================
+# TASK 6: CHALLENGE WEB, FREE-TEXT, SAVOL REPORT
+# ============================================================
+@app.route("/challenges")
+def web_challenges():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user: return abort(401)
+    uid = int(user["user_id"])
+    challenges = db.get_user_challenges(uid)
+
+    rows = ""
+    status_map = {
+        "pending": ("⏳", "#fbbf24"),
+        "active": ("⚡", "#6cb2ff"),
+        "finished": ("🏁", "#68d391"),
+        "expired": ("❌", "#718096"),
+        "rejected": ("🚫", "#f56565"),
+    }
+    for ch in challenges:
+        ch = dict(ch)
+        is_challenger = ch['challenger_id'] == uid
+        rival_name = html.escape(ch.get('challenged_name' if is_challenger else 'challenger_name', 'Noma\'lum'))
+        status = ch.get('status', 'pending')
+        icon, color = status_map.get(status, ("❓", "#718096"))
+        result_txt = ""
+        if status == 'finished':
+            won = ch.get('winner_id') == uid
+            result_txt = f"<span style='color:{'#68d391' if won else '#f56565'};font-weight:700'>{'🏆 Yutdim!' if won else '💔 Yutqazdim'}</span>"
+        bet_txt = f"🪙 {float(ch.get('gwt_bet',0)):.1f} GWT" if float(ch.get('gwt_bet',0)) > 0 else ""
+        my_score = ch.get('challenger_score' if is_challenger else 'challenged_score')
+        rival_score = ch.get('challenged_score' if is_challenger else 'challenger_score')
+        rows += f"""<div class="row" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+            <span style="font-size:18px">{icon}</span>
+            <span style="color:{color};font-size:13px;font-weight:600">{status.upper()}</span>
+          </div>
+          <b>⚔️ vs {rival_name}</b>
+          <span style="color:#a0aec0;font-size:13px">📝 {html.escape(ch.get('title','Test'))} {bet_txt}</span>
+          {f"<span style='font-size:13px'>Sizning ballingiz: <b>{my_score or '-'}</b> | Raqib: <b>{rival_score or '-'}</b></span>" if my_score or rival_score else ""}
+          {result_txt}
+        </div>"""
+
+    no_ch = {"ru":"Нет challeng'ей","uz_cyrl":"Чалленджлар йўқ"}.get(lang,"Hali challengelar yo'q")
+    page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>⚔️ Challenge — Bellashuvlar</h1>
+      <div class="card">
+        <h2>🆕 Yangi Challenge</h2>
+        <p style="color:#a0aec0;font-size:13px;margin-bottom:12px">
+          Do'stingizni bellashuvga taklif qiling! Botda: /challenge @username test_id
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input id="ch-user" type="text" placeholder="@raqib_username"
+            style="flex:1;min-width:140px;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <input id="ch-test" type="text" placeholder="test_id"
+            style="flex:1;min-width:120px;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <input id="ch-bet" type="number" min="0" step="0.1" value="0" placeholder="GWT stavka"
+            style="width:120px;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <button class="btn" onclick="createChallenge()"
+            style="background:#6cb2ff;color:#000;border:none;padding:11px 18px;font-weight:700">⚔️ Taklif</button>
+        </div>
+        <div id="ch-alert" style="display:none;padding:10px;border-radius:8px;margin-top:10px;font-size:13px"></div>
+      </div>
+      <div class="card">
+        <h2>📋 Challengelarim ({len(challenges)} ta)</h2>
+        {rows if rows else "<div class='empty'>" + no_ch + "</div>"}
+      </div>
+    </div>
+    <script>
+    const TOKEN="{token}";
+    function showAlert(el,msg,ok){{
+      const e=document.getElementById(el);e.style.display='block';
+      e.style.background=ok?'rgba(108,178,255,.2)':'rgba(245,101,101,.2)';
+      e.style.color=ok?'#6cb2ff':'#fc8181';e.textContent=msg;
+      setTimeout(()=>e.style.display='none',4000);
+    }}
+    function createChallenge(){{
+      const username=document.getElementById('ch-user').value.replace('@','').trim();
+      const test_id=document.getElementById('ch-test').value.trim();
+      const bet=+document.getElementById('ch-bet').value||0;
+      if(!username||!test_id)return showAlert('ch-alert','❌ Username va test_id kiritilmagan',false);
+      fetch('/api/challenge/create',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,username,test_id,gwt_bet:bet}})}})
+      .then(r=>r.json()).then(d=>{{
+        if(d.success){{showAlert('ch-alert','✅ Challenge yuborildi!',true);setTimeout(()=>location.reload(),1500);}}
+        else showAlert('ch-alert','❌ '+(d.error||'Xato'),false);
+      }});
+    }}
+    </script>"""
+    return page
+
+@app.route("/api/challenge/create", methods=["POST"])
+def api_challenge_create():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
+    uid = int(user["user_id"])
+    username = (data.get("username") or "").strip()
+    test_id = (data.get("test_id") or "").strip()
+    gwt_bet = float(data.get("gwt_bet") or 0)
+
+    if not username or not test_id:
+        return jsonify({"success": False, "error": "Username va test_id kerak"}), 400
+    test = db.get_test(test_id)
+    if not test:
+        return jsonify({"success": False, "error": "Test topilmadi"}), 404
+    with db._conn() as c:
+        rival = c.execute("SELECT user_id, first_name FROM users WHERE username=%s", (username,)).fetchone()
+    if not rival:
+        return jsonify({"success": False, "error": f"@{username} topilmadi"}), 404
+    rival = dict(rival)
+    if rival['user_id'] == uid:
+        return jsonify({"success": False, "error": "O'zingizga challenge yubora olmaysiz"}), 400
+    expire_h = int(db.get_setting('challenge_expire_h', 24))
+    challenge_id = db.create_challenge(test_id, uid, rival['user_id'], gwt_bet, expire_hours=expire_h)
+    return jsonify({"success": True, "challenge_id": challenge_id})
+
+@app.route("/api/question/report", methods=["POST"])
+def api_question_report():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
+    db.report_question(
+        data.get("test_id", ""),
+        int(data.get("q_index", 0)),
+        int(user["user_id"]),
+        data.get("report_type", "other"),
+        (data.get("comment") or "")[:500]
+    )
+    return jsonify({"success": True})
+
+@app.route("/api/question/comment", methods=["POST"])
+def api_question_comment():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
+    test_id = data.get("test_id", "")
+    comment = (data.get("comment") or "").strip()[:1000]
+    if not test_id or not comment:
+        return jsonify({"success": False, "error": "test_id va comment kerak"}), 400
+    cid = db.add_test_comment(test_id, int(user["user_id"]), comment, data.get("parent_id"))
+    return jsonify({"success": True, "comment_id": cid})
+
+@app.route("/api/question/comments")
+def api_question_comments():
+    user = validate_token(request.args.get("token"))
+    if not user: return jsonify({"success": False}), 401
+    test_id = request.args.get("test_id", "")
+    comments = [dict(c) for c in db.get_test_comments(test_id)]
+    return jsonify({"success": True, "comments": comments})
+
+# ============================================================
+# TASK 7: ADMIN REPORTS, BULK OPS, A/B TAQQOSLASH
+# ============================================================
+@app.route("/admin/reports")
+def admin_reports():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    reports = [dict(r) for r in db.get_question_reports(status='pending')]
+    no_rep = "Kutilayotgan reportlar yo'q"
+
+    rows = ""
+    for r in reports:
+        rows += f"""<div class="row" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <b>🚩 {html.escape(r.get('question','')[:80])}</b>
+          <span style="color:#a0aec0;font-size:13px">
+            Test: <code>{html.escape(r.get('test_id',''))}</code> |
+            Tur: <span style="color:#fbbf24">{html.escape(r.get('report_type',''))}</span>
+          </span>
+          {f"<span style='color:#f3f6ff;font-size:13px'>{html.escape(r.get('comment',''))}</span>" if r.get('comment') else ""}
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn" onclick="resolveReport({r['id']},'resolved')"
+              style="background:#48bb78;color:#fff;border:none;padding:7px 14px">✅ Hal qilindi</button>
+            <button class="btn" onclick="resolveReport({r['id']},'dismissed')"
+              style="background:#718096;color:#fff;border:none;padding:7px 14px">🗑 Rad etish</button>
+          </div>
+        </div>"""
+
+    # Bulk operations qismi
+    page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📊 Admin Hisobotlar va Bulk Operatsiyalar</h1>
+
+      <div class="card">
+        <h2>🚩 Savol Reportlari ({len(reports)} ta kutilmoqda)</h2>
+        {rows if rows else "<div class='empty'>" + no_rep + "</div>"}
+      </div>
+
+      <div class="card">
+        <h2>⚡ Bulk Operatsiyalar</h2>
+        <div id="bulk-alert" style="display:none;padding:10px;border-radius:8px;margin-bottom:12px;font-size:13px"></div>
+
+        <h3 style="font-size:15px;color:#fbbf24;margin-bottom:10px">💎 Birdan ko'p foydalanuvchiga Premium</h3>
+        <textarea id="bulk-ids" placeholder="Foydalanuvchi ID larini qatorma-qator yoki vergul bilan kiriting:&#10;123456789&#10;987654321"
+          style="width:100%;height:80px;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;resize:vertical;margin-bottom:8px"></textarea>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input id="bulk-months" type="number" min="1" max="60" value="1" placeholder="Oylar"
+            style="width:100px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <button class="btn" onclick="bulkPremium()"
+            style="background:#fbbf24;color:#000;border:none;padding:10px 20px;font-weight:700">
+            💎 Premium Berish
+          </button>
+        </div>
+
+        <hr style="border-color:rgba(255,255,255,.08);margin:20px 0">
+
+        <h3 style="font-size:15px;color:#f56565;margin-bottom:10px">🚫 Birdan ko'p foydalanuvchini ban qilish</h3>
+        <textarea id="bulk-ban-ids" placeholder="Ban qilinadigan ID lar..."
+          style="width:100%;height:60px;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;resize:vertical;margin-bottom:8px"></textarea>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input id="bulk-ban-reason" type="text" placeholder="Sabab (ixtiyoriy)"
+            style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff">
+          <button class="btn" onclick="bulkBan()"
+            style="background:#f56565;color:#fff;border:none;padding:10px 20px;font-weight:700">
+            🚫 Ban Qilish
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📈 Tezkor Statistika</h2>
+        <a href="/admin/stats?token={token}" class="btn"
+          style="background:rgba(56,211,159,.15);color:#38d39f;border-color:rgba(56,211,159,.3);margin-right:10px">
+          📊 Global Statistika
+        </a>
+        <a href="/admin/coupons?token={token}" class="btn"
+          style="background:rgba(251,191,36,.15);color:#fbbf24;border-color:rgba(251,191,36,.3);margin-right:10px">
+          🎟️ Kuponlar
+        </a>
+        <a href="/admin/staking?token={token}" class="btn"
+          style="background:rgba(108,178,255,.15);color:#6cb2ff;border-color:rgba(108,178,255,.3)">
+          💎 Staking
+        </a>
+      </div>
+    </div>
+    <script>
+    const TOKEN="{token}";
+    function showAlert(el,msg,ok){{
+      const e=document.getElementById(el);e.style.display='block';
+      e.style.background=ok?'rgba(56,211,159,.2)':'rgba(245,101,101,.2)';
+      e.style.color=ok?'#68d391':'#fc8181';e.textContent=msg;
+      setTimeout(()=>e.style.display='none',5000);
+    }}
+    function resolveReport(id,status){{
+      fetch('/api/admin/report/resolve',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,report_id:id,status}})}})
+      .then(r=>r.json()).then(d=>{{if(d.success)location.reload();}});
+    }}
+    function bulkPremium(){{
+      const raw=document.getElementById('bulk-ids').value;
+      const months=+document.getElementById('bulk-months').value||1;
+      const ids=raw.split(/[,\\n\\s]+/).map(s=>s.trim()).filter(s=>s.match(/^\\d+$/)).map(Number);
+      if(!ids.length)return showAlert('bulk-alert','❌ ID lar kiritilmagan',false);
+      if(!confirm(ids.length+" ta foydalanuvchiga "+months+" oy premium berasizmi?"))return;
+      fetch('/api/admin/bulk/premium',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,user_ids:ids,months}})}})
+      .then(r=>r.json()).then(d=>{{
+        if(d.success)showAlert('bulk-alert','✅ '+d.count+' ta foydalanuvchiga premium berildi!',true);
+        else showAlert('bulk-alert','❌ '+(d.error||'Xato'),false);
+      }});
+    }}
+    function bulkBan(){{
+      const raw=document.getElementById('bulk-ban-ids').value;
+      const reason=document.getElementById('bulk-ban-reason').value.trim()||'Bulk ban';
+      const ids=raw.split(/[,\\n\\s]+/).map(s=>s.trim()).filter(s=>s.match(/^\\d+$/)).map(Number);
+      if(!ids.length)return showAlert('bulk-alert','❌ ID lar kiritilmagan',false);
+      if(!confirm(ids.length+" ta foydalanuvchini ban qilasizmi?"))return;
+      fetch('/api/admin/bulk/ban',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{token:TOKEN,user_ids:ids,reason}})}})
+      .then(r=>r.json()).then(d=>{{
+        if(d.success)showAlert('bulk-alert','✅ '+d.count+' ta foydalanuvchi ban qilindi',true);
+        else showAlert('bulk-alert','❌ '+(d.error||'Xato'),false);
+      }});
+    }}
+    </script>"""
+    return page
+
+# Bulk & Report API
+@app.route("/api/admin/report/resolve", methods=["POST"])
+def api_report_resolve():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    db.resolve_report(int(data.get("report_id", 0)), data.get("status", "resolved"))
+    return jsonify({"success": True})
+
+@app.route("/api/admin/bulk/premium", methods=["POST"])
+def api_bulk_premium():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    count = db.bulk_give_premium(data.get("user_ids", []), int(data.get("months", 1)), int(user["user_id"]))
+    return jsonify({"success": True, "count": count})
+
+@app.route("/api/admin/bulk/ban", methods=["POST"])
+def api_bulk_ban():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False}), 403
+    count = db.bulk_ban_users(data.get("user_ids", []), int(user["user_id"]),
+                               data.get("reason", "Bulk ban"))
+    return jsonify({"success": True, "count": count})
+
+# Email report subscribe API
+@app.route("/api/email-report/subscribe", methods=["POST"])
+def api_email_subscribe():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user: return jsonify({"success": False}), 401
+    email = (data.get("email") or "").strip()
+    freq  = data.get("frequency", "weekly")
+    if "@" not in email:
+        return jsonify({"success": False, "error": "Email noto'g'ri"}), 400
+    db.subscribe_email_report(int(user["user_id"]), email, freq)
+    return jsonify({"success": True})
+
+@app.route("/api/email-report/unsubscribe", methods=["POST"])
+def api_email_unsubscribe():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user: return jsonify({"success": False}), 401
+    db.unsubscribe_email_report(int(user["user_id"]))
+    return jsonify({"success": True})
+
 def check_content_with_ai(title, questions_text):
     if not title and not questions_text: return True, "Hammasi joyida"
     if not GROQ_API_KEY: return True, "AI o'chirilgan"

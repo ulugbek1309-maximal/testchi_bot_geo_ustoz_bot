@@ -593,6 +593,187 @@ class DB:
             except: pass
 
             # ==============================================================
+            # 🆕 YANGI FUNKSIYALAR JADVALLARI (v7.0)
+            # ==============================================================
+
+            # 46. Adaptive testing
+            c.execute('''CREATE TABLE IF NOT EXISTS adaptive_progress (
+                user_id BIGINT,
+                q_bank_id INT,
+                correct_streak INT DEFAULT 0,
+                wrong_streak INT DEFAULT 0,
+                difficulty_level INT DEFAULT 1,
+                last_seen BIGINT,
+                PRIMARY KEY (user_id, q_bank_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 47. Free-text (ochiq) savollar va AI baholash
+            c.execute('''CREATE TABLE IF NOT EXISTS freetext_answers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                session_id VARCHAR(64),
+                q_index INT,
+                user_answer TEXT,
+                ai_score DECIMAL(5,2) DEFAULT NULL,
+                ai_feedback TEXT,
+                checked_at BIGINT DEFAULT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 48. Kupon kodlari
+            c.execute('''CREATE TABLE IF NOT EXISTS coupons (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                code VARCHAR(30) UNIQUE,
+                discount_pct INT DEFAULT 0,
+                months_free INT DEFAULT 0,
+                gwt_bonus DECIMAL(10,2) DEFAULT 0,
+                max_uses INT DEFAULT 0,
+                use_count INT DEFAULT 0,
+                expires_at BIGINT DEFAULT NULL,
+                is_active TINYINT DEFAULT 1,
+                created_by BIGINT,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 49. Kupon ishlatilish logi
+            c.execute('''CREATE TABLE IF NOT EXISTS coupon_uses (
+                coupon_id INT,
+                user_id BIGINT,
+                used_at BIGINT,
+                PRIMARY KEY (coupon_id, user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 50. Challenge (bellashuv) tizimi
+            c.execute('''CREATE TABLE IF NOT EXISTS challenges (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                test_id VARCHAR(50),
+                challenger_id BIGINT,
+                challenged_id BIGINT,
+                challenger_score DECIMAL(10,2) DEFAULT NULL,
+                challenged_score DECIMAL(10,2) DEFAULT NULL,
+                challenger_done TINYINT DEFAULT 0,
+                challenged_done TINYINT DEFAULT 0,
+                winner_id BIGINT DEFAULT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                gwt_bet DECIMAL(10,2) DEFAULT 0,
+                created_at BIGINT,
+                expires_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 51. GWT Staking
+            c.execute('''CREATE TABLE IF NOT EXISTS staking (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT,
+                amount DECIMAL(10,2),
+                apy DECIMAL(5,2) DEFAULT 12.0,
+                start_at BIGINT,
+                unlock_at BIGINT,
+                last_reward_at BIGINT,
+                total_reward DECIMAL(10,2) DEFAULT 0,
+                is_active TINYINT DEFAULT 1
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 52. Bot global sozlamalari
+            c.execute('''CREATE TABLE IF NOT EXISTS bot_settings (
+                key_name VARCHAR(100) PRIMARY KEY,
+                value_text TEXT,
+                value_int BIGINT DEFAULT NULL,
+                description VARCHAR(255),
+                updated_by BIGINT,
+                updated_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 53. Email hisobot sozlamalari
+            c.execute('''CREATE TABLE IF NOT EXISTS email_reports (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT,
+                email VARCHAR(255),
+                frequency VARCHAR(20) DEFAULT 'weekly',
+                is_active TINYINT DEFAULT 1,
+                last_sent BIGINT DEFAULT NULL,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 54. Savol report (xato bildirish)
+            c.execute('''CREATE TABLE IF NOT EXISTS question_reports (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                test_id VARCHAR(50),
+                q_index INT,
+                user_id BIGINT,
+                report_type VARCHAR(50),
+                comment TEXT,
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 55. Guruh subscriptions
+            c.execute('''CREATE TABLE IF NOT EXISTS group_subscriptions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                group_id VARCHAR(50),
+                plan VARCHAR(20) DEFAULT 'basic',
+                max_members INT DEFAULT 10,
+                months INT DEFAULT 1,
+                price_paid DECIMAL(10,2) DEFAULT 0,
+                starts_at BIGINT,
+                expires_at BIGINT,
+                is_active TINYINT DEFAULT 1,
+                created_by BIGINT,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 56. Ko'p to'g'ri javobli savollar
+            c.execute('''CREATE TABLE IF NOT EXISTS multi_correct_answers (
+                test_id VARCHAR(50),
+                q_index INT,
+                correct_indices_json TEXT,
+                PRIMARY KEY (test_id, q_index)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 57. Audio/Video savollar
+            c.execute('''CREATE TABLE IF NOT EXISTS question_media (
+                test_id VARCHAR(50),
+                q_index INT,
+                media_type VARCHAR(20),
+                file_id VARCHAR(255),
+                file_url VARCHAR(500),
+                PRIMARY KEY (test_id, q_index)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 58. Test izohlari (comments)
+            c.execute('''CREATE TABLE IF NOT EXISTS test_comments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                test_id VARCHAR(50),
+                user_id BIGINT,
+                comment TEXT,
+                parent_id INT DEFAULT NULL,
+                likes INT DEFAULT 0,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 59. Moderatsiya sozlamalari va taqiqlangan so'zlar
+            c.execute('''CREATE TABLE IF NOT EXISTS moderation_rules (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                rule_type VARCHAR(30),
+                value TEXT,
+                is_active TINYINT DEFAULT 1,
+                added_by BIGINT,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # Migratsiyalar yangi ustunlar
+            try: c.execute("ALTER TABLE questions ADD COLUMN q_type VARCHAR(20) DEFAULT 'single'")
+            except: pass
+            try: c.execute("ALTER TABLE questions ADD COLUMN media_type VARCHAR(20) DEFAULT NULL")
+            except: pass
+            try: c.execute("ALTER TABLE questions ADD COLUMN media_file_id VARCHAR(255) DEFAULT NULL")
+            except: pass
+            try: c.execute("ALTER TABLE tests ADD COLUMN is_adaptive TINYINT DEFAULT 0")
+            except: pass
+            try: c.execute("ALTER TABLE tests ADD COLUMN allow_comments TINYINT DEFAULT 1")
+            except: pass
+
+            # Boshlang'ich sozlamalar
+            self._seed_bot_settings(c)
+
+            # ==============================================================
             # 🔗 BLOKCHEYN VA HAMYONLAR JADVALLARI
             # ==============================================================
 
@@ -2561,3 +2742,524 @@ def to_dict_safe(row):
                 JOIN users u ON t.owner_user_id=u.user_id
                 WHERE t.status='scheduled' AND t.deadline_ts BETWEEN %s AND %s
             """, (now, soon)).fetchall()
+
+
+    # ================= ⚙️ BOT SOZLAMALARI =================
+    def _seed_bot_settings(self, c):
+        """Boshlang'ich bot sozlamalarini yaratish"""
+        defaults = [
+            ("maintenance_mode",    "0",   0,   "Texnik ishlar rejimi (0/1)"),
+            ("ai_daily_limit",      "10",  10,  "Har foydalanuvchi uchun kunlik AI chaqiruvi"),
+            ("max_q_per_test",      "100", 100, "Testdagi maksimal savollar soni"),
+            ("min_q_per_test",      "1",   1,   "Testdagi minimal savollar soni"),
+            ("premium_price_1",     "29000", None, "1 oylik premium narxi (so'm)"),
+            ("premium_price_3",     "79000", None, "3 oylik premium narxi (so'm)"),
+            ("premium_price_6",     "149000", None, "6 oylik premium narxi (so'm)"),
+            ("premium_price_12",    "279000", None, "12 oylik premium narxi (so'm)"),
+            ("gwt_price_usd",       "10",   None, "1 GWT = ? USD"),
+            ("staking_apy",         "12",   12,   "Staking foizi (yillik %)"),
+            ("staking_lock_days",   "30",   30,   "Staking qulflash muddati (kun)"),
+            ("challenge_expire_h",  "24",   24,   "Challenge muddati (soat)"),
+            ("auto_moderation",     "1",    1,    "Avtomatik moderatsiya (0/1)"),
+            ("registration_bonus",  "1",    1,    "Yangi foydalanuvchi uchun GWT bonus"),
+            ("referral_premium_n",  "10",   10,   "Nechta referal = 1 oy premium"),
+            ("max_broadcast_delay", "5",    5,    "Broadcast orasidagi interval (ms*10)"),
+            ("site_name",           "Geo Ustoz", None, "Sayt nomi"),
+            ("support_username",    "@support",  None, "Support username"),
+        ]
+        for key, val_text, val_int, desc in defaults:
+            try:
+                c.execute("""INSERT IGNORE INTO bot_settings
+                    (key_name, value_text, value_int, description, updated_at)
+                    VALUES (%s, %s, %s, %s, %s)""",
+                    (key, val_text, val_int, desc, int(time.time())))
+            except Exception:
+                pass
+
+    def get_setting(self, key, default=None):
+        """Bot sozlamasini olish"""
+        with self._conn() as c:
+            row = c.execute("SELECT value_text, value_int FROM bot_settings WHERE key_name=%s", (key,)).fetchone()
+            if not row:
+                return default
+            row = dict(row)
+            if row.get('value_int') is not None:
+                return row['value_int']
+            return row.get('value_text') or default
+
+    def set_setting(self, key, value, admin_id=0):
+        """Bot sozlamasini yangilash"""
+        with self._conn() as c:
+            val_int = None
+            try:
+                val_int = int(value)
+            except (ValueError, TypeError):
+                pass
+            c.execute("""INSERT INTO bot_settings (key_name, value_text, value_int, updated_by, updated_at)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    value_text=%s, value_int=%s, updated_by=%s, updated_at=%s""",
+                (key, str(value), val_int, admin_id, int(time.time()),
+                 str(value), val_int, admin_id, int(time.time())))
+
+    def get_all_settings(self):
+        """Barcha sozlamalarni olish"""
+        with self._conn() as c:
+            return c.execute("SELECT * FROM bot_settings ORDER BY key_name").fetchall()
+
+    # ================= 🎯 ADAPTIVE TESTING =================
+    def get_adaptive_level(self, user_id, q_bank_id):
+        with self._conn() as c:
+            row = c.execute("SELECT difficulty_level FROM adaptive_progress WHERE user_id=%s AND q_bank_id=%s",
+                            (user_id, q_bank_id)).fetchone()
+            return int(row['difficulty_level']) if row else 1
+
+    def update_adaptive_progress(self, user_id, q_bank_id, is_correct):
+        with self._conn() as c:
+            c.execute("""INSERT INTO adaptive_progress (user_id, q_bank_id, correct_streak, wrong_streak, difficulty_level, last_seen)
+                VALUES (%s, %s, %s, %s, 1, %s)
+                ON DUPLICATE KEY UPDATE
+                    correct_streak = IF(%s=1, correct_streak+1, 0),
+                    wrong_streak   = IF(%s=0, wrong_streak+1, 0),
+                    difficulty_level = GREATEST(1, LEAST(5,
+                        difficulty_level + IF(%s=1 AND correct_streak>=2, 1, IF(%s=0 AND wrong_streak>=2, -1, 0))
+                    )),
+                    last_seen = %s""",
+                (user_id, q_bank_id, 1 if is_correct else 0, 0 if is_correct else 1, int(time.time()),
+                 1 if is_correct else 0, 1 if is_correct else 0,
+                 1 if is_correct else 0, 1 if is_correct else 0,
+                 int(time.time())))
+
+    def get_adaptive_questions(self, user_id, category_id=None, limit=10):
+        """Foydalanuvchi darajasiga mos savollarni olish"""
+        with self._conn() as c:
+            level = 3  # default o'rta daraja
+            if category_id:
+                rows = c.execute("""SELECT AVG(difficulty_level) as avg_lvl
+                    FROM adaptive_progress ap
+                    JOIN question_bank qb ON ap.q_bank_id=qb.id
+                    WHERE ap.user_id=%s AND qb.category_id=%s""",
+                    (user_id, category_id)).fetchone()
+                if rows and rows['avg_lvl']:
+                    level = int(rows['avg_lvl'])
+            # O'sha darajadagi savollarni olish
+            return c.execute("""
+                SELECT qb.* FROM question_bank qb
+                LEFT JOIN adaptive_progress ap ON qb.id=ap.q_bank_id AND ap.user_id=%s
+                WHERE (%s IS NULL OR qb.category_id=%s)
+                ORDER BY ABS(COALESCE(ap.difficulty_level, 3) - %s) ASC, RAND()
+                LIMIT %s
+            """, (user_id, category_id, category_id, level, limit)).fetchall()
+
+    # ================= 📝 FREE-TEXT SAVOLLAR =================
+    def save_freetext_answer(self, session_id, q_index, user_answer):
+        with self._conn() as c:
+            c.execute("""INSERT INTO freetext_answers (session_id, q_index, user_answer)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE user_answer=%s""",
+                (session_id, q_index, user_answer, user_answer))
+
+    def get_freetext_answers(self, session_id):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM freetext_answers WHERE session_id=%s", (session_id,)).fetchall()
+
+    def save_freetext_ai_score(self, freetext_id, score, feedback):
+        with self._conn() as c:
+            c.execute("UPDATE freetext_answers SET ai_score=%s, ai_feedback=%s, checked_at=%s WHERE id=%s",
+                      (score, feedback, int(time.time()), freetext_id))
+
+    def get_pending_freetext(self, limit=20):
+        """AI tomonidan hali baholanmagan free-text javoblar"""
+        with self._conn() as c:
+            return c.execute("""SELECT fa.*, s.test_id, s.user_id
+                FROM freetext_answers fa
+                JOIN sessions s ON fa.session_id=s.session_id
+                WHERE fa.ai_score IS NULL
+                ORDER BY fa.id ASC LIMIT %s""", (limit,)).fetchall()
+
+    # ================= 🎟️ KUPON KODLARI =================
+    def create_coupon(self, code, discount_pct=0, months_free=0, gwt_bonus=0,
+                      max_uses=0, expires_hours=None, created_by=0):
+        expires_at = int(time.time()) + expires_hours * 3600 if expires_hours else None
+        with self._conn() as c:
+            c.execute("""INSERT INTO coupons
+                (code, discount_pct, months_free, gwt_bonus, max_uses, expires_at, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                (code.upper(), discount_pct, months_free, float(gwt_bonus),
+                 max_uses, expires_at, created_by, int(time.time())))
+            return c.lastrowid
+
+    def get_coupon(self, code):
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM coupons WHERE code=%s AND is_active=1", (code.upper(),)).fetchone()
+            if not row:
+                return None, "Kupon topilmadi"
+            row = dict(row)
+            if row.get('expires_at') and row['expires_at'] < int(time.time()):
+                return None, "Kupon muddati tugagan"
+            if row['max_uses'] > 0 and row['use_count'] >= row['max_uses']:
+                return None, "Kupon limiti tugagan"
+            return row, None
+
+    def use_coupon(self, coupon_id, user_id):
+        with self._conn() as c:
+            exists = c.execute("SELECT 1 FROM coupon_uses WHERE coupon_id=%s AND user_id=%s",
+                               (coupon_id, user_id)).fetchone()
+            if exists:
+                return False, "Siz bu kuponni allaqachon ishlatgansiz"
+            c.execute("INSERT INTO coupon_uses (coupon_id, user_id, used_at) VALUES (%s, %s, %s)",
+                      (coupon_id, user_id, int(time.time())))
+            c.execute("UPDATE coupons SET use_count=use_count+1 WHERE id=%s", (coupon_id,))
+            return True, None
+
+    def get_all_coupons(self, active_only=False):
+        with self._conn() as c:
+            if active_only:
+                return c.execute("SELECT * FROM coupons WHERE is_active=1 ORDER BY created_at DESC").fetchall()
+            return c.execute("SELECT * FROM coupons ORDER BY created_at DESC").fetchall()
+
+    def toggle_coupon(self, coupon_id, is_active):
+        with self._conn() as c:
+            c.execute("UPDATE coupons SET is_active=%s WHERE id=%s", (is_active, coupon_id))
+
+    def delete_coupon(self, coupon_id):
+        with self._conn() as c:
+            c.execute("DELETE FROM coupon_uses WHERE coupon_id=%s", (coupon_id,))
+            c.execute("DELETE FROM coupons WHERE id=%s", (coupon_id,))
+
+    # ================= ⚔️ CHALLENGE (BELLASHUV) =================
+    def create_challenge(self, test_id, challenger_id, challenged_id, gwt_bet=0, expire_hours=24):
+        expires_at = int(time.time()) + expire_hours * 3600
+        with self._conn() as c:
+            c.execute("""INSERT INTO challenges
+                (test_id, challenger_id, challenged_id, gwt_bet, created_at, expires_at)
+                VALUES (%s, %s, %s, %s, %s, %s)""",
+                (test_id, challenger_id, challenged_id, float(gwt_bet), int(time.time()), expires_at))
+            return c.lastrowid
+
+    def get_challenge(self, challenge_id):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM challenges WHERE id=%s", (challenge_id,)).fetchone()
+
+    def get_user_challenges(self, user_id):
+        with self._conn() as c:
+            return c.execute("""
+                SELECT c.*, t.title,
+                    u1.first_name as challenger_name, u2.first_name as challenged_name
+                FROM challenges c
+                JOIN tests t ON c.test_id=t.test_id
+                JOIN users u1 ON c.challenger_id=u1.user_id
+                JOIN users u2 ON c.challenged_id=u2.user_id
+                WHERE (c.challenger_id=%s OR c.challenged_id=%s)
+                    AND c.status != 'expired'
+                ORDER BY c.created_at DESC
+            """, (user_id, user_id)).fetchall()
+
+    def submit_challenge_score(self, challenge_id, user_id, score):
+        with self._conn() as c:
+            ch = to_dict_safe(c.execute("SELECT * FROM challenges WHERE id=%s", (challenge_id,)).fetchone())
+            if not ch:
+                return False, "Challenge topilmadi"
+            if ch['expires_at'] < int(time.time()):
+                c.execute("UPDATE challenges SET status='expired' WHERE id=%s", (challenge_id,))
+                return False, "Challenge muddati tugagan"
+            if user_id == ch['challenger_id']:
+                c.execute("UPDATE challenges SET challenger_score=%s, challenger_done=1 WHERE id=%s",
+                          (score, challenge_id))
+            elif user_id == ch['challenged_id']:
+                c.execute("UPDATE challenges SET challenged_score=%s, challenged_done=1 WHERE id=%s",
+                          (score, challenge_id))
+            else:
+                return False, "Bu challenge sizga tegishli emas"
+            # Ikkisi ham yakunlagan bo'lsa, g'olibni aniqlash
+            ch = to_dict_safe(c.execute("SELECT * FROM challenges WHERE id=%s", (challenge_id,)).fetchone())
+            if ch and ch.get('challenger_done') and ch.get('challenged_done'):
+                c_score = float(ch.get('challenger_score') or 0)
+                d_score = float(ch.get('challenged_score') or 0)
+                winner_id = ch['challenger_id'] if c_score >= d_score else ch['challenged_id']
+                c.execute("UPDATE challenges SET status='finished', winner_id=%s WHERE id=%s",
+                          (winner_id, challenge_id))
+                return True, winner_id
+            return True, None
+
+    # ================= 💎 STAKING =================
+    def start_staking(self, user_id, amount, lock_days=30):
+        apy = float(self.get_setting('staking_apy', 12))
+        unlock_at = int(time.time()) + lock_days * 86400
+        with self._conn() as c:
+            # Balans tekshirish
+            wallet = c.execute("SELECT balance FROM wallets WHERE user_id=%s", (user_id,)).fetchone()
+            if not wallet or float(dict(wallet)['balance']) < float(amount):
+                return False, "Yetarli GWT yo'q"
+            # Walletdan yechib olish
+            c.execute("UPDATE wallets SET balance=balance-%s WHERE user_id=%s", (float(amount), user_id))
+            c.execute("""INSERT INTO staking (user_id, amount, apy, start_at, unlock_at, last_reward_at)
+                VALUES (%s, %s, %s, %s, %s, %s)""",
+                (user_id, float(amount), apy, int(time.time()), unlock_at, int(time.time())))
+            return True, c.lastrowid
+
+    def get_user_staking(self, user_id):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM staking WHERE user_id=%s AND is_active=1 ORDER BY start_at DESC",
+                             (user_id,)).fetchall()
+
+    def unstake(self, staking_id, user_id):
+        with self._conn() as c:
+            stake = to_dict_safe(c.execute("SELECT * FROM staking WHERE id=%s AND user_id=%s AND is_active=1",
+                                           (staking_id, user_id)).fetchone())
+            if not stake:
+                return False, "Staking topilmadi"
+            now = int(time.time())
+            unlock_at = int(stake.get('unlock_at') or 0)
+            early = now < unlock_at
+            amount = float(stake.get('amount') or 0)
+            reward = float(stake.get('total_reward') or 0)
+            if early:
+                # Erta olish - 10% jarime
+                penalty = amount * 0.1
+                amount = amount - penalty
+            c.execute("UPDATE staking SET is_active=0 WHERE id=%s", (staking_id,))
+            c.execute("UPDATE wallets SET balance=balance+%s WHERE user_id=%s", (amount + reward, user_id))
+            return True, {"amount": amount, "reward": reward, "early": early}
+
+    def process_staking_rewards(self):
+        """Kunlik staking mukofotlarini hisoblash (scheduler uchun)"""
+        now = int(time.time())
+        day_ago = now - 86400
+        with self._conn() as c:
+            stakes = c.execute("""SELECT * FROM staking
+                WHERE is_active=1 AND last_reward_at < %s""", (day_ago,)).fetchall()
+            for s in stakes:
+                s = dict(s)
+                daily_rate = float(s.get('apy', 12)) / 365 / 100
+                reward = float(s.get('amount', 0)) * daily_rate
+                c.execute("""UPDATE staking SET
+                    total_reward=total_reward+%s,
+                    last_reward_at=%s
+                    WHERE id=%s""", (reward, now, s['id']))
+                c.execute("UPDATE wallets SET balance=balance+%s WHERE user_id=%s",
+                          (reward, s['user_id']))
+
+    def get_all_staking_stats(self):
+        with self._conn() as c:
+            return c.execute("""SELECT u.first_name, u.username, s.*
+                FROM staking s JOIN users u ON s.user_id=u.user_id
+                WHERE s.is_active=1 ORDER BY s.amount DESC""").fetchall()
+
+    # ================= 📊 SAVOL REPORT =================
+    def report_question(self, test_id, q_index, user_id, report_type, comment=""):
+        with self._conn() as c:
+            c.execute("""INSERT INTO question_reports
+                (test_id, q_index, user_id, report_type, comment, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)""",
+                (test_id, q_index, user_id, report_type, comment, int(time.time())))
+
+    def get_question_reports(self, status='pending', limit=50):
+        with self._conn() as c:
+            return c.execute("""SELECT qr.*, t.title as test_title, q.question
+                FROM question_reports qr
+                JOIN tests t ON qr.test_id=t.test_id
+                JOIN questions q ON qr.test_id=q.test_id AND qr.q_index=q.q_index
+                WHERE qr.status=%s
+                ORDER BY qr.created_at DESC LIMIT %s""", (status, limit)).fetchall()
+
+    def resolve_report(self, report_id, status='resolved'):
+        with self._conn() as c:
+            c.execute("UPDATE question_reports SET status=%s WHERE id=%s", (status, report_id))
+
+    # ================= 💬 TEST IZOHLARI =================
+    def add_test_comment(self, test_id, user_id, comment, parent_id=None):
+        with self._conn() as c:
+            c.execute("""INSERT INTO test_comments (test_id, user_id, comment, parent_id, created_at)
+                VALUES (%s, %s, %s, %s, %s)""",
+                (test_id, user_id, comment, parent_id, int(time.time())))
+            return c.lastrowid
+
+    def get_test_comments(self, test_id, limit=50):
+        with self._conn() as c:
+            return c.execute("""SELECT tc.*, u.first_name, u.username
+                FROM test_comments tc JOIN users u ON tc.user_id=u.user_id
+                WHERE tc.test_id=%s AND tc.parent_id IS NULL
+                ORDER BY tc.created_at DESC LIMIT %s""", (test_id, limit)).fetchall()
+
+    def like_comment(self, comment_id):
+        with self._conn() as c:
+            c.execute("UPDATE test_comments SET likes=likes+1 WHERE id=%s", (comment_id,))
+
+    def delete_comment(self, comment_id, user_id=None, is_admin=False):
+        with self._conn() as c:
+            if is_admin:
+                c.execute("DELETE FROM test_comments WHERE id=%s OR parent_id=%s",
+                          (comment_id, comment_id))
+            else:
+                c.execute("DELETE FROM test_comments WHERE id=%s AND user_id=%s",
+                          (comment_id, user_id))
+
+    # ================= 📧 EMAIL HISOBOT =================
+    def subscribe_email_report(self, user_id, email, frequency='weekly'):
+        with self._conn() as c:
+            c.execute("""INSERT INTO email_reports (user_id, email, frequency, created_at)
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE email=%s, frequency=%s, is_active=1""",
+                (user_id, email, frequency, int(time.time()), email, frequency))
+
+    def unsubscribe_email_report(self, user_id):
+        with self._conn() as c:
+            c.execute("UPDATE email_reports SET is_active=0 WHERE user_id=%s", (user_id,))
+
+    def get_email_report_subscribers(self, frequency='weekly'):
+        now = int(time.time())
+        if frequency == 'weekly':
+            last_sent_before = now - 7 * 86400
+        else:
+            last_sent_before = now - 30 * 86400
+        with self._conn() as c:
+            return c.execute("""SELECT er.*, u.first_name, u.username
+                FROM email_reports er JOIN users u ON er.user_id=u.user_id
+                WHERE er.is_active=1 AND er.frequency=%s
+                AND (er.last_sent IS NULL OR er.last_sent < %s)""",
+                (frequency, last_sent_before)).fetchall()
+
+    def mark_email_sent(self, report_id):
+        with self._conn() as c:
+            c.execute("UPDATE email_reports SET last_sent=%s WHERE id=%s",
+                      (int(time.time()), report_id))
+
+    # ================= 🔧 MODERATSIYA QOIDALARI =================
+    def add_moderation_rule(self, rule_type, value, added_by=0):
+        with self._conn() as c:
+            c.execute("""INSERT INTO moderation_rules (rule_type, value, added_by, created_at)
+                VALUES (%s, %s, %s, %s)""",
+                (rule_type, value, added_by, int(time.time())))
+
+    def get_moderation_rules(self, rule_type=None):
+        with self._conn() as c:
+            if rule_type:
+                return c.execute("SELECT * FROM moderation_rules WHERE rule_type=%s AND is_active=1",
+                                 (rule_type,)).fetchall()
+            return c.execute("SELECT * FROM moderation_rules WHERE is_active=1 ORDER BY rule_type").fetchall()
+
+    def toggle_moderation_rule(self, rule_id, is_active):
+        with self._conn() as c:
+            c.execute("UPDATE moderation_rules SET is_active=%s WHERE id=%s", (is_active, rule_id))
+
+    def delete_moderation_rule(self, rule_id):
+        with self._conn() as c:
+            c.execute("DELETE FROM moderation_rules WHERE id=%s", (rule_id,))
+
+    def check_custom_moderation(self, text):
+        """Maxsus taqiqlangan so'zlarni tekshirish"""
+        if not text:
+            return True
+        rules = self.get_moderation_rules('banned_word')
+        text_lower = text.lower()
+        for r in rules:
+            if dict(r).get('value', '').lower() in text_lower:
+                return False
+        return True
+
+    # ================= 🎓 GURUH SUBSCRIPTION =================
+    def create_group_subscription(self, group_id, plan, max_members, months, price, created_by):
+        starts_at = int(time.time())
+        expires_at = starts_at + months * 30 * 86400
+        with self._conn() as c:
+            c.execute("""INSERT INTO group_subscriptions
+                (group_id, plan, max_members, months, price_paid, starts_at, expires_at, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (group_id, plan, max_members, months, float(price),
+                 starts_at, expires_at, created_by, starts_at))
+
+    def get_group_subscription(self, group_id):
+        now = int(time.time())
+        with self._conn() as c:
+            return c.execute("""SELECT * FROM group_subscriptions
+                WHERE group_id=%s AND is_active=1 AND expires_at > %s
+                ORDER BY created_at DESC LIMIT 1""", (group_id, now)).fetchone()
+
+    def get_all_group_subscriptions(self):
+        with self._conn() as c:
+            return c.execute("""SELECT gs.*, g.name as group_name
+                FROM group_subscriptions gs
+                JOIN study_groups g ON gs.group_id=g.group_id
+                ORDER BY gs.created_at DESC""").fetchall()
+
+    # ================= 📊 BULK OPERATIONS =================
+    def bulk_give_premium(self, user_ids, months, admin_id):
+        """Bir nechta foydalanuvchiga birdan premium berish"""
+        count = 0
+        for uid in user_ids:
+            try:
+                self.add_premium_months(uid, months)
+                count += 1
+            except Exception as e:
+                logging.error(f"Bulk premium xato uid={uid}: {e}")
+        return count
+
+    def bulk_ban_users(self, user_ids, admin_id, reason="Bulk ban"):
+        """Bir nechta foydalanuvchini birdan ban qilish"""
+        count = 0
+        for uid in user_ids:
+            try:
+                self.ban_user_with_reason(uid, admin_id, reason)
+                count += 1
+            except Exception as e:
+                logging.error(f"Bulk ban xato uid={uid}: {e}")
+        return count
+
+    def bulk_archive_tests(self, test_ids, user_id):
+        """Bir nechta testni birdan arxivlash"""
+        with self._conn() as c:
+            for tid in test_ids:
+                c.execute("UPDATE tests SET status='archived' WHERE test_id=%s AND owner_user_id=%s",
+                          (tid, user_id))
+        return len(test_ids)
+
+    # ================= 🎲 KO'P TO'G'RI JAVOBLAR =================
+    def set_multi_correct(self, test_id, q_index, correct_indices):
+        """Bir savolda bir nechta to'g'ri javob"""
+        with self._conn() as c:
+            c.execute("""INSERT INTO multi_correct_answers (test_id, q_index, correct_indices_json)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE correct_indices_json=%s""",
+                (test_id, q_index, json.dumps(correct_indices), json.dumps(correct_indices)))
+
+    def get_multi_correct(self, test_id, q_index):
+        with self._conn() as c:
+            row = c.execute("SELECT correct_indices_json FROM multi_correct_answers WHERE test_id=%s AND q_index=%s",
+                            (test_id, q_index)).fetchone()
+            if row:
+                return json.loads(dict(row)['correct_indices_json'])
+            return None
+
+    # ================= 📊 GLOBAL STATISTIKA (KENGAYTIRILGAN) =================
+    def get_extended_global_stats(self):
+        """Admin uchun kengaytirilgan statistika"""
+        with self._conn() as c:
+            base = self.get_global_stats()
+            # Bugungi aktiv foydalanuvchilar
+            today = int(time.time()) - 86400
+            active_today = c.execute("""SELECT COUNT(DISTINCT user_id) as cnt
+                FROM sessions WHERE started_at >= %s""", (today,)).fetchone()
+            # Jami token aylanmasi
+            circulation = c.execute("""SELECT SUM(balance) as total
+                FROM wallets WHERE user_id != 0""").fetchone()
+            # Staking statistikasi
+            staking_stats = c.execute("""SELECT COUNT(*) as cnt, SUM(amount) as total_staked
+                FROM staking WHERE is_active=1""").fetchone()
+            # Kupon statistikasi
+            coupon_stats = c.execute("SELECT COUNT(*) as cnt, SUM(use_count) as uses FROM coupons").fetchone()
+            # Challenge statistikasi
+            challenge_stats = c.execute("""SELECT COUNT(*) as cnt,
+                COUNT(CASE WHEN status='finished' THEN 1 END) as finished
+                FROM challenges""").fetchone()
+            base.update({
+                "active_today": dict(active_today)['cnt'] if active_today else 0,
+                "token_circulation": float(dict(circulation)['total'] or 0) if circulation else 0,
+                "total_staked": float(dict(staking_stats)['total_staked'] or 0) if staking_stats else 0,
+                "staking_count": dict(staking_stats)['cnt'] if staking_stats else 0,
+                "coupon_count": dict(coupon_stats)['cnt'] if coupon_stats else 0,
+                "coupon_uses": dict(coupon_stats)['uses'] if coupon_stats else 0,
+                "challenge_count": dict(challenge_stats)['cnt'] if challenge_stats else 0,
+                "challenge_finished": dict(challenge_stats)['finished'] if challenge_stats else 0,
+            })
+            return base

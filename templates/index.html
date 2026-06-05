@@ -360,6 +360,10 @@
           <a href="/admin/chats?token={{ token }}" style="color:#f6ad55;border-color:rgba(246,173,85,0.4)" title="Xabarlar">💬</a>
           <a href="/admin/security?token={{ token }}" style="color:#f97316;border-color:rgba(249,115,22,0.4)" title="Xavfsizlik">🔐</a>
           <a href="/admin/ai-chats?token={{ token }}" style="color:#38d39f;border-color:rgba(56,211,159,0.4)" title="AI">🤖</a>
+          <a href="/admin/settings?token={{ token }}" style="color:#a3e635;border-color:rgba(163,230,53,0.4)" title="Sozlamalar">⚙️</a>
+          <a href="/admin/coupons?token={{ token }}" style="color:#fbbf24;border-color:rgba(251,191,36,0.4)" title="Kuponlar">🎟️</a>
+          <a href="/admin/reports?token={{ token }}" style="color:#f87171;border-color:rgba(248,113,113,0.4)" title="Hisobotlar">📊</a>
+          <a href="/admin/staking?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)" title="Staking">💎</a>
         </span>
         {% endif %}
       </div>
@@ -384,6 +388,10 @@
       <a href="/admin/chats?token={{ token }}" style="color:#f6ad55;border-color:rgba(246,173,85,0.4)">💬 Xabarlar</a>
       <a href="/admin/security?token={{ token }}" style="color:#f97316;border-color:rgba(249,115,22,0.4)">🔐 Xavfsizlik</a>
       <a href="/admin/ai-chats?token={{ token }}" style="color:#38d39f;border-color:rgba(56,211,159,0.4)">🤖 AI Chatlar</a>
+      <a href="/admin/settings?token={{ token }}" style="color:#a3e635;border-color:rgba(163,230,53,0.4)">⚙️ Sozlamalar</a>
+      <a href="/admin/coupons?token={{ token }}" style="color:#fbbf24;border-color:rgba(251,191,36,0.4)">🎟️ Kuponlar</a>
+      <a href="/admin/staking?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)">💎 Staking</a>
+      <a href="/admin/reports?token={{ token }}" style="color:#f87171;border-color:rgba(248,113,113,0.4)">📊 Hisobotlar</a>
     </div>
     {% endif %}
 
@@ -456,6 +464,16 @@
             <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Import (Excel/CSV)' if lang=='uz' else ('Импорт (Excel/CSV)' if lang=='uz_cyrl' else 'Импорт') }}</div>
         </a>
 
+        <a href="/staking?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(245,158,11,0.05));border-color:rgba(251,191,36,0.25);">
+            <div style="font-size:32px;">💎</div>
+            <div style="font-weight:600;color:#fbbf24;font-size:14px;">{{ 'Staking GWT' if lang=='uz' else ('Стейкинг GWT' if lang=='uz_cyrl' else 'Стейкинг GWT') }}</div>
+        </a>
+
+        <a href="/challenges?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(108,178,255,0.08),rgba(59,130,246,0.05));border-color:rgba(108,178,255,0.25);">
+            <div style="font-size:32px;">⚔️</div>
+            <div style="font-weight:600;color:#6cb2ff;font-size:14px;">{{ 'Challenge' if lang=='uz' else ('Челлендж' if lang=='uz_cyrl' else 'Челлендж') }}</div>
+        </a>
+
         {# ADMIN MAXSUS KARTALAR — FAQAT ADMINGA #}
         {% if is_admin %}
         <a href="/admin/users?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(104,211,145,0.12),rgba(56,178,172,0.08));border-color:rgba(104,211,145,0.35);">
@@ -466,6 +484,11 @@
         <a href="/admin/stats?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(104,211,145,0.12),rgba(56,178,172,0.08));border-color:rgba(104,211,145,0.35);">
             <div style="font-size:32px;">📈</div>
             <div style="font-weight:700;color:#68d391;font-size:13px;">Global Stat</div>
+            <span style="font-size:10px;color:rgba(104,211,145,0.8);background:rgba(104,211,145,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/settings?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(104,211,145,0.12),rgba(56,178,172,0.08));border-color:rgba(104,211,145,0.35);">
+            <div style="font-size:32px;">⚙️</div>
+            <div style="font-weight:700;color:#68d391;font-size:13px;">{{ 'Bot Sozlamalari' if lang=='uz' else ('Бот Созламалари' if lang=='uz_cyrl' else 'Настройки') }}</div>
             <span style="font-size:10px;color:rgba(104,211,145,0.8);background:rgba(104,211,145,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
         </a>
         <a href="/admin/channels?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.08));border-color:rgba(251,191,36,0.35);">
@@ -502,6 +525,21 @@
             <div style="font-size:32px;">💬</div>
             <div style="font-weight:700;color:#f6ad55;font-size:13px;">{{ 'Xabarlar' if lang=='uz' else ('Хабарлар' if lang=='uz_cyrl' else 'Сообщения') }}</div>
             <span style="font-size:10px;color:rgba(246,173,85,0.8);background:rgba(246,173,85,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/coupons?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.08));border-color:rgba(251,191,36,0.35);">
+            <div style="font-size:32px;">🎟️</div>
+            <div style="font-weight:700;color:#fbbf24;font-size:13px;">{{ 'Kuponlar' if lang=='uz' else ('Купонлар' if lang=='uz_cyrl' else 'Купоны') }}</div>
+            <span style="font-size:10px;color:rgba(251,191,36,0.8);background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/staking?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(104,211,145,0.12),rgba(56,178,172,0.08));border-color:rgba(104,211,145,0.35);">
+            <div style="font-size:32px;">💎</div>
+            <div style="font-weight:700;color:#68d391;font-size:13px;">{{ 'Staking' if lang=='uz' else ('Стейкинг' if lang=='uz_cyrl' else 'Стейкинг') }}</div>
+            <span style="font-size:10px;color:rgba(104,211,145,0.8);background:rgba(104,211,145,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/reports?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(248,113,113,0.12),rgba(239,68,68,0.08));border-color:rgba(248,113,113,0.35);">
+            <div style="font-size:32px;">📊</div>
+            <div style="font-weight:700;color:#f87171;font-size:13px;">{{ 'Hisobotlar & Bulk' if lang=='uz' else ('Ҳисоботлар & Bulk' if lang=='uz_cyrl' else 'Отчёты & Bulk') }}</div>
+            <span style="font-size:10px;color:rgba(248,113,113,0.8);background:rgba(248,113,113,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
         </a>
         {% endif %}
 
