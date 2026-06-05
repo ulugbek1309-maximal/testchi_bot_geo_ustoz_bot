@@ -771,7 +771,10 @@ class DB:
             except: pass
 
             # Boshlang'ich sozlamalar
-            self._seed_bot_settings(c)
+            try:
+                self._seed_bot_settings(c)
+            except Exception as e:
+                logging.error(f"Bot sozlamalari seed xatosi: {e}")
 
             # ==============================================================
             # 🔗 BLOKCHEYN VA HAMYONLAR JADVALLARI
@@ -913,8 +916,11 @@ class DB:
             # ==============================================================
             # 🌱 BOSHLANG'ICH MA'LUMOTLAR (SEED) - Kategoriyalar va Yutuqlar
             # ==============================================================
-            self._seed_categories(c)
-            self._seed_achievements(c)
+            try:
+                self._seed_categories(c)
+                self._seed_achievements(c)
+            except Exception as e:
+                logging.error(f"Seed xatosi: {e}")
 
     # ================= 🔗 HAMYON VA BLOKCHEYN (TOKEN) FUNKSIYALARI =================
 
