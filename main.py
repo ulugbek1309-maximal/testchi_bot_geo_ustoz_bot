@@ -1480,8 +1480,8 @@ async def build_main_menu(user_id: int, bot_username: str, lang: str = "uz") -> 
         # 5. Moliya va Premium
         [KeyboardButton(text=get_bot_text('btn_wallet', lang)),
          KeyboardButton(text=get_bot_text('btn_premium', lang))],
-        [KeyboardButton(text=t("💎 GWT Staking", "💎 GWT Стейкинг", "💎 GWT Стейкинг")),
-         KeyboardButton(text=t("🎟️ Kupon", "🎟️ Купон", "🎟️ Купон"))],
+        [KeyboardButton(text=t("🎟️ Kupon", "🎟️ Купон", "🎟️ Купон")),
+         KeyboardButton(text=get_bot_text('btn_referral', lang))],
 
         # 6. Ijtimoiy
         [KeyboardButton(text=t("⚔️ Challenge", "⚔️ Челлендж", "⚔️ Челлендж")),
@@ -1529,9 +1529,8 @@ async def build_admin_menu(lang: str = "uz") -> InlineKeyboardMarkup:
         # Moliya
         [InlineKeyboardButton("💰 To'lovlar", callback_data="admin_pendings"),
          InlineKeyboardButton("📣 Reklamalar", callback_data="admin_ads")],
-        # Yangi: Kuponlar va Staking
         [InlineKeyboardButton("🎟️ Kuponlar", callback_data="admin_coupons"),
-         InlineKeyboardButton("💎 Staking", callback_data="admin_staking")],
+         InlineKeyboardButton("📊 Hisobotlar", callback_data="admin_reports")],
         # Xavfsizlik
         [InlineKeyboardButton("🔐 Xavfsizlik", callback_data="admin_security"),
          InlineKeyboardButton("🤖 AI Chatlar", callback_data="admin_ai_chats")],
@@ -2603,108 +2602,6 @@ async def cmd_mychallenges(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{status_emoji} vs <b>{rival_name}</b> — {h(ch.get('title','Test'))}{result}"
         )
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
-
-# ==========================================
-# 💎 STAKING (GWT TOKEN QULFLASH)
-# ==========================================
-async def cmd_stake(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/stake MIQDOR — GWT tokenlarni staking qilish"""
-    user_id = update.effective_user.id
-    lang = get_user_lang(user_id)
-    apy = safe_get_setting('staking_apy', 12)
-    lock_days = safe_get_setting('staking_lock_days', 30)
-
-    if not context.args:
-        balance = db.get_token_balance(user_id)
-        stakes = safe_db('get_user_staking', user_id, default=[])
-        total_staked = sum(float(dict(s).get('amount', 0)) for s in stakes)
-        total_reward = sum(float(dict(s).get('total_reward', 0)) for s in stakes)
-        await update.message.reply_text(
-            f"💎 <b>GWT Staking</b>\n\n"
-            f"📊 Joriy APY: <b>{apy}%</b> (yillik)\n"
-            f"🔒 Qulflash muddati: <b>{lock_days} kun</b>\n\n"
-            f"💰 Balansingiz: <b>{balance} GWT</b>\n"
-            f"📦 Staking'da: <b>{total_staked:.4f} GWT</b>\n"
-            f"🎁 Jami mukofot: <b>{total_reward:.4f} GWT</b>\n\n"
-            f"Staking boshlash: /stake &lt;miqdor&gt;\n"
-            f"Yechish: /unstake &lt;id&gt;",
-            parse_mode=ParseMode.HTML
-        )
-        return
-
-    try:
-        amount = float(context.args[0])
-        if amount <= 0:
-            raise ValueError
-    except ValueError:
-        await update.message.reply_text("❌ Noto'g'ri miqdor. Raqam kiriting.")
-        return
-
-    if not hasattr(db, 'start_staking'):
-        await update.message.reply_text("❌ Staking funksiyasi hali faol emas. Adminга murojaat qiling.")
-        return
-
-    ok, result = db.start_staking(user_id, amount, lock_days=int(lock_days))
-    if not ok:
-        await update.message.reply_text(f"❌ {result}")
-        return
-
-    daily = amount * float(apy) / 365 / 100
-    await update.message.reply_text(
-        f"✅ <b>Staking boshlandi!</b>\n\n"
-        f"🪙 Miqdor: <b>{amount} GWT</b>\n"
-        f"📈 APY: <b>{apy}%</b>\n"
-        f"🎁 Kunlik mukofot: <b>~{daily:.4f} GWT</b>\n"
-        f"🔒 Qulflash: <b>{lock_days} kun</b>\n\n"
-        f"⚠️ Erta yechsangiz 10% jarima!",
-        parse_mode=ParseMode.HTML
-    )
-
-async def cmd_unstake(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/unstake ID — Staking yechish"""
-    user_id = update.effective_user.id
-    if not context.args:
-        stakes = safe_db('get_user_staking', user_id, default=[])
-        if not stakes:
-            await update.message.reply_text("❌ Aktiv staking'laringiz yo'q.")
-            return
-        lines = ["💎 <b>Aktiv staking'laringiz:</b>\n"]
-        for s in stakes:
-            s = dict(s)
-            unlock_dt = datetime.fromtimestamp(int(s.get('unlock_at', 0)), tz=TZ).strftime("%d.%m.%Y")
-            locked = int(s.get('unlock_at', 0)) > now_ts()
-            status = f"🔒 {unlock_dt} gacha" if locked else "✅ Yechish mumkin"
-            lines.append(
-                f"ID: <code>{s['id']}</code> | "
-                f"{s.get('amount')} GWT | "
-                f"Mukofot: {float(s.get('total_reward',0)):.4f} GWT | {status}"
-            )
-        lines.append("\nYechish: /unstake <ID>")
-        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
-        return
-
-    try:
-        staking_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("❌ ID raqam bo'lishi kerak.")
-        return
-
-    if not hasattr(db, "unstake"):
-        await update.message.reply_text("❌ Bu funksiya hali faol emas.")
-        return
-    ok, result = db.unstake(staking_id, user_id)
-    if not ok:
-        await update.message.reply_text(f"❌ {result}")
-        return
-
-    penalty_txt = "\n⚠️ Erta yechish uchun 10% jarima qo'llanildi!" if result.get('early') else ""
-    await update.message.reply_text(
-        f"✅ <b>Staking yechildi!</b>\n\n"
-        f"💰 Qaytarildi: <b>{result['amount']:.4f} GWT</b>\n"
-        f"🎁 Mukofot: <b>{result['reward']:.4f} GWT</b>{penalty_txt}",
-        parse_mode=ParseMode.HTML
-    )
-
 # ==========================================
 # 📊 SAVOL REPORT (XATO BILDIRISH)
 # ==========================================
@@ -3016,17 +2913,6 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         )]
 
     await query.answer(items, cache_time=10)
-
-# ==========================================
-# 💎 STAKING KUNLIK MUKOFOTLARI
-# ==========================================
-async def job_staking_rewards(context: ContextTypes.DEFAULT_TYPE):
-    """Har 6 soatda staking mukofotlarini hisoblash va foydalanuvchilarga xabar"""
-    try:
-        db.process_staking_rewards()
-        logging.info("✅ Staking mukofotlari hisoblandi")
-    except Exception as e:
-        logging.error(f"Staking rewards job xatosi: {e}")
 
 # ==========================================
 # 📅 TASK 9: SCHEDULED TESTS (bot job)
@@ -3669,27 +3555,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        elif data == "admin_staking":
-            if user_id not in SUPERADMINS:
-                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
-                return
-            token = db.get_or_create_user_api_key(user_id)
-            url = f"{WEB_BASE_URL.rstrip('/')}/admin/staking?token={token}"
-            await q.answer()
-            # Qisqa statistika
-            stakes = db.get_all_staking_stats()
-            total = sum(float(dict(s).get('amount', 0)) for s in stakes)
-            await q.message.reply_text(
-                f"💎 <b>Staking Boshqaruvi</b>\n\n"
-                f"📦 Aktiv stakinglar: <b>{len(stakes)}</b>\n"
-                f"💰 Jami qulflangan: <b>{total:.2f} GWT</b>",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("💎 Staking statistikasi", web_app=WebAppInfo(url=url))
-                ]]),
-                parse_mode=ParseMode.HTML
-            )
-            return
-
         elif data == "admin_settings":
             if user_id not in SUPERADMINS:
                 await q.answer("❌ Ruxsat yo'q!", show_alert=True)
@@ -3781,24 +3646,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.edit_text("✅ Email hisobot o'chirildi.")
         except Exception:
             pass
-        return
-
-    # ==========================================
-    # 💎 STAKING INFO CALLBACK
-    # ==========================================
-    if data == "staking_info":
-        apy = safe_get_setting('staking_apy', 12)
-        lock_days = safe_get_setting('staking_lock_days', 30)
-        await q.answer()
-        await q.message.reply_text(
-            f"💎 <b>GWT Staking Shartlari</b>\n\n"
-            f"📈 APY: <b>{apy}%</b> (yillik)\n"
-            f"🔒 Qulflash: <b>{lock_days} kun</b>\n"
-            f"⚠️ Erta yechish jarima: <b>10%</b>\n\n"
-            f"<b>Boshlash:</b> /stake &lt;miqdor&gt;\n"
-            f"<b>Ko'rish:</b> /unstake",
-            parse_mode=ParseMode.HTML
-        )
         return
 
     # ==========================================
@@ -5174,18 +5021,18 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🤝 Hamkor Dasturi", "👥 Guruhlarim", "🔔 Bildirishnomalar",
         "📚 Kutubxona", "🤖 AI Test Yaratish",
         # Yangi
-        "💎 GWT Staking", "🎟️ Kupon", "⚔️ Challenge",
+        "🎟️ Kupon", "⚔️ Challenge",
         "📧 Email Hisobot", "📊 Statistikam", "🏅 Yutuqlarim",
         "❓ Yordam (/help)",
         # Kirill
         "🃏 Флэшкардлар", "📦 Савол Банки", "📜 Сертификатларим",
         "🤝 Ҳамкор Дастури", "👥 Гуруҳларим", "🔔 Билдиришномалар",
         "📚 Кутубхона", "🤖 AI Тест Яратиш",
-        "💎 GWT Стейкинг", "🎟️ Купон", "⚔️ Челлендж",
+        "🎟️ Купон", "⚔️ Челлендж",
         "📧 Емейл Ҳисобот", "📊 Статистикам", "🏅 Ютуқларим",
         "❓ Ёрдам (/help)",
         # Rus
-        "🤖 AI Тест", "💎 GWT Стейкинг", "🎟️ Купон", "⚔️ Челлендж",
+        "🤖 AI Тест", "🎟️ Купон", "⚔️ Челлендж",
         "📧 Email отчёт", "📊 Статистика", "🏅 Достижения",
         "🤝 Партнёрство", "👥 Мои группы", "🔔 Уведомления",
         "📚 Библиотека", "📜 Сертификаты",
@@ -5494,30 +5341,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Test mavzusini yozing va AI avtomatik 5 ta savol yaratib beradi!\n\n"
             "📝 Misol: <i>O'zbekiston tarixi</i>, <i>Matematika trigonometriya</i>\n\n"
             "Mavzuni yozing:",
-            reply_markup=kb, parse_mode=ParseMode.HTML
-        )
-        return
-
-    # ==========================================
-    # 💎 STAKING
-    # ==========================================
-    elif text in ("💎 GWT Staking", "💎 GWT Стейкинг"):
-        token = db.get_or_create_user_api_key(user_id)
-        url = f"{WEB_BASE_URL.rstrip('/')}/staking?token={token}"
-        apy = safe_get_setting('staking_apy', 12)
-        lock_days = safe_get_setting('staking_lock_days', 30)
-        balance = db.get_token_balance(user_id)
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💎 Staking sahifasini ochish", web_app=WebAppInfo(url=url))],
-            [InlineKeyboardButton(f"💎 Staking boshlash (APY: {apy}%)", callback_data="staking_info")],
-        ])
-        await update.effective_chat.send_message(
-            f"💎 <b>GWT Staking</b>\n\n"
-            f"💰 Balansingiz: <b>{balance:.4f} GWT</b>\n"
-            f"📈 APY: <b>{apy}%</b> (yillik)\n"
-            f"🔒 Qulflash muddati: <b>{lock_days} kun</b>\n\n"
-            f"Staking orqali GWT tokenlaringizni qulflab, passiv daromad oling!\n\n"
-            f"Bot orqali: /stake &lt;miqdor&gt;",
             reply_markup=kb, parse_mode=ParseMode.HTML
         )
         return
@@ -7089,12 +6912,6 @@ if __name__ == "__main__":
         except Exception as e:
             logging.error(f"Scheduled test job xatosi: {e}")
 
-        # Staking kunlik mukofotlari (har 6 soatda)
-        try:
-            app.job_queue.run_repeating(job_staking_rewards, interval=6*3600, first=600)
-        except Exception as e:
-            logging.error(f"Staking job xatosi: {e}")
-
 
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
@@ -7172,10 +6989,6 @@ if __name__ == "__main__":
     # Challenge (bellashuv)
     app.add_handler(CommandHandler("challenge", cmd_challenge))
     app.add_handler(CommandHandler("mychallenges", cmd_mychallenges))
-
-    # Staking
-    app.add_handler(CommandHandler("stake", cmd_stake))
-    app.add_handler(CommandHandler("unstake", cmd_unstake))
 
     # Savol report
     app.add_handler(CommandHandler("report", cmd_report_question))

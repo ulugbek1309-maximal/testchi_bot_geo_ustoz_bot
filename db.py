@@ -658,19 +658,6 @@ class DB:
                 expires_at BIGINT
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
 
-            # 51. GWT Staking
-            c.execute('''CREATE TABLE IF NOT EXISTS staking (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id BIGINT,
-                amount DECIMAL(10,2),
-                apy DECIMAL(5,2) DEFAULT 12.0,
-                start_at BIGINT,
-                unlock_at BIGINT,
-                last_reward_at BIGINT,
-                total_reward DECIMAL(10,2) DEFAULT 0,
-                is_active TINYINT DEFAULT 1
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
-
             # 52. Bot global sozlamalari
             c.execute('''CREATE TABLE IF NOT EXISTS bot_settings (
                 key_name VARCHAR(100) PRIMARY KEY,
@@ -2766,8 +2753,6 @@ def to_dict_safe(row):
             ("premium_price_6",     "149000", None, "6 oylik premium narxi (so'm)"),
             ("premium_price_12",    "279000", None, "12 oylik premium narxi (so'm)"),
             ("gwt_price_usd",       "10",   None, "1 GWT = ? USD"),
-            ("staking_apy",         "12",   12,   "Staking foizi (yillik %)"),
-            ("staking_lock_days",   "30",   30,   "Staking qulflash muddati (kun)"),
             ("challenge_expire_h",  "24",   24,   "Challenge muddati (soat)"),
             ("auto_moderation",     "1",    1,    "Avtomatik moderatsiya (0/1)"),
             ("registration_bonus",  "1",    1,    "Yangi foydalanuvchi uchun GWT bonus"),
@@ -2990,100 +2975,6 @@ def to_dict_safe(row):
                           (winner_id, challenge_id))
                 return True, winner_id
             return True, None
-
-    # ================= 💎 STAKING =================
-    def start_staking(self, user_id, amount, lock_days=30):
-        # get_setting xavfsiz chaqiruv
-        try:
-            apy = float(self.get_setting('staking_apy', 12) or 12)
-        except Exception:
-            apy = 12.0
-        unlock_at = int(time.time()) + int(lock_days) * 86400
-        try:
-            with self._conn() as c:
-                # Staking jadvali borligini tekshirish
-                try:
-                    c.execute('''CREATE TABLE IF NOT EXISTS staking (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        user_id BIGINT,
-                        amount DECIMAL(10,2),
-                        apy DECIMAL(5,2) DEFAULT 12.0,
-                        start_at BIGINT,
-                        unlock_at BIGINT,
-                        last_reward_at BIGINT,
-                        total_reward DECIMAL(10,2) DEFAULT 0,
-                        is_active TINYINT DEFAULT 1
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
-                except Exception:
-                    pass
-                # Balans tekshirish
-                wallet = c.execute("SELECT balance FROM wallets WHERE user_id=%s", (user_id,)).fetchone()
-                if not wallet or float(dict(wallet)['balance']) < float(amount):
-                    return False, "Yetarli GWT yo'q"
-                # Walletdan yechib olish
-                c.execute("UPDATE wallets SET balance=balance-%s WHERE user_id=%s", (float(amount), user_id))
-                c.execute("""INSERT INTO staking (user_id, amount, apy, start_at, unlock_at, last_reward_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)""",
-                    (user_id, float(amount), apy, int(time.time()), unlock_at, int(time.time())))
-                return True, c.lastrowid
-        except Exception as e:
-            logging.error(f"start_staking xato: {e}")
-            return False, f"Xato: {e}"
-
-    def get_user_staking(self, user_id):
-        try:
-            with self._conn() as c:
-                return c.execute("SELECT * FROM staking WHERE user_id=%s AND is_active=1 ORDER BY start_at DESC",
-                                 (user_id,)).fetchall()
-        except Exception as e:
-            logging.error(f"get_user_staking xato: {e}")
-            return []
-
-    def unstake(self, staking_id, user_id):
-        try:
-            with self._conn() as c:
-                stake = to_dict_safe(c.execute("SELECT * FROM staking WHERE id=%s AND user_id=%s AND is_active=1",
-                                               (staking_id, user_id)).fetchone())
-                if not stake:
-                    return False, "Staking topilmadi"
-                now = int(time.time())
-                unlock_at = int(stake.get('unlock_at') or 0)
-                early = now < unlock_at
-                amount = float(stake.get('amount') or 0)
-                reward = float(stake.get('total_reward') or 0)
-                if early:
-                    penalty = amount * 0.1
-                    amount = amount - penalty
-                c.execute("UPDATE staking SET is_active=0 WHERE id=%s", (staking_id,))
-                c.execute("UPDATE wallets SET balance=balance+%s WHERE user_id=%s", (amount + reward, user_id))
-                return True, {"amount": amount, "reward": reward, "early": early}
-        except Exception as e:
-            logging.error(f"unstake xato: {e}")
-            return False, f"Xato: {e}"
-
-    def process_staking_rewards(self):
-        """Kunlik staking mukofotlarini hisoblash (scheduler uchun)"""
-        now = int(time.time())
-        day_ago = now - 86400
-        with self._conn() as c:
-            stakes = c.execute("""SELECT * FROM staking
-                WHERE is_active=1 AND last_reward_at < %s""", (day_ago,)).fetchall()
-            for s in stakes:
-                s = dict(s)
-                daily_rate = float(s.get('apy', 12)) / 365 / 100
-                reward = float(s.get('amount', 0)) * daily_rate
-                c.execute("""UPDATE staking SET
-                    total_reward=total_reward+%s,
-                    last_reward_at=%s
-                    WHERE id=%s""", (reward, now, s['id']))
-                c.execute("UPDATE wallets SET balance=balance+%s WHERE user_id=%s",
-                          (reward, s['user_id']))
-
-    def get_all_staking_stats(self):
-        with self._conn() as c:
-            return c.execute("""SELECT u.first_name, u.username, s.*
-                FROM staking s JOIN users u ON s.user_id=u.user_id
-                WHERE s.is_active=1 ORDER BY s.amount DESC""").fetchall()
 
     # ================= 📊 SAVOL REPORT =================
     def report_question(self, test_id, q_index, user_id, report_type, comment=""):
@@ -3330,9 +3221,7 @@ def _ensure_stubs(cls):
         'get_tests_paginated':      lambda self, owner_id, page=1, limit=10: ([], 0),
         'get_public_tests_paginated': lambda self, query=None, category_id=None, page=1, limit=12: ([], 0),
 
-        # Staking — haqiqiy metodlar yuqorida mavjud, stub kerak emas
-        # 'start_staking', 'unstake', 'get_user_staking', 'get_all_staking_stats'
-        # 'process_staking_rewards' — bular DB klassida to'liq yozilgan
+        # Staking olib tashlandi (v9.0)
 
         # Kuponlar — haqiqiy metodlar yuqorida mavjud
         # 'create_coupon', 'get_coupon', 'use_coupon', 'get_all_coupons'

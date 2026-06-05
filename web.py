@@ -235,8 +235,8 @@ def safe_db(method_name, *args, default=None, **kwargs):
     """
     Istalgan DB metodini xavfsiz chaqirish.
     Metod yo'q bo'lsa yoki xato bo'lsa default qaytaradi.
-    Ishlatish: safe_db('start_staking', uid, amount) yoki
-               safe_db('get_user_staking', uid, default=[])
+    Ishlatish: safe_db('create_coupon', code) yoki
+               safe_db('get_coupon', code, default=(None,'Topilmadi'))
     """
     try:
         method = getattr(db, method_name, None)
@@ -2090,28 +2090,28 @@ def _nav_html(token, lang="uz"):
     L = {
         "uz": [
             "🏠", "📊", "🏅", "🏆", "📚", "👥", "🔔",
-            "🃏", "💎", "⚔️", "🤝", "📜"
+            "🃏", "⚔️", "🤝", "📜"
         ],
         "uz_cyrl": [
             "🏠", "📊", "🏅", "🏆", "📚", "👥", "🔔",
-            "🃏", "💎", "⚔️", "🤝", "📜"
+            "🃏", "⚔️", "🤝", "📜"
         ],
         "ru": [
             "🏠", "📊", "🏅", "🏆", "📚", "👥", "🔔",
-            "🃏", "💎", "⚔️", "🤝", "📜"
+            "🃏", "⚔️", "🤝", "📜"
         ],
-    }.get(lang, ["🏠","📊","🏅","🏆","📚","👥","🔔","🃏","💎","⚔️","🤝","📜"])
+    }.get(lang, ["🏠","📊","🏅","🏆","📚","👥","🔔","🃏","⚔️","🤝","📜"])
 
     titles = {
-        "uz":     ["Bosh sahifa","Statistika","Yutuqlar","Reyting","Kutubxona","Guruhlar","Bildirishnomalar","Flashcards","Staking","Challenge","Hamkor","Sertifikatlar"],
-        "uz_cyrl":["Бош саҳифа","Статистика","Ютуқлар","Рейтинг","Кутубхона","Гуруҳлар","Билдиришномалар","Флэшкардлар","Стейкинг","Челлендж","Ҳамкор","Сертификатлар"],
-        "ru":     ["Главная","Статистика","Достижения","Рейтинг","Библиотека","Группы","Уведомления","Флэшкарты","Стейкинг","Челлендж","Партнёр","Сертификаты"],
-    }.get(lang, ["Bosh sahifa","Statistika","Yutuqlar","Reyting","Kutubxona","Guruhlar","Bildirishnomalar","Flashcards","Staking","Challenge","Hamkor","Sertifikatlar"])
+        "uz":     ["Bosh sahifa","Statistika","Yutuqlar","Reyting","Kutubxona","Guruhlar","Bildirishnomalar","Flashcards","Challenge","Hamkor","Sertifikatlar"],
+        "uz_cyrl":["Бош саҳифа","Статистика","Ютуқлар","Рейтинг","Кутубхона","Гуруҳлар","Билдиришномалар","Флэшкардлар","Челлендж","Ҳамкор","Сертификатлар"],
+        "ru":     ["Главная","Статистика","Достижения","Рейтинг","Библиотека","Группы","Уведомления","Флэшкарты","Челлендж","Партнёр","Сертификаты"],
+    }.get(lang, ["Bosh sahifa","Statistika","Yutuqlar","Reyting","Kutubxona","Guruhlar","Bildirishnomalar","Flashcards","Challenge","Hamkor","Sertifikatlar"])
 
     paths = [
         "/", "/stats", "/achievements", "/leaderboard",
         "/library", "/my-groups", "/notifications",
-        "/flashcards", "/staking", "/challenges", "/affiliate", "/my-certs"
+        "/flashcards", "/challenges", "/affiliate", "/my-certs"
     ]
 
     links = "".join([
@@ -4997,7 +4997,7 @@ code.skey{{font-size:13px;color:#fbbf24;background:rgba(251,191,36,.1);padding:2
 
 <div id="tab-finance" class="tab card">
 <h2>💰 Moliyaviy Sozlamalar</h2>
-{_settings_rows(settings, ['gwt_price_usd','staking_apy','staking_lock_days',
+{_settings_rows(settings, ['gwt_price_usd',
   'registration_bonus','referral_premium_n','challenge_expire_h'])}
 </div>
 
@@ -5359,146 +5359,7 @@ def admin_coupons():
     </script>"""
     return page
 
-@app.route("/admin/staking")
-def admin_staking():
-    token = request.args.get("token")
-    user = validate_token(token)
-    lang = session.get("lang", "uz")
-    if not user or int(user["user_id"]) not in SUPERADMINS:
-        return abort(403)
-
-    stakes = [dict(s) for s in db.get_all_staking_stats()]
-    apy = safe_get_setting('staking_apy', 12)
-    lock_days = safe_get_setting('staking_lock_days', 30)
-    total_staked = sum(float(s.get('amount', 0)) for s in stakes)
-    total_reward = sum(float(s.get('total_reward', 0)) for s in stakes)
-
-    rows = ""
-    for s in stakes:
-        name = html.escape(s.get('first_name') or f"User{s.get('user_id','')}")
-        from datetime import datetime as _dt
-        unlock = _dt.fromtimestamp(int(s.get('unlock_at', 0)), tz=TZ).strftime("%d.%m")
-        rows += f"""<div class="row">
-          <div><b>{name}</b><br><span style="color:#a0aec0;font-size:12px">
-            💰{float(s.get('amount',0)):.2f} GWT | 🎁{float(s.get('total_reward',0)):.4f} | 🔒{unlock}
-          </span></div>
-        </div>"""
-
-    page = _PAGE_STYLE + f"""
-    <div class="wrap">
-      {_nav_html(token, lang)}
-      <h1>💎 Staking Boshqaruvi</h1>
-      <div class="card">
-        <div class="stat-grid">
-          <div class="stat-box"><div class="stat-num">{len(stakes)}</div><div class="stat-lbl">Aktiv staking</div></div>
-          <div class="stat-box"><div class="stat-num">{total_staked:.2f}</div><div class="stat-lbl">Jami qulflangan GWT</div></div>
-          <div class="stat-box"><div class="stat-num">{total_reward:.2f}</div><div class="stat-lbl">Berilgan mukofot</div></div>
-          <div class="stat-box"><div class="stat-num">{apy}%</div><div class="stat-lbl">APY</div></div>
-        </div>
-      </div>
-      <div class="card">
-        <h2>📋 Aktiv Stakinglar</h2>
-        {rows if rows else "<div class='empty'>Hali staking yo'q</div>"}
-      </div>
-    </div>"""
-    return page
-
-@app.route("/staking")
-def web_staking():
-    token = request.args.get("token")
-    user = validate_token(token)
-    lang = session.get("lang", "uz")
-    if not user: return abort(401)
-    uid = int(user["user_id"])
-    balance = db.get_token_balance(uid)
-    stakes = safe_db('get_user_staking', uid, default=[])
-    apy = safe_get_setting('staking_apy', 12)
-    lock_days = safe_get_setting('staking_lock_days', 30)
-
-    stake_rows = ""
-    for s in stakes:
-        s = dict(s)
-        from datetime import datetime as _dt
-        unlock_str = _dt.fromtimestamp(int(s.get('unlock_at', 0)), tz=TZ).strftime("%d.%m.%Y")
-        locked = int(s.get('unlock_at', 0)) > int(time.time())
-        lock_icon = "🔒" if locked else "✅"
-        stake_rows += f"""<div class="row" style="justify-content:space-between">
-          <div>
-            <b>{lock_icon} {float(s.get('amount',0)):.4f} GWT</b><br>
-            <span style="color:#68d391;font-size:13px">🎁 +{float(s.get('total_reward',0)):.4f} GWT</span><br>
-            <span style="color:#a0aec0;font-size:12px">Unlock: {unlock_str}</span>
-          </div>
-          <button class="btn" onclick="unstake({s['id']})"
-            style="background:{'#f56565' if locked else '#48bb78'};color:#fff;border:none;padding:9px 16px">
-            {'⚠️ Erta yechish' if locked else '✅ Yechish'}
-          </button>
-        </div>"""
-
-    daily = float(balance) * float(apy) / 365 / 100
-    lbl_title = {"ru":"Стейкинг GWT","uz_cyrl":"Стейкинг GWT"}.get(lang,"Staking GWT")
-    no_stake = {"ru":"Нет активных стейкингов","uz_cyrl":"Актив стейкинг йўқ"}.get(lang,"Hali staking yo'q")
-
-    page = _PAGE_STYLE + f"""
-    <div class="wrap">
-      {_nav_html(token, lang)}
-      <h1>💎 {lbl_title}</h1>
-      <div class="card">
-        <div class="stat-grid">
-          <div class="stat-box"><div class="stat-num">{balance:.4f}</div><div class="stat-lbl">Balansingiz (GWT)</div></div>
-          <div class="stat-box"><div class="stat-num">{apy}%</div><div class="stat-lbl">Yillik APY</div></div>
-          <div class="stat-box"><div class="stat-num">{lock_days}</div><div class="stat-lbl">Qulflash (kun)</div></div>
-          <div class="stat-box"><div class="stat-num">~{daily:.4f}</div><div class="stat-lbl">Kunlik mukofot</div></div>
-        </div>
-        <div style="margin-top:16px">
-          <h2 style="font-size:15px;margin-bottom:10px">💰 Yangi Staking Boshlash</h2>
-          <div id="stk-alert" style="display:none;padding:10px;border-radius:8px;margin-bottom:10px;font-size:13px"></div>
-          <div style="display:flex;gap:10px">
-            <input type="number" id="stk-amount" placeholder="Miqdor (GWT)" min="0.01" step="0.01"
-              style="flex:1;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff">
-            <button class="btn" onclick="startStaking()"
-              style="background:#fbbf24;color:#000;border:none;padding:11px 20px;font-weight:700">
-              🔒 Qulflash
-            </button>
-          </div>
-          <p style="color:#718096;font-size:12px;margin-top:8px">⚠️ Erta yechsangiz 10% jarima qo'llaniladi</p>
-        </div>
-      </div>
-      <div class="card">
-        <h2>📋 Aktiv Stakinglarim ({len(stakes)} ta)</h2>
-        {stake_rows if stake_rows else "<div class='empty'>" + no_stake + "</div>"}
-      </div>
-    </div>
-    <script>
-    const TOKEN="{token}";
-    function showAlert(el,msg,ok){{
-      const e=document.getElementById(el);e.style.display='block';
-      e.style.background=ok?'rgba(56,211,159,.2)':'rgba(245,101,101,.2)';
-      e.style.color=ok?'#68d391':'#fc8181';e.textContent=msg;
-      setTimeout(()=>e.style.display='none',4000);
-    }}
-    function startStaking(){{
-      const amount=document.getElementById('stk-amount').value;
-      if(!amount||+amount<=0)return showAlert('stk-alert','❌ Miqdor kiriting',false);
-      fetch('/api/staking/start',{{method:'POST',headers:{{'Content-Type':'application/json'}},
-        body:JSON.stringify({{token:TOKEN,amount:+amount}})}})
-      .then(r=>r.json()).then(d=>{{
-        if(d.success){{showAlert('stk-alert','✅ Staking boshlandi!',true);setTimeout(()=>location.reload(),1200);}}
-        else showAlert('stk-alert','❌ '+(d.error||'Xato'),false);
-      }});
-    }}
-    function unstake(id){{
-      if(!confirm('Yechishni tasdiqlaysizmi?'))return;
-      fetch('/api/staking/unstake',{{method:'POST',headers:{{'Content-Type':'application/json'}},
-        body:JSON.stringify({{token:TOKEN,staking_id:id}})}})
-      .then(r=>r.json()).then(d=>{{
-        if(d.success){{showAlert('stk-alert','✅ Yechildi!',true);setTimeout(()=>location.reload(),1200);}}
-        else showAlert('stk-alert','❌ '+(d.error||'Xato'),false);
-      }});
-    }}
-    </script>"""
-    return page
-
-# Coupon & Staking API endpoints
+# Coupon API endpoints
 @app.route("/api/admin/coupon/create", methods=["POST"])
 def api_coupon_create():
     data = request.json or {}
@@ -5561,38 +5422,8 @@ def api_coupon_use():
         applied['gwt'] = coupon['gwt_bonus']
     return jsonify({"success": True, "applied": applied})
 
-@app.route("/api/staking/start", methods=["POST"])
-def api_staking_start():
-    data = request.json or {}
-    user = validate_token(data.get("token"))
-    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
-    amount = float(data.get("amount") or 0)
-    if amount <= 0:
-        return jsonify({"success": False, "error": "Miqdor 0 dan katta bo'lishi kerak"}), 400
-    lock_days = int(safe_get_setting('staking_lock_days', 30))
-    result = safe_db('start_staking', int(user["user_id"]), amount, lock_days)
-    if result is None:
-        return jsonify({"success": False, "error": "Staking funksiyasi mavjud emas. db.py ni yangilang."}), 503
-    ok, res = result
-    if not ok:
-        return jsonify({"success": False, "error": res}), 400
-    return jsonify({"success": True, "staking_id": res})
-
-@app.route("/api/staking/unstake", methods=["POST"])
-def api_staking_unstake():
-    data = request.json or {}
-    user = validate_token(data.get("token"))
-    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
-    res = safe_db('unstake', int(data.get("staking_id", 0)), int(user["user_id"]))
-    if res is None:
-        return jsonify({"success": False, "error": "Staking funksiyasi mavjud emas."}), 503
-    ok, result = res
-    if not ok:
-        return jsonify({"success": False, "error": result}), 400
-    return jsonify({"success": True, "result": result})
-
 # ============================================================
-# 📜 MY CERTIFICATES (Foydalanuvchi sertifikatlari sahifasi)
+# 📜 MY CERTIFICATES
 # ============================================================
 @app.route("/my-certs")
 def web_my_certs():
@@ -5889,12 +5720,8 @@ def admin_reports():
           📊 Global Statistika
         </a>
         <a href="/admin/coupons?token={token}" class="btn"
-          style="background:rgba(251,191,36,.15);color:#fbbf24;border-color:rgba(251,191,36,.3);margin-right:10px">
+          style="background:rgba(251,191,36,.15);color:#fbbf24;border-color:rgba(251,191,36,.3)">
           🎟️ Kuponlar
-        </a>
-        <a href="/admin/staking?token={token}" class="btn"
-          style="background:rgba(108,178,255,.15);color:#6cb2ff;border-color:rgba(108,178,255,.3)">
-          💎 Staking
         </a>
       </div>
     </div>
