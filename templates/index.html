@@ -31,8 +31,8 @@
     nav {
       position: sticky;
       top: 0;
-      z-index: 10;
-      background: rgba(10, 16, 30, 0.92);
+      z-index: 100;
+      background: rgba(10, 16, 30, 0.97);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(12px);
     }
@@ -40,36 +40,70 @@
     .navbar {
       max-width: var(--max-width);
       margin: 0 auto;
-      padding: 16px 18px;
+      padding: 12px 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
     }
 
     .navbar h1 {
       margin: 0;
-      font-size: 20px;
+      font-size: 18px;
       letter-spacing: 0.03em;
       font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* Hamburger tugmasi — faqat mobilda ko'rinadi */
+    .nav-toggle {
+      display: none;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      flex-shrink: 0;
     }
 
     .navbar .links {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 8px;
+      flex-wrap: nowrap;
       align-items: center;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      max-width: 100%;
+      padding-bottom: 2px;
     }
+    .navbar .links::-webkit-scrollbar { display: none; }
+
+    /* Admin havolalar bloki — yashirin holatda boshlanadi */
+    .nav-admin-links {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 18px 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      background: rgba(5, 8, 18, 0.95);
+    }
+    .nav-admin-links.open { display: flex; }
 
     .navbar a {
-      padding: 9px 14px;
+      padding: 7px 12px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.08);
       color: var(--text);
       text-decoration: none;
       border: 1px solid rgba(255, 255, 255, 0.12);
-      font-size: 14px;
-      transition: transform 0.14s ease, background 0.14s ease, border 0.14s ease;
+      font-size: 13px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: transform 0.14s ease, background 0.14s ease;
     }
 
     .navbar a:hover {
@@ -81,16 +115,35 @@
     .lang-btn {
       background: none;
       border: none;
-      font-size: 18px;
+      font-size: 16px;
       cursor: pointer;
       opacity: 0.5;
       transition: 0.2s;
-      padding: 0 5px;
+      padding: 0 4px;
+      flex-shrink: 0;
     }
 
     .lang-btn.active {
       opacity: 1;
-      transform: scale(1.1);
+      transform: scale(1.15);
+    }
+
+    /* === MOBIL === */
+    @media (max-width: 768px) {
+      .nav-toggle { display: block; }
+
+      .navbar .links {
+        /* Scroll qilish imkoni — yig'ilmaydi */
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 6px;
+        /* Admin havolalar yashiriladi, faqat asosiylar ko'rinadi */
+      }
+
+      /* Admin span bloki mobilda yashiriladi (hamburger orqali ochiladi) */
+      .navbar .links .nav-admin-span {
+        display: none !important;
+      }
     }
 
     main {
@@ -229,40 +282,6 @@
       font-size: 13px;
     }
 
-    /* MOBIL MOSLASHUV QISMI */
-    @media (max-width: 640px) {
-      .hero { gap: 14px; }
-      .grid { grid-template-columns: 1fr; }
-      .navbar { flex-direction: column; align-items: center; }
-
-      .navbar .links {
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-      }
-
-      .navbar .links > div:first-child {
-        grid-column: 1 / -1;
-        justify-content: center;
-        border-right: none !important;
-        margin-right: 0 !important;
-        padding-right: 0 !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-        padding-bottom: 12px;
-        margin-bottom: 4px;
-      }
-
-      .navbar a {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        width: 100%;
-        padding: 10px 14px;
-      }
-    }
-
     /* Modallar */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -286,13 +305,14 @@
 </head>
 <body style="{% if current_user_bg %}background: linear-gradient(rgba(10, 16, 30, 0.7), rgba(5, 6, 13, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
 
-  <nav>
+  <nav id="main-nav">
     <div class="navbar">
-      <h1><a href="/?token={{ token }}" style="text-decoration: none; color: inherit;">🎓 Testchi</a></h1>
-      <div class="links">
+      <h1><a href="/?token={{ token }}" style="text-decoration:none;color:inherit;">🎓 Testchi</a></h1>
 
+      <!-- Asosiy havolalar (gorizontal scroll) -->
+      <div class="links" id="nav-links">
         {# TIL TUGMALARI #}
-        <div style="display:flex;align-items:center;border-right:1px solid rgba(255,255,255,0.2);padding-right:10px;margin-right:5px;">
+        <div style="display:flex;align-items:center;border-right:1px solid rgba(255,255,255,0.15);padding-right:8px;margin-right:4px;flex-shrink:0">
           <form action="/set-lang" method="POST" style="margin:0;">
             <input type="hidden" name="token" value="{{ token }}">
             <input type="hidden" name="lang" value="uz">
@@ -310,42 +330,57 @@
           </form>
         </div>
 
-        {# FOYDALANUVCHI HAVOLALARI #}
-        <a href="/?token={{ token }}" style="background:rgba(255,255,255,0.15);">
-          🏠 {% if lang=='uz' %}Bosh{% elif lang=='uz_cyrl' %}Бош{% else %}Главная{% endif %}
-        </a>
-        <a href="/stats?token={{ token }}">📊</a>
-        <a href="/achievements?token={{ token }}">🏅</a>
-        <a href="/leaderboard?token={{ token }}">🏆</a>
-        <a href="/library?token={{ token }}">📚</a>
-        <a href="/flashcards?token={{ token }}">🃏</a>
-        <a href="/my-groups?token={{ token }}">👥</a>
-        <a href="/notifications?token={{ token }}" style="position:relative">
-          🔔
-          {# <span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#f56565;color:#fff;border-radius:999px;font-size:10px;padding:1px 5px">0</span> #}
-        </a>
-        <a href="/affiliate?token={{ token }}">🤝</a>
-        <a href="/account?token={{ token }}">👤</a>
+        <a href="/?token={{ token }}" style="background:rgba(255,255,255,0.15);">🏠</a>
+        <a href="/stats?token={{ token }}" title="Statistika">📊</a>
+        <a href="/achievements?token={{ token }}" title="Yutuqlar">🏅</a>
+        <a href="/leaderboard?token={{ token }}" title="Reyting">🏆</a>
+        <a href="/library?token={{ token }}" title="Kutubxona">📚</a>
+        <a href="/flashcards?token={{ token }}" title="Flashcards">🃏</a>
+        <a href="/my-groups?token={{ token }}" title="Guruhlar">👥</a>
+        <a href="/notifications?token={{ token }}" title="Bildirishnomalar">🔔</a>
+        <a href="/affiliate?token={{ token }}" title="Hamkor">🤝</a>
+        <a href="/account?token={{ token }}" title="Hisobim">👤</a>
 
-        {# ADMIN HAVOLALARI — FAQAT ADMINGA KO'RINADI #}
+        {# ADMIN — Katta ekranda ko'rinadi, mobilda yashiriladi #}
         {% if is_admin %}
-        <span style="display:flex;align-items:center;border-left:1px solid rgba(255,255,255,0.2);padding-left:10px;margin-left:5px;gap:6px;flex-wrap:wrap;">
-          <span style="font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px;width:100%">Admin</span>
+        <span class="nav-admin-span" style="display:flex;align-items:center;border-left:1px solid rgba(255,255,255,0.15);padding-left:8px;margin-left:4px;gap:4px;flex-shrink:0;">
           <a href="/admin/users?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)" title="Foydalanuvchilar">👥</a>
-          <a href="/admin/stats?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)" title="Global statistika">📈</a>
+          <a href="/admin/stats?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)" title="Statistika">📈</a>
           <a href="/admin/channels?token={{ token }}" style="color:#fbbf24;border-color:rgba(251,191,36,0.4)" title="Kanallar">📢</a>
           <a href="/admin/broadcast?token={{ token }}" style="color:#f87171;border-color:rgba(248,113,113,0.4)" title="Broadcast">📣</a>
           <a href="/admin/ads?token={{ token }}" style="color:#c084fc;border-color:rgba(192,132,252,0.4)" title="Reklamalar">💰</a>
           <a href="/pendings?token={{ token }}" style="color:#6cb2ff;border-color:rgba(108,178,255,0.4)" title="To'lovlar">💳</a>
-          <a href="/admin/tests?token={{ token }}" style="color:#b794f4;border-color:rgba(183,148,244,0.4)" title="Barcha testlar">🧩</a>
+          <a href="/admin/tests?token={{ token }}" style="color:#b794f4;border-color:rgba(183,148,244,0.4)" title="Testlar">🧩</a>
           <a href="/admin/chats?token={{ token }}" style="color:#f6ad55;border-color:rgba(246,173,85,0.4)" title="Xabarlar">💬</a>
           <a href="/admin/security?token={{ token }}" style="color:#f97316;border-color:rgba(249,115,22,0.4)" title="Xavfsizlik">🔐</a>
-          <a href="/admin/ai-chats?token={{ token }}" style="color:#38d39f;border-color:rgba(56,211,159,0.4)" title="AI chatlar">🤖</a>
+          <a href="/admin/ai-chats?token={{ token }}" style="color:#38d39f;border-color:rgba(56,211,159,0.4)" title="AI">🤖</a>
         </span>
         {% endif %}
-
       </div>
+
+      <!-- Hamburger — faqat mobilda admin uchun -->
+      {% if is_admin %}
+      <button class="nav-toggle" onclick="toggleAdminMenu()" title="Admin">⚙️</button>
+      {% endif %}
     </div>
+
+    {# ADMIN DROPDOWN (mobilda) #}
+    {% if is_admin %}
+    <div class="nav-admin-links" id="admin-dropdown">
+      <span style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;width:100%;margin-bottom:4px;">⚙️ Admin Panel</span>
+      <a href="/admin/users?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)">👥 Foydalanuvchilar</a>
+      <a href="/admin/stats?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)">📈 Statistika</a>
+      <a href="/admin/channels?token={{ token }}" style="color:#fbbf24;border-color:rgba(251,191,36,0.4)">📢 Kanallar</a>
+      <a href="/admin/broadcast?token={{ token }}" style="color:#f87171;border-color:rgba(248,113,113,0.4)">📣 Broadcast</a>
+      <a href="/admin/ads?token={{ token }}" style="color:#c084fc;border-color:rgba(192,132,252,0.4)">💰 Reklamalar</a>
+      <a href="/pendings?token={{ token }}" style="color:#6cb2ff;border-color:rgba(108,178,255,0.4)">💳 To'lovlar</a>
+      <a href="/admin/tests?token={{ token }}" style="color:#b794f4;border-color:rgba(183,148,244,0.4)">🧩 Testlar</a>
+      <a href="/admin/chats?token={{ token }}" style="color:#f6ad55;border-color:rgba(246,173,85,0.4)">💬 Xabarlar</a>
+      <a href="/admin/security?token={{ token }}" style="color:#f97316;border-color:rgba(249,115,22,0.4)">🔐 Xavfsizlik</a>
+      <a href="/admin/ai-chats?token={{ token }}" style="color:#38d39f;border-color:rgba(56,211,159,0.4)">🤖 AI Chatlar</a>
+    </div>
+    {% endif %}
+
   </nav>
 
   <main>
@@ -655,6 +690,20 @@
   <script>
     const lang = "{{ lang }}";
     const token = new URLSearchParams(window.location.search).get("token") || "{{ token }}";
+
+    // Admin dropdown (mobil uchun)
+    function toggleAdminMenu() {
+      const dd = document.getElementById('admin-dropdown');
+      if (dd) dd.classList.toggle('open');
+    }
+    // Tashqariga bossangiz yopiladi
+    document.addEventListener('click', function(e) {
+      const dd = document.getElementById('admin-dropdown');
+      const btn = document.getElementById ? document.querySelector('.nav-toggle') : null;
+      if (dd && btn && !dd.contains(e.target) && !btn.contains(e.target)) {
+        dd.classList.remove('open');
+      }
+    });
 
     // --- JONLI (LIVE) NARX HISOBLAGICH ---
     const GWT_TO_USD = 10.0;    // 1 GWT = 10$
