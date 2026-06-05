@@ -1602,7 +1602,7 @@ def admin_tests():
 
 @app.route("/admin/channels")
 def admin_channels():
-    """Admin panel - Majburiy kanallarni boshqarish (f-string, Jinja2 yo'q)"""
+    """Admin panel - Majburiy kanallarni boshqarish"""
     token = request.args.get("token")
     user = validate_token(token)
     lang = session.get("lang", "uz")
@@ -1610,148 +1610,307 @@ def admin_channels():
     if not user or int(user["user_id"]) not in SUPERADMINS:
         return abort(403)
     if not user.get("is_verified"):
-        return redirect("/captcha")
+        return redirect(f"/captcha?token={token}")
 
-    # channels -> dict ro'yxatiga aylantirish (PyMySQL Row -> dict)
     channels = [dict(c) for c in db.get_all_required_channels(active_only=False)]
 
-    # Kanal qatorlarini HTML sifatida generatsiya qilish
     channel_rows = ""
     for ch in channels:
-        cid   = html.escape(ch.get("channel_id") or "")
+        # channel_id maydonida @ bo'lsa HTML escape xavfsiz qilish
+        raw_cid = ch.get("channel_id") or ""
+        cid_escaped = html.escape(raw_cid)
+        # JS ichida ishlatish uchun tirnoqlardan xoli qilish
+        cid_js = raw_cid.replace("'", "\\'").replace('"', '\\"')
         ctitle = html.escape(ch.get("channel_title") or "Nom yo'q")
         is_active = int(ch.get("is_active") or 0)
+
         if is_active:
-            status_badge = '<span style="background:#c6f6d5;color:#22543d;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-left:8px">✅ Aktiv</span>'
-            toggle_btn   = f'<button class="btn-sm btn-danger" onclick="removeChannel(\'{cid}\')">O\'chirish</button>'
+            badge = '<span class="badge badge-active">✅ Aktiv</span>'
+            toggle_btn = f'<button class="btn btn-warn" onclick="removeChannel(\'{cid_js}\')">⏸ Deaktiv</button>'
         else:
-            status_badge = '<span style="background:#fed7d7;color:#742a2a;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-left:8px">❌ O\'chirilgan</span>'
-            toggle_btn   = f'<button class="btn-sm btn-success" onclick="activateChannel(\'{cid}\')">Yoqish</button>'
+            badge = '<span class="badge badge-inactive">❌ O\'chirilgan</span>'
+            toggle_btn = f'<button class="btn btn-success" onclick="activateChannel(\'{cid_js}\')">▶️ Yoqish</button>'
 
         channel_rows += f"""
-        <div class="channel-item">
-          <div class="channel-info">
-            <div class="channel-id">{cid}{status_badge}</div>
-            <div class="channel-title">{ctitle}</div>
+        <div class="ch-row" id="row-{cid_escaped.replace('@','')}">
+          <div class="ch-info">
+            <div class="ch-name">{cid_escaped} {badge}</div>
+            <div class="ch-title">{ctitle}</div>
           </div>
-          <div class="channel-actions">
+          <div class="ch-btns">
             {toggle_btn}
-            <button class="btn-sm btn-danger" onclick="deleteChannel('{cid}')">🗑 Butunlay</button>
+            <button class="btn btn-danger" onclick="deleteChannel('{cid_js}')">🗑 O'chirish</button>
           </div>
         </div>"""
 
     if not channel_rows:
-        channel_rows = """<div style="text-align:center;padding:50px;color:#a0aec0">
-          <p style="font-size:15px">Hozircha majburiy kanallar qo'shilmagan</p></div>"""
+        channel_rows = '<div class="empty">Hozircha hech qanday kanal qo\'shilmagan</div>'
+
+    count = len(channels)
+    active_count = sum(1 for c in channels if int(c.get("is_active") or 0))
 
     page = f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Kanallarni Boshqarish</title>
+  <title>📢 Kanallar Boshqaruvi</title>
   <style>
-    *{{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}}
-    body{{background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:20px}}
-    .container{{max-width:900px;margin:0 auto}}
-    .box{{background:#fff;padding:25px 30px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.1);margin-bottom:24px}}
-    h1{{color:#2d3748;font-size:26px;margin-bottom:6px}}
-    h2{{color:#2d3748;font-size:18px;margin-bottom:14px}}
-    .input-group{{display:flex;gap:10px;margin-bottom:10px}}
-    .input-group input{{flex:1;padding:12px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:15px;outline:none;transition:.2s}}
-    .input-group input:focus{{border-color:#667eea}}
-    button{{padding:11px 20px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:.2s}}
-    .btn-primary{{background:#667eea;color:#fff}}
-    .btn-primary:hover{{background:#5568d3}}
-    .btn-success{{background:#48bb78;color:#fff}}
-    .btn-danger{{background:#f56565;color:#fff}}
-    .btn-sm{{padding:8px 14px;font-size:13px}}
-    .channel-item{{display:flex;align-items:center;justify-content:space-between;padding:14px;border:2px solid #e2e8f0;border-radius:12px;margin-bottom:10px;transition:.2s}}
-    .channel-item:hover{{border-color:#cbd5e0;box-shadow:0 4px 12px rgba(0,0,0,.06)}}
-    .channel-info{{flex:1}}
-    .channel-id{{font-size:16px;font-weight:600;color:#2d3748;margin-bottom:3px}}
-    .channel-title{{font-size:13px;color:#718096}}
-    .channel-actions{{display:flex;gap:8px}}
-    .alert{{padding:11px 14px;border-radius:8px;margin-bottom:12px;font-size:14px;display:none}}
-    .alert-success{{background:#c6f6d5;color:#22543d;border:1px solid #9ae6b4}}
-    .alert-error{{background:#fed7d7;color:#742a2a;border:1px solid #fc8181}}
-    .back{{display:inline-block;margin-bottom:16px;color:#fff;text-decoration:none;font-weight:600;opacity:.85}}
-    .back:hover{{opacity:1}}
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      padding: 24px 16px;
+      color: #e2e8f0;
+    }}
+    .wrap {{ max-width: 860px; margin: 0 auto; }}
+    .topbar {{
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 24px;
+    }}
+    .back-btn {{
+      padding: 10px 18px; border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+      color: #e2e8f0; text-decoration: none; font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: background .2s;
+    }}
+    .back-btn:hover {{ background: rgba(255,255,255,0.18); }}
+    h1 {{ font-size: 22px; font-weight: 700; }}
+    .card {{
+      background: rgba(255,255,255,0.07);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }}
+    .card h2 {{ font-size: 17px; margin-bottom: 16px; color: #63b3ed; }}
+    .stats {{ display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }}
+    .stat-box {{
+      flex: 1; min-width: 120px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 12px; padding: 16px;
+      text-align: center;
+    }}
+    .stat-num {{ font-size: 28px; font-weight: 700; color: #68d391; }}
+    .stat-lbl {{ font-size: 12px; color: #a0aec0; margin-top: 4px; }}
+    .input-row {{ display: flex; gap: 10px; margin-bottom: 10px; }}
+    .input-row input {{
+      flex: 1; padding: 12px 14px;
+      background: rgba(0,0,0,0.3);
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 10px; color: #e2e8f0; font-size: 15px;
+      outline: none; transition: border-color .2s;
+    }}
+    .input-row input:focus {{ border-color: #63b3ed; }}
+    .input-row input::placeholder {{ color: #718096; }}
+    .btn {{
+      padding: 11px 18px; border: none;
+      border-radius: 10px; font-weight: 600;
+      cursor: pointer; font-size: 14px;
+      transition: opacity .2s, transform .1s;
+      white-space: nowrap;
+    }}
+    .btn:hover {{ opacity: .88; transform: translateY(-1px); }}
+    .btn:active {{ transform: translateY(0); }}
+    .btn:disabled {{ opacity: .45; cursor: not-allowed; transform: none; }}
+    .btn-blue   {{ background: #3b82f6; color: #fff; }}
+    .btn-success {{ background: #48bb78; color: #fff; }}
+    .btn-warn   {{ background: #ed8936; color: #fff; }}
+    .btn-danger {{ background: #f56565; color: #fff; }}
+    .hint {{ color: #718096; font-size: 13px; margin-top: 8px; }}
+    /* Alert */
+    #alert-box {{
+      display: none; padding: 12px 16px; border-radius: 10px;
+      margin-bottom: 14px; font-size: 14px; font-weight: 500;
+    }}
+    .alert-ok  {{ background: rgba(72,187,120,.2); color: #68d391; border: 1px solid rgba(72,187,120,.4); }}
+    .alert-err {{ background: rgba(245,101,101,.2); color: #fc8181; border: 1px solid rgba(245,101,101,.4); }}
+    /* Channel rows */
+    .ch-row {{
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 16px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; margin-bottom: 10px;
+      transition: background .2s;
+      flex-wrap: wrap;
+    }}
+    .ch-row:hover {{ background: rgba(0,0,0,0.32); }}
+    .ch-info {{ flex: 1; min-width: 160px; }}
+    .ch-name {{ font-weight: 700; font-size: 16px; margin-bottom: 4px; }}
+    .ch-title {{ font-size: 13px; color: #a0aec0; }}
+    .ch-btns {{ display: flex; gap: 8px; flex-wrap: wrap; }}
+    .badge {{
+      display: inline-block; padding: 2px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; margin-left: 8px;
+    }}
+    .badge-active   {{ background: rgba(72,187,120,.25); color: #68d391; }}
+    .badge-inactive {{ background: rgba(245,101,101,.25); color: #fc8181; }}
+    .empty {{
+      text-align: center; padding: 48px; color: #718096; font-size: 15px;
+    }}
+    /* Loading spinner */
+    .spinner {{
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin .7s linear infinite; vertical-align: middle;
+      margin-right: 6px;
+    }}
+    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
   </style>
 </head>
 <body>
-  <div class="container">
-    <a class="back" href="/?token={token}">← Asosiy menyu</a>
-    <div class="box">
-      <h1>📢 Majburiy Kanallar</h1>
-      <p style="color:#718096;font-size:14px">Botdan foydalanish uchun majburiy bo'lgan kanallarni boshqaring</p>
-    </div>
+<div class="wrap">
 
-    <div class="box">
-      <h2>➕ Yangi Kanal Qo'shish</h2>
-      <div id="alert-box" class="alert"></div>
-      <div class="input-group">
-        <input type="text" id="channel-id" placeholder="@kanal_nomi">
-        <button class="btn-primary" onclick="addChannel()">Qo'shish</button>
-      </div>
-      <p style="color:#718096;font-size:13px">⚠️ Bot o'sha kanalga admin sifatida qo'shilgan bo'lishi kerak!</p>
-    </div>
+  <div class="topbar">
+    <a href="/?token={token}" class="back-btn">← Orqaga</a>
+    <h1>📢 Majburiy Kanallar Boshqaruvi</h1>
+  </div>
 
-    <div class="box">
-      <h2>Kanallar ro'yxati ({len(channels)} ta)</h2>
+  <!-- Statistika -->
+  <div class="stats">
+    <div class="stat-box">
+      <div class="stat-num">{count}</div>
+      <div class="stat-lbl">Jami kanal</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:#68d391">{active_count}</div>
+      <div class="stat-lbl">Aktiv</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:#fc8181">{count - active_count}</div>
+      <div class="stat-lbl">Deaktiv</div>
+    </div>
+  </div>
+
+  <!-- Kanal qo'shish -->
+  <div class="card">
+    <h2>➕ Yangi Kanal Qo'shish</h2>
+    <div id="alert-box"></div>
+    <div class="input-row">
+      <input type="text" id="ch-input"
+             placeholder="@kanal_nomi yoki guruh username'i"
+             onkeydown="if(event.key==='Enter') addChannel()">
+      <button class="btn btn-blue" id="add-btn" onclick="addChannel()">
+        Qo'shish
+      </button>
+    </div>
+    <p class="hint">⚠️ Bot o'sha kanal/guruhga <b>admin</b> qilingan bo'lishi shart!</p>
+    <p class="hint" style="margin-top:6px">💡 Misol: <code style="background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px">@geo_ustoz_kanal</code></p>
+  </div>
+
+  <!-- Kanallar ro'yxati -->
+  <div class="card">
+    <h2>📋 Kanallar ro'yxati</h2>
+    <div id="ch-list">
       {channel_rows}
     </div>
   </div>
 
-  <script>
-    const TOKEN = '{token}';
+</div>
 
-    function showAlert(msg, type) {{
-      const el = document.getElementById('alert-box');
-      el.className = 'alert alert-' + type;
-      el.style.display = 'block';
-      el.textContent = msg;
-      setTimeout(() => {{ el.style.display = 'none'; }}, 4000);
-    }}
+<script>
+const TOKEN = '{token}';
 
-    function apiFetch(url, body) {{
-      return fetch(url, {{
-        method: 'POST',
-        headers: {{'Content-Type': 'application/json'}},
-        body: JSON.stringify({{...body, token: TOKEN}})
-      }}).then(r => r.json());
-    }}
+function showAlert(msg, ok) {{
+  const el = document.getElementById('alert-box');
+  el.className = ok ? 'alert-ok' : 'alert-err';
+  el.style.display = 'block';
+  el.innerHTML = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => {{ el.style.display = 'none'; }}, 4500);
+}}
 
-    function addChannel() {{
-      const cid = document.getElementById('channel-id').value.trim();
-      if (!cid) return showAlert('❌ Kanal nomini kiriting!', 'error');
-      if (!cid.startsWith('@')) return showAlert('❌ @ bilan boshlang!', 'error');
-      apiFetch('/api/admin/channel/add', {{channel_id: cid}})
-        .then(d => d.success ? (showAlert('✅ Qo\'shildi!', 'success'), setTimeout(() => location.reload(), 900))
-                             : showAlert('❌ ' + (d.error || 'Xato'), 'error'))
-        .catch(() => showAlert('❌ Server xatosi', 'error'));
-    }}
+function setLoading(btnId, loading) {{
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  if (loading) {{
+    btn._orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span>Kutilmoqda...';
+  }} else {{
+    btn.innerHTML = btn._orig || btn.innerHTML;
+  }}
+}}
 
-    function removeChannel(cid) {{
-      if (!confirm('Kanalni deaktivatsiya qilasizmi?')) return;
-      apiFetch('/api/admin/channel/remove', {{channel_id: cid}})
-        .then(d => d.success ? (showAlert('✅ O\'chirildi', 'success'), setTimeout(() => location.reload(), 900))
-                             : showAlert('❌ ' + (d.error || 'Xato'), 'error'));
-    }}
+function apiFetch(url, body, btnId) {{
+  if (btnId) setLoading(btnId, true);
+  return fetch(url, {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify(Object.assign({{token: TOKEN}}, body))
+  }})
+  .then(r => {{
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }})
+  .finally(() => {{ if (btnId) setLoading(btnId, false); }});
+}}
 
-    function activateChannel(cid) {{
-      apiFetch('/api/admin/channel/activate', {{channel_id: cid}})
-        .then(d => d.success ? (showAlert('✅ Yoqildi!', 'success'), setTimeout(() => location.reload(), 900))
-                             : showAlert('❌ ' + (d.error || 'Xato'), 'error'));
-    }}
+function addChannel() {{
+  const input = document.getElementById('ch-input');
+  let cid = input.value.trim();
+  if (!cid) {{ showAlert('❌ Kanal nomini kiriting!', false); input.focus(); return; }}
+  if (!cid.startsWith('@')) {{ showAlert('❌ Kanal nomi @ bilan boshlanishi kerak!', false); input.focus(); return; }}
 
-    function deleteChannel(cid) {{
-      if (!confirm('DIQQAT! Kanal butunlay bazadan o\'chiriladi. Davom etasizmi?')) return;
-      apiFetch('/api/admin/channel/delete', {{channel_id: cid}})
-        .then(d => d.success ? (showAlert('✅ O\'chirildi!', 'success'), setTimeout(() => location.reload(), 900))
-                             : showAlert('❌ ' + (d.error || 'Xato'), 'error'));
-    }}
-  </script>
+  apiFetch('/api/admin/channel/add', {{channel_id: cid}}, 'add-btn')
+    .then(d => {{
+      if (d.success) {{
+        showAlert('✅ <b>' + cid + '</b> muvaffaqiyatli qo\'shildi!', true);
+        input.value = '';
+        setTimeout(() => location.reload(), 1200);
+      }} else {{
+        showAlert('❌ ' + (d.error || 'Xato yuz berdi'), false);
+      }}
+    }})
+    .catch(e => showAlert('❌ Server bilan aloqa uzildi: ' + e.message, false));
+}}
+
+function removeChannel(cid) {{
+  if (!confirm('Kanal deaktivatsiya qilinadi (qayta yoqish mumkin). Davom etasizmi?')) return;
+  apiFetch('/api/admin/channel/remove', {{channel_id: cid}})
+    .then(d => {{
+      if (d.success) {{
+        showAlert('⏸ <b>' + cid + '</b> deaktivatsiya qilindi', true);
+        setTimeout(() => location.reload(), 1000);
+      }} else {{
+        showAlert('❌ ' + (d.error || 'Xato'), false);
+      }}
+    }})
+    .catch(e => showAlert('❌ ' + e.message, false));
+}}
+
+function activateChannel(cid) {{
+  apiFetch('/api/admin/channel/activate', {{channel_id: cid}})
+    .then(d => {{
+      if (d.success) {{
+        showAlert('▶️ <b>' + cid + '</b> qayta yoqildi!', true);
+        setTimeout(() => location.reload(), 1000);
+      }} else {{
+        showAlert('❌ ' + (d.error || 'Xato'), false);
+      }}
+    }})
+    .catch(e => showAlert('❌ ' + e.message, false));
+}}
+
+function deleteChannel(cid) {{
+  if (!confirm('⚠️ DIQQAT!\n\n"' + cid + '" kanali BUTUNLAY bazadan o\'chiriladi!\nBu amalni qaytarib bo\'lmaydi.\n\nDavom etasizmi?')) return;
+  apiFetch('/api/admin/channel/delete', {{channel_id: cid}})
+    .then(d => {{
+      if (d.success) {{
+        showAlert('🗑 <b>' + cid + '</b> butunlay o\'chirildi', true);
+        setTimeout(() => location.reload(), 1000);
+      }} else {{
+        showAlert('❌ ' + (d.error || 'Xato'), false);
+      }}
+    }})
+    .catch(e => showAlert('❌ ' + e.message, false));
+}}
+</script>
 </body>
 </html>"""
     return page
