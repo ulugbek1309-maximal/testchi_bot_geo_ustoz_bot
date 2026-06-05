@@ -2400,6 +2400,9 @@ async def cmd_coupon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     code = context.args[0].strip().upper()
+    if not hasattr(db, "get_coupon"):
+        await update.message.reply_text("❌ Kupon funksiyasi hali faol emas.")
+        return
     coupon, err = db.get_coupon(code)
     if err:
         await update.message.reply_text(f"❌ {err}")
@@ -2531,6 +2534,9 @@ async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     expire_h = int(safe_get_setting('challenge_expire_h', 24))
+    if not hasattr(db, "create_challenge"):
+        await update.message.reply_text("❌ Challenge funksiyasi hali faol emas.")
+        return
     challenge_id = db.create_challenge(test_id, user_id, rival_id, gwt_bet, expire_hours=expire_h)
 
     # Raqibga xabar yuborish
@@ -2620,6 +2626,10 @@ async def cmd_stake(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Noto'g'ri miqdor. Raqam kiriting.")
         return
 
+    if not hasattr(db, 'start_staking'):
+        await update.message.reply_text("❌ Staking funksiyasi hali faol emas. Adminга murojaat qiling.")
+        return
+
     ok, result = db.start_staking(user_id, amount, lock_days=int(lock_days))
     if not ok:
         await update.message.reply_text(f"❌ {result}")
@@ -2665,6 +2675,9 @@ async def cmd_unstake(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ ID raqam bo'lishi kerak.")
         return
 
+    if not hasattr(db, "unstake"):
+        await update.message.reply_text("❌ Bu funksiya hali faol emas.")
+        return
     ok, result = db.unstake(staking_id, user_id)
     if not ok:
         await update.message.reply_text(f"❌ {result}")
