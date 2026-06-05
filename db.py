@@ -3380,6 +3380,8 @@ def _ensure_stubs(cls):
     }
 
     for method_name, stub_func in stubs.items():
+        # MUHIM: faqat metod YO'Q bo'lsagina stub qo'yamiz
+        # Haqiqiy metod bo'lsa uni EZmAYMIZ
         if not hasattr(cls, method_name):
             setattr(cls, method_name, stub_func)
 
