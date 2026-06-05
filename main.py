@@ -1938,13 +1938,13 @@ def ai_generate_questions(topic: str, count: int = 5):
         return None, f"AI xatosi: {e}"
 
 async def cmd_ai_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """AI yordamida mavzu bo'yicha test yaratish: /aitest <mavzu>"""
+    """AI yordamida mavzu bo'yicha test yaratish: /aitest &lt;mavzu&gt;"""
     user_id = update.effective_user.id
     lang = get_user_lang(user_id)
     if not context.args:
-        msg = {"ru": "🤖 Использование: /aitest <тема>\nНапример: /aitest История Узбекистана",
+        msg = {"ru": "🤖 Использование: /aitest &lt;тема&gt;\nНапример: /aitest История Узбекистана",
                "uz_cyrl": "🤖 Фойдаланиш: /aitest <мавзу>\nМасалан: /aitest Ўзбекистон тарихи"}.get(
-               lang, "🤖 Foydalanish: /aitest <mavzu>\nMasalan: /aitest O'zbekiston tarixi")
+               lang, "🤖 Foydalanish: /aitest &lt;mavzu&gt;\nMasalan: /aitest O'zbekiston tarixi")
         await update.message.reply_text(msg)
         return
 
@@ -2053,12 +2053,12 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # 📋 TEST NUSXALASH
 # ==========================================
 async def cmd_copy_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/copytest <test_id> - Testni nusxalash"""
+    """/copytest &lt;test_id&gt; - Testni nusxalash"""
     user_id = update.effective_user.id
     lang = get_user_lang(user_id)
     if not context.args:
         await update.message.reply_text(
-            "📋 Foydalanish: /copytest <test_id>\n\nTest ID ni test boshqaruv sahifasidan topishingiz mumkin.",
+            "📋 Foydalanish: /copytest &lt;test_id&gt;\n\nTest ID ni test boshqaruv sahifasidan topishingiz mumkin.",
             parse_mode=ParseMode.HTML
         )
         return
@@ -2092,7 +2092,7 @@ async def cmd_copy_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # 🔗 VAQTINCHALIK HAVOLA
 # ==========================================
 async def cmd_temp_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/templink <test_id> [soat] [max_foydalanish] - Vaqtinchalik havola"""
+    """/templink &lt;test_id&gt; [soat] [max_foydalanish] - Vaqtinchalik havola"""
     user_id = update.effective_user.id
     lang = get_user_lang(user_id)
     if not context.args:
@@ -2146,7 +2146,7 @@ async def cmd_flashcard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt, reply_markup=kb, parse_mode=ParseMode.HTML)
 
 async def cmd_new_flashset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/newflashset <nom> - Yangi flashcard to'plami"""
+    """/newflashset &lt;nom&gt; - Yangi flashcard to'plami"""
     user_id = update.effective_user.id
     lang = get_user_lang(user_id)
     if not context.args:
@@ -2162,11 +2162,11 @@ async def cmd_new_flashset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def cmd_add_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/addcard <set_id> savol | javob - Flashcard qo'shish"""
+    """/addcard &lt;set_id&gt; savol | javob - Flashcard qo'shish"""
     user_id = update.effective_user.id
     if not context.args or len(context.args) < 2:
         await update.message.reply_text(
-            "❌ Foydalanish: /addcard <set_id> Savol | Javob\n\nMisol: /addcard 5 Capital of France | Paris"
+            "❌ Foydalanish: /addcard &lt;set_id&gt; Savol | Javob\n\nMisol: /addcard 5 Capital of France | Paris"
         )
         return
     try:
@@ -2239,13 +2239,13 @@ def ai_translate_text(text: str, target_lang: str = "ru") -> str:
         return text
 
 async def cmd_translate_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/translatetest <test_id> <til> - Testni tarjima qilish (ru/en)"""
+    """/translatetest &lt;test_id&gt; &lt;til&gt; - Testni tarjima qilish (ru/en)"""
     user_id = update.effective_user.id
     lang = get_user_lang(user_id)
     if not context.args or len(context.args) < 2:
         await update.message.reply_text(
             "🌐 <b>Test tarjimasi</b>\n\n"
-            "Foydalanish: /translatetest <test_id> <til>\n"
+            "Foydalanish: /translatetest &lt;test_id&gt; &lt;til&gt;\n"
             "Tillar: <code>ru</code> (Rus) | <code>en</code> (Ingliz)\n\n"
             "Misol: /translatetest abc123 ru",
             parse_mode=ParseMode.HTML
@@ -2606,8 +2606,8 @@ async def cmd_stake(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 Balansingiz: <b>{balance} GWT</b>\n"
             f"📦 Staking'da: <b>{total_staked:.4f} GWT</b>\n"
             f"🎁 Jami mukofot: <b>{total_reward:.4f} GWT</b>\n\n"
-            f"Staking boshlash: /stake <miqdor>\n"
-            f"Yechish: /unstake <id>",
+            f"Staking boshlash: /stake &lt;miqdor&gt;\n"
+            f"Yechish: /unstake &lt;id&gt;",
             parse_mode=ParseMode.HTML
         )
         return
@@ -2778,7 +2778,7 @@ async def cmd_mycerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                      disable_web_page_preview=True)
 
 async def cmd_give_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/givepremium <user_id> <months> - Admin foydalanuvchiga premium beradi"""
+    """/givepremium &lt;user_id&gt; &lt;months&gt; - Admin foydalanuvchiga premium beradi"""
     user_id = update.effective_user.id
     lang = get_user_lang(user_id)
     if user_id not in SUPERADMINS:
@@ -2786,7 +2786,7 @@ async def cmd_give_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args or len(context.args) < 2:
         await update.message.reply_text(
-            "❌ Format: /givepremium <user_id> <months>\n\nMisol: /givepremium 123456789 3",
+            "❌ Format: /givepremium &lt;user_id&gt; &lt;months&gt;\n\nMisol: /givepremium 123456789 3",
             parse_mode=ParseMode.HTML
         )
         return
@@ -3768,7 +3768,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📈 APY: <b>{apy}%</b> (yillik)\n"
             f"🔒 Qulflash: <b>{lock_days} kun</b>\n"
             f"⚠️ Erta yechish jarima: <b>10%</b>\n\n"
-            f"<b>Boshlash:</b> /stake <miqdor>\n"
+            f"<b>Boshlash:</b> /stake &lt;miqdor&gt;\n"
             f"<b>Ko'rish:</b> /unstake",
             parse_mode=ParseMode.HTML
         )
@@ -5490,7 +5490,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📈 APY: <b>{apy}%</b> (yillik)\n"
             f"🔒 Qulflash muddati: <b>{lock_days} kun</b>\n\n"
             f"Staking orqali GWT tokenlaringizni qulflab, passiv daromad oling!\n\n"
-            f"Bot orqali: /stake <miqdor>",
+            f"Bot orqali: /stake &lt;miqdor&gt;",
             reply_markup=kb, parse_mode=ParseMode.HTML
         )
         return
