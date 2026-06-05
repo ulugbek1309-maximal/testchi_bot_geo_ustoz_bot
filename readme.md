@@ -180,3 +180,69 @@ Yangi versiyada majburiy kanallarni ENV faylida emas, **bot ichida** boshqarishi
 - Real-time yangilanish
 - Ko'p kanallar qo'llab-quvvatlash
 - Database'da saqlash
+
+
+
+---
+
+## 🚀 v3.0 - Yangi Imkoniyatlar (Katta Yangilanish)
+
+Ushbu versiyada botga juda ko'plab yangi funksiyalar qo'shildi. Barcha funksiyalar 3 tilda (O'zbek lotin, O'zbek kirill, Rus) ishlaydi.
+
+### 📊 1. Statistika va Analitika
+- **Foydalanuvchi statistikasi:** Daraja, XP, aniqlik foizi, ishlangan/yaratilgan testlar.
+- **Test analitikasi:** O'rtacha ball, eng yuqori/past natija, eng ko'p xato qilingan savollar.
+- **Global statistika (admin):** Umumiy foydalanuvchilar, testlar, premium, kunlik o'sish.
+- Bot: `/stats` | Web: `/stats`, `/admin/stats`, `/test-analytics/<test_id>`
+
+### 🎮 2. Gamification (O'yin elementi)
+- **XP va Daraja tizimi:** Har bir to'g'ri javob uchun XP, darajalar avtomatik oshadi.
+- **Streak (kunlik faollik):** Ketma-ket faol kunlar uchun bonus XP (7+ kun = 1.5x).
+- **Yutuqlar (Achievements):** 11 ta turli yutuq (birinchi test, 100 test, mukammal natija va h.k.).
+- Bot: `/achievements`, `/top` | Web: `/achievements`, `/leaderboard`
+
+### 👥 3. O'quv Guruhlari (Sinflar)
+- O'qituvchilar guruh yaratadi, o'quvchilar maxsus kod orqali qo'shiladi.
+- Guruhga test (uy vazifasi) biriktirish, guruh ichidagi reyting.
+- Bot: `/groups`, `/creategroup Nomi`, `/joingroup KOD` | Web: `/my-groups`, `/group/<id>`
+
+### 🤖 4. AI Test Generator
+- Mavzu kiritsangiz, sun'iy intellekt (Groq) avtomatik test tuzib beradi.
+- Bot: `/aitest <mavzu>` (masalan: `/aitest O'zbekiston tarixi`)
+
+### 🔔 5. Bildirishnomalar
+- Yangi yutuq, daraja, deadline yaqinlashganda avtomatik xabar.
+- Guruh vazifalari uchun avtomatik eslatma (har 6 soatda tekshiriladi).
+- Bot: `/notifications` | Web: `/notifications`
+
+### 🗂️ 6. Kategoriyalar va Kutubxona
+- Testlar kategoriyalar bo'yicha ajratiladi (Matematika, Fizika, Tarix va h.k.).
+- Ommaviy testlar kutubxonasi, kategoriya va nom bo'yicha qidiruv.
+- Web: `/library`
+
+### 📥 7. Kengaytirilgan Export
+- Ko'p varaqli Excel hisobot: Natijalar + Umumiy tahlil + Savollar tahlili.
+- Web: `/export-excel/<test_id>`
+
+### ⭐ 8. Sharhlar va Saqlanganlar
+- Testlarga baho (1-5 yulduz) va sharh qoldirish.
+- Testlarni saqlash (bookmark).
+- API: `/api/review/add`, `/api/bookmark/toggle`
+
+### 🗄️ Yangi Database Jadvallari
+`categories`, `user_stats`, `achievements`, `user_achievements`, `study_groups`,
+`group_members`, `group_assignments`, `notifications`, `test_reviews`,
+`test_bookmarks`, `question_stats`. Barchasi bot birinchi ishga tushganda
+avtomatik yaratiladi (qo'lda hech narsa qilish shart emas).
+
+### 📋 Barcha Bot Komandalari (Yangi)
+```
+/stats          - Shaxsiy statistika (daraja, XP, streak)
+/achievements   - Yutuqlar ro'yxati
+/top            - Oylik reyting
+/notifications  - Bildirishnomalar
+/groups         - Mening guruhlarim
+/creategroup    - Yangi guruh yaratish
+/joingroup      - Kod orqali guruhga qo'shilish
+/aitest         - AI orqali test yaratish
+```

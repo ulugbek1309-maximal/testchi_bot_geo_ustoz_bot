@@ -1587,6 +1587,320 @@ async def cmd_delete_channel(update: Update, context: ContextTypes.DEFAULT_TYPE)
         parse_mode=ParseMode.HTML
     )
 
+# ==========================================
+# 📊 STATISTIKA, GAMIFICATION KOMANDALARI
+# ==========================================
+async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Foydalanuvchi statistikasi: daraja, XP, streak, natijalar"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    try:
+        stats = dict(db.get_user_stats(user_id) or {})
+    except Exception:
+        stats = {}
+
+    level = int(stats.get("level", 1) or 1)
+    xp = int(stats.get("xp", 0) or 0)
+    next_level_xp = db.xp_for_level(level + 1)
+    cur_level_xp = db.xp_for_level(level)
+    progress = xp - cur_level_xp
+    needed = max(1, next_level_xp - cur_level_xp)
+    pct = min(100, int(progress * 100 / needed))
+    bar = "🟩" * (pct // 10) + "⬜" * (10 - pct // 10)
+
+    tests_taken = int(stats.get("tests_taken", 0) or 0)
+    tests_created = int(stats.get("tests_created", 0) or 0)
+    total_correct = int(stats.get("total_correct", 0) or 0)
+    total_q = int(stats.get("total_questions", 0) or 0)
+    accuracy = round(total_correct * 100 / total_q, 1) if total_q > 0 else 0
+    streak = int(stats.get("current_streak", 0) or 0)
+    longest = int(stats.get("longest_streak", 0) or 0)
+
+    if lang == "ru":
+        text = (f"📊 <b>Ваша статистика</b>\n\n"
+                f"⭐ Уровень: <b>{level}</b>\n"
+                f"✨ XP: <b>{xp}</b> / {next_level_xp}\n{bar} {pct}%\n\n"
+                f"🔥 Текущая серия: <b>{streak}</b> дней\n"
+                f"🏆 Лучшая серия: <b>{longest}</b> дней\n\n"
+                f"📝 Тестов пройдено: <b>{tests_taken}</b>\n"
+                f"✍️ Тестов создано: <b>{tests_created}</b>\n"
+                f"🎯 Точность: <b>{accuracy}%</b>")
+    elif lang == "uz_cyrl":
+        text = (f"📊 <b>Сизнинг статистикангиз</b>\n\n"
+                f"⭐ Даража: <b>{level}</b>\n"
+                f"✨ XP: <b>{xp}</b> / {next_level_xp}\n{bar} {pct}%\n\n"
+                f"🔥 Жорий серия: <b>{streak}</b> кун\n"
+                f"🏆 Энг узун серия: <b>{longest}</b> кун\n\n"
+                f"📝 Ишланган тестлар: <b>{tests_taken}</b>\n"
+                f"✍️ Яратилган тестлар: <b>{tests_created}</b>\n"
+                f"🎯 Аниқлик: <b>{accuracy}%</b>")
+    else:
+        text = (f"📊 <b>Sizning statistikangiz</b>\n\n"
+                f"⭐ Daraja: <b>{level}</b>\n"
+                f"✨ XP: <b>{xp}</b> / {next_level_xp}\n{bar} {pct}%\n\n"
+                f"🔥 Joriy seriya: <b>{streak}</b> kun\n"
+                f"🏆 Eng uzun seriya: <b>{longest}</b> kun\n\n"
+                f"📝 Ishlangan testlar: <b>{tests_taken}</b>\n"
+                f"✍️ Yaratilgan testlar: <b>{tests_created}</b>\n"
+                f"🎯 Aniqlik: <b>{accuracy}%</b>")
+
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+async def cmd_achievements(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Foydalanuvchi yutuqlari ro'yxati"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    try:
+        earned = db.get_user_achievements(user_id)
+        all_ach = db.get_all_achievements()
+    except Exception:
+        earned, all_ach = [], []
+
+    earned_codes = {a['achievement_code'] if 'achievement_code' in a else a['code'] for a in earned}
+
+    title = {"ru": "🏅 <b>Достижения</b>", "uz_cyrl": "🏅 <b>Ютуқлар</b>"}.get(lang, "🏅 <b>Yutuqlar</b>")
+    lines = [title, ""]
+    for a in all_ach:
+        a = dict(a)
+        code = a['code']
+        emoji = a.get('emoji', '🏅')
+        if lang == 'ru':
+            name = a.get('title_ru') or a.get('title_uz')
+            desc = a.get('description_ru') or a.get('description_uz')
+        else:
+            name = a.get('title_uz')
+            desc = a.get('description_uz')
+        if code in earned_codes:
+            lines.append(f"{emoji} <b>{name}</b> ✅\n   <i>{desc}</i> (+{a.get('xp_reward',0)} XP)")
+        else:
+            lines.append(f"🔒 <b>{name}</b>\n   <i>{desc}</i>")
+    earned_count = len(earned_codes)
+    total_count = len(all_ach)
+    footer = {"ru": f"\n📦 Получено: {earned_count}/{total_count}",
+              "uz_cyrl": f"\n📦 Олинган: {earned_count}/{total_count}"}.get(lang, f"\n📦 Olingan: {earned_count}/{total_count}")
+    lines.append(footer)
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Oylik global reyting"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    try:
+        top_100, user_data = db.get_current_month_leaderboard(user_id)
+    except Exception:
+        top_100, user_data = [], None
+
+    title = {"ru": "🏆 <b>Месячный рейтинг (ТОП-20)</b>",
+             "uz_cyrl": "🏆 <b>Ойлик рейтинг (ТОП-20)</b>"}.get(lang, "🏆 <b>Oylik reyting (TOP-20)</b>")
+    lines = [title, ""]
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+    for item in top_100[:20]:
+        rank = item['rank']
+        medal = medals.get(rank, f"{rank}.")
+        name = h(item.get('name') or 'User')
+        lines.append(f"{medal} <b>{name}</b> — {item['score']} ball")
+    if not top_100:
+        empty = {"ru": "Пока нет данных.", "uz_cyrl": "Ҳозирча маълумот йўқ."}.get(lang, "Hozircha ma'lumot yo'q.")
+        lines.append(empty)
+    if user_data:
+        my = {"ru": f"\n👤 Ваше место: <b>{user_data['rank']}</b> ({user_data['score']} балл)",
+              "uz_cyrl": f"\n👤 Сизнинг ўрнингиз: <b>{user_data['rank']}</b> ({user_data['score']} балл)"}.get(
+              lang, f"\n👤 Sizning o'rningiz: <b>{user_data['rank']}</b> ({user_data['score']} ball)")
+        lines.append(my)
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+async def cmd_notifications(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Foydalanuvchi bildirishnomalari"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    try:
+        notifs = db.get_notifications(user_id, limit=15)
+        db.mark_all_read(user_id)
+    except Exception:
+        notifs = []
+
+    title = {"ru": "🔔 <b>Уведомления</b>", "uz_cyrl": "🔔 <b>Билдиришномалар</b>"}.get(lang, "🔔 <b>Bildirishnomalar</b>")
+    if not notifs:
+        empty = {"ru": "У вас нет уведомлений.", "uz_cyrl": "Сизда билдиришномалар йўқ."}.get(lang, "Sizda bildirishnomalar yo'q.")
+        await update.message.reply_text(f"{title}\n\n{empty}", parse_mode=ParseMode.HTML)
+        return
+    lines = [title, ""]
+    for n in notifs:
+        n = dict(n)
+        lines.append(f"• <b>{h(n.get('title'))}</b>\n  {h(n.get('body'))}")
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+# ==========================================
+# 👥 O'QUV GURUHLARI KOMANDALARI
+# ==========================================
+async def cmd_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Foydalanuvchi guruhlari ro'yxati"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    try:
+        groups = db.get_user_groups(user_id)
+    except Exception:
+        groups = []
+
+    title = {"ru": "👥 <b>Мои группы</b>", "uz_cyrl": "👥 <b>Менинг гуруҳларим</b>"}.get(lang, "👥 <b>Mening guruhlarim</b>")
+    help_text = {"ru": "\n\n<b>Команды:</b>\n/creategroup Название — создать группу\n/joingroup КОД — присоединиться",
+                 "uz_cyrl": "\n\n<b>Буйруқлар:</b>\n/creategroup Номи — гуруҳ яратиш\n/joingroup КОД — қўшилиш"}.get(
+                 lang, "\n\n<b>Komandalar:</b>\n/creategroup Nomi — guruh yaratish\n/joingroup KOD — qo'shilish")
+    if not groups:
+        empty = {"ru": "Вы не состоите ни в одной группе.", "uz_cyrl": "Сиз ҳеч қандай гуруҳда йўқсиз."}.get(lang, "Siz hech qanday guruhda yo'qsiz.")
+        await update.message.reply_text(f"{title}\n\n{empty}{help_text}", parse_mode=ParseMode.HTML)
+        return
+    lines = [title, ""]
+    for g in groups:
+        g = dict(g)
+        role_emoji = "👨‍🏫" if g.get('role') == 'teacher' else "🎓"
+        lines.append(f"{role_emoji} <b>{h(g.get('name'))}</b>\n   🔑 Kod: <code>{g.get('join_code')}</code>")
+    await update.message.reply_text("\n".join(lines) + help_text, parse_mode=ParseMode.HTML)
+
+async def cmd_create_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Yangi o'quv guruhi yaratish"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args:
+        msg = {"ru": "❌ Укажите название: /creategroup Название группы",
+               "uz_cyrl": "❌ Номини киритинг: /creategroup Гуруҳ номи"}.get(lang, "❌ Nom kiriting: /creategroup Guruh nomi")
+        await update.message.reply_text(msg)
+        return
+    name = " ".join(context.args).strip()[:100]
+    group_id = uuid.uuid4().hex[:12]
+    join_code = uuid.uuid4().hex[:6].upper()
+    try:
+        db.create_study_group(group_id, name, user_id, join_code)
+    except Exception as e:
+        logging.error(f"Guruh yaratish xatosi: {e}")
+        await update.message.reply_text("❌ Xato yuz berdi.")
+        return
+    msg = {"ru": f"✅ Группа <b>{h(name)}</b> создана!\n\n🔑 Код для присоединения: <code>{join_code}</code>\n\nПоделитесь этим кодом с учениками.",
+           "uz_cyrl": f"✅ <b>{h(name)}</b> гуруҳи яратилди!\n\n🔑 Қўшилиш коди: <code>{join_code}</code>\n\nБу кодни ўқувчилар билан улашинг."}.get(
+           lang, f"✅ <b>{h(name)}</b> guruhi yaratildi!\n\n🔑 Qo'shilish kodi: <code>{join_code}</code>\n\nBu kodni o'quvchilar bilan ulashing.")
+    await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+
+async def cmd_join_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Kod orqali guruhga qo'shilish"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args:
+        msg = {"ru": "❌ Укажите код: /joingroup КОД", "uz_cyrl": "❌ Кодни киритинг: /joingroup КОД"}.get(lang, "❌ Kod kiriting: /joingroup KOD")
+        await update.message.reply_text(msg)
+        return
+    code = context.args[0].strip().upper()
+    try:
+        group = db.get_group_by_code(code)
+        if not group:
+            msg = {"ru": "❌ Группа с таким кодом не найдена.", "uz_cyrl": "❌ Бундай кодли гуруҳ топилмади."}.get(lang, "❌ Bunday kodli guruh topilmadi.")
+            await update.message.reply_text(msg)
+            return
+        joined = db.join_group(dict(group)['group_id'], user_id, 'student')
+        if joined:
+            msg = {"ru": f"✅ Вы присоединились к группе <b>{h(dict(group)['name'])}</b>!",
+                   "uz_cyrl": f"✅ Сиз <b>{h(dict(group)['name'])}</b> гуруҳига қўшилдингиз!"}.get(
+                   lang, f"✅ Siz <b>{h(dict(group)['name'])}</b> guruhiga qo'shildingiz!")
+        else:
+            msg = {"ru": "ℹ️ Вы уже состоите в этой группе.", "uz_cyrl": "ℹ️ Сиз аллақачон бу гуруҳдасиз."}.get(lang, "ℹ️ Siz allaqachon bu guruhdasiz.")
+        await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        logging.error(f"Guruhga qo'shilish xatosi: {e}")
+        await update.message.reply_text("❌ Xato yuz berdi.")
+
+# ==========================================
+# 🤖 AI TEST GENERATOR
+# ==========================================
+def ai_generate_questions(topic: str, count: int = 5):
+    """Groq AI orqali test savollarini generatsiya qiladi. (savollar ro'yxati, xato) qaytaradi."""
+    if not GROQ_API_KEY:
+        return None, "AI sozlanmagan (GROQ_API_KEY yo'q)."
+    sys_prompt = (
+        "Siz test tuzuvchi yordamchisiz. Berilgan mavzu bo'yicha ko'p variantli (4 ta variant) "
+        "test savollarini tuzing. Faqat JSON massiv qaytaring, boshqa hech narsa yozmang. "
+        "Format: [{\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correct_index\":0}]. "
+        "correct_index 0 dan 3 gacha. Savollar o'zbek tilida bo'lsin."
+    )
+    user_prompt = f"Mavzu: {topic}. {count} ta savol tuzing."
+    try:
+        headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+        data = {
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.7,
+        }
+        res = requests.post(GROQ_URL, headers=headers, json=data, timeout=60)
+        res.raise_for_status()
+        content = res.json()["choices"][0]["message"]["content"].strip()
+        # JSON qismini ajratib olish
+        match = re.search(r"\[.*\]", content, re.DOTALL)
+        if match:
+            content = match.group(0)
+        questions = json.loads(content)
+        # Validatsiya
+        valid = []
+        for q in questions:
+            if (isinstance(q, dict) and q.get("question") and
+                    isinstance(q.get("options"), list) and len(q["options"]) >= 2 and
+                    isinstance(q.get("correct_index"), int)):
+                ci = q["correct_index"]
+                if 0 <= ci < len(q["options"]):
+                    valid.append(q)
+        if not valid:
+            return None, "AI yaroqli savollar qaytarmadi."
+        return valid, None
+    except Exception as e:
+        logging.error(f"AI test generatsiya xatosi: {e}")
+        return None, f"AI xatosi: {e}"
+
+async def cmd_ai_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """AI yordamida mavzu bo'yicha test yaratish: /aitest <mavzu>"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if not context.args:
+        msg = {"ru": "🤖 Использование: /aitest <тема>\nНапример: /aitest История Узбекистана",
+               "uz_cyrl": "🤖 Фойдаланиш: /aitest <мавзу>\nМасалан: /aitest Ўзбекистон тарихи"}.get(
+               lang, "🤖 Foydalanish: /aitest <mavzu>\nMasalan: /aitest O'zbekiston tarixi")
+        await update.message.reply_text(msg)
+        return
+
+    topic = " ".join(context.args).strip()
+    wait_msg = {"ru": "🤖 ИИ создаёт тест... ⏳", "uz_cyrl": "🤖 AI тест тузмоқда... ⏳"}.get(lang, "🤖 AI test tuzmoqda... ⏳")
+    status = await update.message.reply_text(wait_msg)
+
+    # AI chaqiruvini bloklanmaydigan qilib bajarish
+    questions, err = await asyncio.to_thread(ai_generate_questions, topic, 5)
+
+    if err or not questions:
+        await status.edit_text(f"❌ {err or 'Savollar yaratilmadi.'}")
+        return
+
+    # Testni yaratish (private - faqat o'zi uchun)
+    test_id = uuid.uuid4().hex[:10]
+    title = f"AI: {topic}"[:100]
+    try:
+        db.create_test(
+            test_id=test_id, owner_user_id=user_id, chat_id=user_id,
+            title=title, per_question_sec=60, created_at=now_ts(),
+            scoring_type='standard', time_limit=0, is_randomized=0
+        )
+        for i, q in enumerate(questions):
+            db.add_question(test_id, i, q["question"], q["options"], int(q["correct_index"]))
+    except Exception as e:
+        logging.error(f"AI test saqlash xatosi: {e}")
+        await status.edit_text("❌ Testni saqlashda xato.")
+        return
+
+    token = db.get_or_create_user_api_key(user_id)
+    solve_url = f"{WEB_BASE_URL.rstrip('/')}/solve/{test_id}?token={token}"
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Testni yechish", web_app=WebAppInfo(url=solve_url))]])
+    done = {"ru": f"✅ Тест готов!\n\n📝 <b>{h(title)}</b>\n❓ Вопросов: {len(questions)}",
+            "uz_cyrl": f"✅ Тест тайёр!\n\n📝 <b>{h(title)}</b>\n❓ Саволлар: {len(questions)}"}.get(
+            lang, f"✅ Test tayyor!\n\n📝 <b>{h(title)}</b>\n❓ Savollar: {len(questions)}")
+    await status.edit_text(done, reply_markup=kb, parse_mode=ParseMode.HTML)
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         try:
@@ -4364,7 +4678,22 @@ async def finish_test_session(context: ContextTypes.DEFAULT_TYPE, session_id: st
         return
 
     duration = max(1, now_ts() - int(s.get("started_at", 0)))
-    db.finish_session(session_id, now_ts(), int(ans.get("correct") or 0), duration)
+    correct_count = int(ans.get("correct") or 0)
+    total_count = int(ans.get("total") or 0)
+    db.finish_session(session_id, now_ts(), correct_count, duration)
+
+    # 🎮 Gamification post-processing (XP, streak, yutuqlar)
+    test_id = s.get("test_id")
+    gamify = {"xp_gained": 0, "new_level": None, "new_achievements": [], "streak": 0}
+    try:
+        test_row = db.get_test(test_id)
+        is_owner = test_row and int(test_row.get("owner_user_id", 0)) == int(s.get("user_id"))
+        gamify = db.process_test_completion(
+            user_id=s.get("user_id"), test_id=test_id, session_id=session_id,
+            correct=correct_count, total=total_count, score=correct_count, is_owner=bool(is_owner)
+        )
+    except Exception as e:
+        logging.error(f"Bot gamification xatosi: {e}")
 
     chat_id = context.application.bot_data.get(f"session:{session_id}:user_chat")
     if not chat_id:
@@ -4375,9 +4704,20 @@ async def finish_test_session(context: ContextTypes.DEFAULT_TYPE, session_id: st
         lang = get_user_lang(user_id)
         msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
 
+        # Gamification natijalarini xabarga qo'shish
+        gamify_text = ""
+        if gamify.get("xp_gained"):
+            gamify_text += f"\n\n✨ +{gamify['xp_gained']} XP"
+        if gamify.get("streak", 0) > 1:
+            gamify_text += f"\n🔥 Streak: {gamify['streak']} kun"
+        if gamify.get("new_level"):
+            gamify_text += f"\n⭐ Yangi daraja: {gamify['new_level']}!"
+        for ach_code in gamify.get("new_achievements", []):
+            gamify_text += f"\n🏅 Yangi yutuq: {ach_code}"
+
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"✅ Yakunlandi!\nNatija saqlandi!\n\n{msg}",
+            text=f"✅ Yakunlandi!\nNatija saqlandi!{gamify_text}\n\n{msg}",
             reply_markup=kb_main,
             parse_mode=ParseMode.HTML
         )
@@ -4415,10 +4755,12 @@ async def finalize_test_by_id(context: ContextTypes.DEFAULT_TYPE, test_id: str, 
             except Exception:
                 pass
 
-        try:
-            await context.bot.send_message(chat_id=REQUIRED_CHANNEL, text=msg, parse_mode=ParseMode.HTML)
-        except Exception as e:
-            logging.error(f"Kanalga natija tashlashda xatolik: {e}")
+        # Natijani ommaviy testlar kanaliga yuborish (agar sozlangan bo'lsa)
+        if PUBLIC_TEST_CHANNEL and PUBLIC_TEST_CHANNEL != "@your_public_channel":
+            try:
+                await context.bot.send_message(chat_id=PUBLIC_TEST_CHANNEL, text=msg, parse_mode=ParseMode.HTML)
+            except Exception as e:
+                logging.error(f"Kanalga natija tashlashda xatolik: {e}")
 
     db.close_test(test_id)
 
@@ -4437,23 +4779,77 @@ async def export_excel(update: Update, context: ContextTypes.DEFAULT_TYPE, test_
 
     allr = db.all_results(test_id)
     wb = Workbook()
-    ws = wb.active
 
-    headers = ["Place", "User", "Score", "Duration"]
+    # --- 1-VARAQ: NATIJALAR ---
+    ws = wb.active
+    ws.title = "Natijalar"
+    headers = ["O'rin", "Foydalanuvchi", "Ball", "To'g'ri", "Davomiyligi"]
     for col, hname in enumerate(headers, 1):
-        ws.cell(row=1, column=col).value = hname
+        cell = ws.cell(row=1, column=col)
+        cell.value = hname
 
     for i, r in enumerate(allr, 1):
+        r = dict(r)
+        # Sessiya bo'yicha to'g'ri javoblar sonini olish
+        try:
+            with db._conn() as c:
+                ans = c.execute(
+                    "SELECT COUNT(*) as total, SUM(is_correct) as correct FROM answers WHERE session_id=%s",
+                    (r.get("session_id"),)
+                ).fetchone()
+            correct_n = int((ans or {}).get("correct") or 0)
+            total_n = int((ans or {}).get("total") or 0)
+            correct_str = f"{correct_n}/{total_n}" if total_n else "-"
+        except Exception:
+            correct_str = "-"
         ws.cell(row=i+1, column=1).value = i
         ws.cell(row=i+1, column=2).value = format_user_display(r.get("username"), r.get("first_name"), r.get("last_name"), r.get("user_id"))
         ws.cell(row=i+1, column=3).value = format_display_score(r.get("score"), scoring_type, lang)
-        ws.cell(row=i+1, column=4).value = fmt_duration(r.get("duration_sec") or 0, lang)
+        ws.cell(row=i+1, column=4).value = correct_str
+        ws.cell(row=i+1, column=5).value = fmt_duration(r.get("duration_sec") or 0, lang)
+
+    # --- 2-VARAQ: UMUMIY TAHLIL ---
+    try:
+        analytics = dict(db.get_test_analytics(test_id) or {})
+        ws2 = wb.create_sheet("Tahlil")
+        rows2 = [
+            ("Test nomi", test.get("title", "-")),
+            ("Jami qatnashchilar", int(analytics.get("total_sessions") or 0)),
+            ("O'rtacha ball", round(float(analytics.get("avg_score") or 0), 2)),
+            ("Eng yuqori ball", round(float(analytics.get("max_score") or 0), 2)),
+            ("Eng past ball", round(float(analytics.get("min_score") or 0), 2)),
+            ("O'rtacha vaqt", fmt_duration(int(analytics.get("avg_duration") or 0), lang)),
+        ]
+        for ri, (k, v) in enumerate(rows2, 1):
+            ws2.cell(row=ri, column=1).value = k
+            ws2.cell(row=ri, column=2).value = v
+    except Exception as e:
+        logging.error(f"Tahlil varag'i xatosi: {e}")
+
+    # --- 3-VARAQ: SAVOLLAR QIYINLIGI ---
+    try:
+        hardest = db.get_hardest_questions(test_id, limit=100)
+        ws3 = wb.create_sheet("Savollar tahlili")
+        h3 = ["#", "Savol", "Javoblar", "To'g'ri", "Muvaffaqiyat %"]
+        for col, hname in enumerate(h3, 1):
+            ws3.cell(row=1, column=col).value = hname
+        for ri, q in enumerate(hardest, 1):
+            q = dict(q)
+            ws3.cell(row=ri+1, column=1).value = int(q.get("q_index", 0)) + 1
+            ws3.cell(row=ri+1, column=2).value = (q.get("question") or "")[:120]
+            ws3.cell(row=ri+1, column=3).value = int(q.get("total_answers") or 0)
+            ws3.cell(row=ri+1, column=4).value = int(q.get("correct_answers") or 0)
+            ws3.cell(row=ri+1, column=5).value = float(q.get("success_rate") or 0)
+    except Exception as e:
+        logging.error(f"Savollar tahlili varag'i xatosi: {e}")
 
     path = f"export_{test_id}.xlsx"
     wb.save(path)
 
     with open(path, "rb") as f:
-        await update.effective_chat.send_document(document=f, filename=path)
+        await update.effective_chat.send_document(
+            document=f, filename=f"{test.get('title','test')}_natijalar.xlsx".replace(" ", "_")
+        )
 
     os.remove(path)
 
@@ -4567,6 +4963,26 @@ async def restore_deadlines(app: Application):
         else:
             app.job_queue.run_once(job_finalize_deadline, delay, data={"test_id": r.get("test_id")})
 
+async def job_assignment_reminders(context: ContextTypes.DEFAULT_TYPE):
+    """Deadline yaqinlashgan guruh vazifalari uchun bildirishnoma yaratadi (kuniga bir marta)."""
+    try:
+        due = db.get_due_assignments(hours_before=24)
+        for a in due:
+            a = dict(a)
+            group_id = a.get("group_id")
+            members = db.get_group_members(group_id)
+            for m in members:
+                m = dict(m)
+                if m.get("role") == "student":
+                    db.add_notification(
+                        m["user_id"],
+                        "⏰ Deadline yaqinlashmoqda!",
+                        f"'{a.get('title')}' testi uchun muddat tugamoqda. Guruh: {a.get('group_name')}",
+                        "deadline"
+                    )
+    except Exception as e:
+        logging.error(f"Vazifa eslatmasi xatosi: {e}")
+
 async def cmd_ommaviy_tekshiruv(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     lang = get_user_lang(user_id)
@@ -4613,6 +5029,11 @@ if __name__ == "__main__":
             pass
         await restore_deadlines(app)
         await verify_all_chats_on_startup(app)
+        # Vazifa eslatmalarini har 6 soatda tekshirish
+        try:
+            app.job_queue.run_repeating(job_assignment_reminders, interval=6*3600, first=300)
+        except Exception as e:
+            logging.error(f"Eslatma job xatosi: {e}")
 
 
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
@@ -4638,6 +5059,20 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("removechannel", cmd_remove_channel))
     app.add_handler(CommandHandler("activatechannel", cmd_activate_channel))
     app.add_handler(CommandHandler("deletechannel", cmd_delete_channel))
+
+    # Statistika va Gamification
+    app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("achievements", cmd_achievements))
+    app.add_handler(CommandHandler(["top", "leaderboard"], cmd_leaderboard))
+    app.add_handler(CommandHandler("notifications", cmd_notifications))
+
+    # O'quv guruhlari
+    app.add_handler(CommandHandler("groups", cmd_groups))
+    app.add_handler(CommandHandler("creategroup", cmd_create_group))
+    app.add_handler(CommandHandler("joingroup", cmd_join_group))
+
+    # AI Test Generator
+    app.add_handler(CommandHandler("aitest", cmd_ai_test))
 
     # 3. Tugmalar va Matnlar (Messages & Callbacks)
     app.add_handler(CallbackQueryHandler(on_callback))

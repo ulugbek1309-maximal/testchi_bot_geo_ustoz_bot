@@ -326,6 +326,12 @@
           <a href="/admin/tests?token={{ token }}" style="color: #b794f4; border-color: rgba(183, 148, 244, 0.4);">
               {% if lang == 'uz' %}🧩 Barcha Testlar{% elif lang == 'uz_cyrl' %}🧩 Барча Тестлар{% else %}🧩 Все Тесты{% endif %}
           </a>
+          <a href="/admin/channels?token={{ token }}" style="color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
+              {% if lang == 'uz' %}📢 Kanallar{% elif lang == 'uz_cyrl' %}📢 Каналлар{% else %}📢 Каналы{% endif %}
+          </a>
+          <a href="/admin/stats?token={{ token }}" style="color: #38d39f; border-color: rgba(56, 211, 159, 0.4);">
+              {% if lang == 'uz' %}📈 Statistika{% elif lang == 'uz_cyrl' %}📈 Статистика{% else %}📈 Статистика{% endif %}
+          </a>
         {% endif %}
 
         <a href="/account?token={{ token }}">
@@ -359,6 +365,36 @@
         <a href="/guide?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
             <div style="font-size: 35px;">📖</div>
             <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Qo`llanma' if lang == 'uz' else ('Қўлланма' if lang == 'uz_cyrl' else 'Инструкция') }}</div>
+        </a>
+
+        <a href="/stats?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">📊</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Statistika' if lang == 'uz' else ('Статистика' if lang == 'uz_cyrl' else 'Статистика') }}</div>
+        </a>
+
+        <a href="/achievements?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">🏅</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Yutuqlar' if lang == 'uz' else ('Ютуқлар' if lang == 'uz_cyrl' else 'Достижения') }}</div>
+        </a>
+
+        <a href="/leaderboard?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">🏆</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Reyting' if lang == 'uz' else ('Рейтинг' if lang == 'uz_cyrl' else 'Рейтинг') }}</div>
+        </a>
+
+        <a href="/library?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">📚</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Kutubxona' if lang == 'uz' else ('Кутубхона' if lang == 'uz_cyrl' else 'Библиотека') }}</div>
+        </a>
+
+        <a href="/my-groups?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">👥</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Guruhlar' if lang == 'uz' else ('Гуруҳлар' if lang == 'uz_cyrl' else 'Группы') }}</div>
+        </a>
+
+        <a href="/notifications?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div style="font-size: 35px;">🔔</div>
+            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Bildirishnomalar' if lang == 'uz' else ('Билдиришномалар' if lang == 'uz_cyrl' else 'Уведомления') }}</div>
         </a>
     </div>
 
@@ -479,6 +515,10 @@
                   <button onclick="openMonetizeModal('{{ t.get('test_id', '') }}', '{{ t.get('price_gwt', 0) }}', '{{ t.get('price_stars', 0) }}')" class="btn" style="background: rgba(255, 193, 7, 0.15); color: #ffc107; border-color: rgba(255, 193, 7, 0.3); flex: 1;">
                     💰 {% if lang == 'uz' %}Narx qo'yish{% elif lang == 'uz_cyrl' %}Нарх қўйиш{% else %}Установить цену{% endif %}
                   </button>
+
+                  <a class="btn" href="/test-analytics/{{ t.get('test_id', '') }}?token={{ token }}" style="flex: 1; background: rgba(56, 211, 159, 0.12); color: #38d39f; border-color: rgba(56, 211, 159, 0.3);">
+                    📈 {% if lang == 'uz' %}Tahlil{% elif lang == 'uz_cyrl' %}Таҳлил{% else %}Аналитика{% endif %}
+                  </a>
                 </div>
 
               </div>

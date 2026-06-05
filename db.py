@@ -281,6 +281,116 @@ class DB:
                 is_active TINYINT DEFAULT 1
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
 
+            # 18. Test Kategoriyalari
+            c.execute('''CREATE TABLE IF NOT EXISTS categories (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) UNIQUE,
+                emoji VARCHAR(20) DEFAULT '📚',
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 19. Foydalanuvchi Statistikasi (Gamification: Level, XP, Streak)
+            c.execute('''CREATE TABLE IF NOT EXISTS user_stats (
+                user_id BIGINT PRIMARY KEY,
+                xp INT DEFAULT 0,
+                level INT DEFAULT 1,
+                tests_taken INT DEFAULT 0,
+                tests_created INT DEFAULT 0,
+                total_correct INT DEFAULT 0,
+                total_questions INT DEFAULT 0,
+                current_streak INT DEFAULT 0,
+                longest_streak INT DEFAULT 0,
+                last_activity_date VARCHAR(20) DEFAULT NULL,
+                updated_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 20. Yutuqlar (Achievements) ta'riflari
+            c.execute('''CREATE TABLE IF NOT EXISTS achievements (
+                code VARCHAR(50) PRIMARY KEY,
+                title_uz VARCHAR(255),
+                title_ru VARCHAR(255),
+                description_uz VARCHAR(255),
+                description_ru VARCHAR(255),
+                emoji VARCHAR(20) DEFAULT '🏅',
+                xp_reward INT DEFAULT 0
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 21. Foydalanuvchi yutuqlari
+            c.execute('''CREATE TABLE IF NOT EXISTS user_achievements (
+                user_id BIGINT,
+                achievement_code VARCHAR(50),
+                earned_at BIGINT,
+                PRIMARY KEY (user_id, achievement_code)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 22. O'quv Guruhlari (Sinflar)
+            c.execute('''CREATE TABLE IF NOT EXISTS study_groups (
+                group_id VARCHAR(50) PRIMARY KEY,
+                name VARCHAR(255),
+                owner_id BIGINT,
+                join_code VARCHAR(20) UNIQUE,
+                description TEXT,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 23. Guruh A'zolari
+            c.execute('''CREATE TABLE IF NOT EXISTS group_members (
+                group_id VARCHAR(50),
+                user_id BIGINT,
+                role VARCHAR(20) DEFAULT 'student',
+                joined_at BIGINT,
+                PRIMARY KEY (group_id, user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 24. Guruhga biriktirilgan testlar (Uy vazifalari)
+            c.execute('''CREATE TABLE IF NOT EXISTS group_assignments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                group_id VARCHAR(50),
+                test_id VARCHAR(50),
+                assigned_by BIGINT,
+                deadline_ts BIGINT,
+                assigned_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 25. Bildirishnomalar
+            c.execute('''CREATE TABLE IF NOT EXISTS notifications (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT,
+                title VARCHAR(255),
+                body TEXT,
+                type VARCHAR(50) DEFAULT 'info',
+                is_read TINYINT DEFAULT 0,
+                created_at BIGINT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 26. Test Sharhlari va Baholari (Reviews)
+            c.execute('''CREATE TABLE IF NOT EXISTS test_reviews (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                test_id VARCHAR(50),
+                user_id BIGINT,
+                rating INT DEFAULT 5,
+                comment TEXT,
+                created_at BIGINT,
+                UNIQUE KEY uniq_review (test_id, user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 27. Saqlangan testlar (Bookmarks)
+            c.execute('''CREATE TABLE IF NOT EXISTS test_bookmarks (
+                user_id BIGINT,
+                test_id VARCHAR(50),
+                created_at BIGINT,
+                PRIMARY KEY (user_id, test_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
+            # 28. Savol bo'yicha javob statistikasi (qaysi savol ko'p xato qilingan)
+            c.execute('''CREATE TABLE IF NOT EXISTS question_stats (
+                test_id VARCHAR(50),
+                q_index INT,
+                total_answers INT DEFAULT 0,
+                correct_answers INT DEFAULT 0,
+                PRIMARY KEY (test_id, q_index)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;''')
+
             # ==============================================================
             # 🔗 BLOKCHEYN VA HAMYONLAR JADVALLARI
             # ==============================================================
@@ -385,6 +495,18 @@ class DB:
             except: pass
             try: c.execute("ALTER TABLE cheat_logs ADD COLUMN action VARCHAR(100) DEFAULT 'tab_switched';")
             except: pass
+            try: c.execute("ALTER TABLE tests ADD COLUMN category_id INT DEFAULT NULL;")
+            except: pass
+            try: c.execute("ALTER TABLE tests ADD COLUMN tags VARCHAR(255) DEFAULT NULL;")
+            except: pass
+            try: c.execute("ALTER TABLE tests ADD COLUMN difficulty VARCHAR(20) DEFAULT 'medium';")
+            except: pass
+
+            # ==============================================================
+            # 🌱 BOSHLANG'ICH MA'LUMOTLAR (SEED) - Kategoriyalar va Yutuqlar
+            # ==============================================================
+            self._seed_categories(c)
+            self._seed_achievements(c)
 
     # ================= 🔗 HAMYON VA BLOKCHEYN (TOKEN) FUNKSIYALARI =================
 
@@ -710,6 +832,12 @@ class DB:
                 INSERT INTO tests (test_id, owner_user_id, chat_id, title, per_question_sec, created_at, password, manage_password, status, scoring_type, time_limit, is_randomized)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'open', %s, %s, %s)
             """, (test_id, owner_user_id, chat_id, title, per_question_sec, created_at, password, manage_password, scoring_type, time_limit, is_randomized))
+        # 🎮 Test yaratish statistikasi va yutuqlari (xato bo'lsa ham test yaratilishi buzilmasin)
+        try:
+            self.record_test_created(owner_user_id)
+            self.check_and_grant_achievements(owner_user_id)
+        except Exception as e:
+            logging.error(f"Test yaratish statistikasi xatosi: {e}")
 
     def set_test_deadline(self, test_id, deadline_ts):
         with self._conn() as c:
@@ -1097,3 +1225,554 @@ class DB:
         with self._conn() as c:
             c.execute("DELETE FROM required_channels WHERE channel_id=%s", (channel_id,))
             return True
+
+
+    # ================= 🌱 SEED (BOSHLANG'ICH MA'LUMOTLAR) =================
+    def _seed_categories(self, c):
+        """Standart kategoriyalarni qo'shadi (faqat bo'sh bo'lsa)"""
+        try:
+            row = c.execute("SELECT COUNT(*) as cnt FROM categories").fetchone()
+            if row and row['cnt'] == 0:
+                defaults = [
+                    ("Matematika", "🔢"), ("Fizika", "⚛️"), ("Kimyo", "🧪"),
+                    ("Biologiya", "🧬"), ("Tarix", "📜"), ("Geografiya", "🌍"),
+                    ("Ona tili", "📖"), ("Ingliz tili", "🇬🇧"), ("Rus tili", "🇷🇺"),
+                    ("Informatika", "💻"), ("Adabiyot", "📚"), ("Boshqa", "📌"),
+                ]
+                now = int(time.time())
+                for name, emoji in defaults:
+                    c.execute("INSERT IGNORE INTO categories (name, emoji, created_at) VALUES (%s, %s, %s)", (name, emoji, now))
+        except Exception as e:
+            logging.error(f"Kategoriya seed xatosi: {e}")
+
+    def _seed_achievements(self, c):
+        """Standart yutuqlarni qo'shadi (faqat bo'sh bo'lsa)"""
+        try:
+            row = c.execute("SELECT COUNT(*) as cnt FROM achievements").fetchone()
+            if row and row['cnt'] == 0:
+                defaults = [
+                    ("first_test", "Birinchi qadam", "Первый шаг", "Birinchi testni yechdingiz", "Вы прошли первый тест", "🎯", 50),
+                    ("ten_tests", "Faol o'quvchi", "Активный ученик", "10 ta test yechdingiz", "Вы прошли 10 тестов", "📚", 100),
+                    ("fifty_tests", "Bilim izlovchi", "Искатель знаний", "50 ta test yechdingiz", "Вы прошли 50 тестов", "🎓", 300),
+                    ("hundred_tests", "Bilimdon", "Эрудит", "100 ta test yechdingiz", "Вы прошли 100 тестов", "🏆", 500),
+                    ("first_create", "Muallif", "Автор", "Birinchi testingizni yaratdingiz", "Вы создали первый тест", "✍️", 100),
+                    ("ten_create", "Ustoz", "Наставник", "10 ta test yaratdingiz", "Вы создали 10 тестов", "👨‍🏫", 300),
+                    ("perfect_score", "Mukammal", "Идеально", "100% natija oldingiz", "Вы набрали 100%", "💯", 150),
+                    ("streak_7", "Bir haftalik", "Недельный", "7 kun ketma-ket faol bo'ldingiz", "7 дней подряд активны", "🔥", 200),
+                    ("streak_30", "Bir oylik", "Месячный", "30 kun ketma-ket faol bo'ldingiz", "30 дней подряд активны", "⚡", 500),
+                    ("level_5", "5-daraja", "Уровень 5", "5-darajaga yetdingiz", "Вы достигли 5 уровня", "⭐", 250),
+                    ("level_10", "10-daraja", "Уровень 10", "10-darajaga yetdingiz", "Вы достигли 10 уровня", "🌟", 500),
+                ]
+                for code, t_uz, t_ru, d_uz, d_ru, emoji, xp in defaults:
+                    c.execute("""INSERT IGNORE INTO achievements
+                        (code, title_uz, title_ru, description_uz, description_ru, emoji, xp_reward)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                        (code, t_uz, t_ru, d_uz, d_ru, emoji, xp))
+        except Exception as e:
+            logging.error(f"Yutuq seed xatosi: {e}")
+
+    # ================= 🎮 GAMIFICATION (XP, LEVEL, STREAK) =================
+    def _ensure_user_stats(self, c, user_id):
+        """user_stats qatorini yaratadi (agar yo'q bo'lsa)"""
+        c.execute("INSERT IGNORE INTO user_stats (user_id, updated_at) VALUES (%s, %s)", (user_id, int(time.time())))
+
+    def get_user_stats(self, user_id):
+        """Foydalanuvchi statistikasini oladi (yo'q bo'lsa yaratadi)"""
+        with self._conn() as c:
+            self._ensure_user_stats(c, user_id)
+            return c.execute("SELECT * FROM user_stats WHERE user_id=%s", (user_id,)).fetchone()
+
+    @staticmethod
+    def xp_for_level(level):
+        """Berilgan darajaga yetish uchun kerakli umumiy XP"""
+        # Har daraja uchun: 100 * level^1.5 taxminan
+        return int(100 * (level ** 1.5))
+
+    def add_xp(self, user_id, amount):
+        """XP qo'shadi va kerak bo'lsa darajani oshiradi. Yangi level qaytaradi (yoki None)."""
+        with self._conn() as c:
+            self._ensure_user_stats(c, user_id)
+            row = c.execute("SELECT xp, level FROM user_stats WHERE user_id=%s", (user_id,)).fetchone()
+            xp = int(row['xp'] or 0) + int(amount)
+            level = int(row['level'] or 1)
+            leveled_up = False
+            # Keyingi darajaga yetganini tekshirish
+            while xp >= self.xp_for_level(level + 1):
+                level += 1
+                leveled_up = True
+            c.execute("UPDATE user_stats SET xp=%s, level=%s, updated_at=%s WHERE user_id=%s",
+                      (xp, level, int(time.time()), user_id))
+            return level if leveled_up else None
+
+    def update_streak(self, user_id):
+        """Kunlik faollik zanjirini (streak) yangilaydi. Joriy streakni qaytaradi."""
+        from datetime import datetime, timedelta
+        today = datetime.now().strftime("%Y-%m-%d")
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        with self._conn() as c:
+            self._ensure_user_stats(c, user_id)
+            row = c.execute("SELECT current_streak, longest_streak, last_activity_date FROM user_stats WHERE user_id=%s", (user_id,)).fetchone()
+            last = row['last_activity_date']
+            cur = int(row['current_streak'] or 0)
+            longest = int(row['longest_streak'] or 0)
+            if last == today:
+                return cur  # Bugun allaqachon faol
+            elif last == yesterday:
+                cur += 1
+            else:
+                cur = 1
+            longest = max(longest, cur)
+            c.execute("UPDATE user_stats SET current_streak=%s, longest_streak=%s, last_activity_date=%s, updated_at=%s WHERE user_id=%s",
+                      (cur, longest, today, int(time.time()), user_id))
+            return cur
+
+    def record_test_taken(self, user_id, correct, total):
+        """Test yechilganini statistikaga yozadi"""
+        with self._conn() as c:
+            self._ensure_user_stats(c, user_id)
+            c.execute("""UPDATE user_stats SET
+                tests_taken = tests_taken + 1,
+                total_correct = total_correct + %s,
+                total_questions = total_questions + %s,
+                updated_at = %s
+                WHERE user_id=%s""", (int(correct), int(total), int(time.time()), user_id))
+
+    def record_test_created(self, user_id):
+        """Test yaratilganini statistikaga yozadi"""
+        with self._conn() as c:
+            self._ensure_user_stats(c, user_id)
+            c.execute("UPDATE user_stats SET tests_created = tests_created + 1, updated_at=%s WHERE user_id=%s",
+                      (int(time.time()), user_id))
+
+    # ================= 🏅 ACHIEVEMENTS (YUTUQLAR) =================
+    def grant_achievement(self, user_id, code):
+        """Yutuq beradi (agar oldin berilmagan bo'lsa). True qaytarsa - yangi yutuq."""
+        with self._conn() as c:
+            exists = c.execute("SELECT 1 FROM user_achievements WHERE user_id=%s AND achievement_code=%s", (user_id, code)).fetchone()
+            if exists:
+                return False
+            ach = c.execute("SELECT xp_reward FROM achievements WHERE code=%s", (code,)).fetchone()
+            if not ach:
+                return False
+            c.execute("INSERT INTO user_achievements (user_id, achievement_code, earned_at) VALUES (%s, %s, %s)",
+                      (user_id, code, int(time.time())))
+        # XP mukofotini qo'shish (alohida ulanishda)
+        try:
+            self.add_xp(user_id, int(ach['xp_reward'] or 0))
+        except Exception:
+            pass
+        return True
+
+    def get_user_achievements(self, user_id):
+        """Foydalanuvchi yutuqlarini ta'riflari bilan oladi"""
+        with self._conn() as c:
+            return c.execute("""
+                SELECT a.*, ua.earned_at
+                FROM user_achievements ua
+                JOIN achievements a ON ua.achievement_code = a.code
+                WHERE ua.user_id=%s
+                ORDER BY ua.earned_at DESC
+            """, (user_id,)).fetchall()
+
+    def get_all_achievements(self):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM achievements ORDER BY xp_reward ASC").fetchall()
+
+    def check_and_grant_achievements(self, user_id):
+        """Foydalanuvchi statistikasiga qarab yutuqlarni avtomatik beradi. Yangi berilganlar ro'yxatini qaytaradi."""
+        stats = self.get_user_stats(user_id)
+        if not stats:
+            return []
+        newly = []
+        checks = [
+            ("first_test", stats['tests_taken'] >= 1),
+            ("ten_tests", stats['tests_taken'] >= 10),
+            ("fifty_tests", stats['tests_taken'] >= 50),
+            ("hundred_tests", stats['tests_taken'] >= 100),
+            ("first_create", stats['tests_created'] >= 1),
+            ("ten_create", stats['tests_created'] >= 10),
+            ("streak_7", stats['current_streak'] >= 7),
+            ("streak_30", stats['current_streak'] >= 30),
+            ("level_5", stats['level'] >= 5),
+            ("level_10", stats['level'] >= 10),
+        ]
+        for code, condition in checks:
+            if condition and self.grant_achievement(user_id, code):
+                newly.append(code)
+        return newly
+
+    # ================= 📊 KENGAYTIRILGAN STATISTIKA =================
+    def record_question_answer(self, test_id, q_index, is_correct):
+        """Har bir savol bo'yicha javob statistikasini yozadi"""
+        with self._conn() as c:
+            c.execute("""
+                INSERT INTO question_stats (test_id, q_index, total_answers, correct_answers)
+                VALUES (%s, %s, 1, %s)
+                ON DUPLICATE KEY UPDATE
+                    total_answers = total_answers + 1,
+                    correct_answers = correct_answers + %s
+            """, (test_id, q_index, 1 if is_correct else 0, 1 if is_correct else 0))
+
+    def get_hardest_questions(self, test_id, limit=5):
+        """Eng ko'p xato qilingan savollarni qaytaradi"""
+        with self._conn() as c:
+            return c.execute("""
+                SELECT qs.q_index, qs.total_answers, qs.correct_answers, q.question,
+                       ROUND(100.0 * qs.correct_answers / NULLIF(qs.total_answers,0), 1) as success_rate
+                FROM question_stats qs
+                JOIN questions q ON qs.test_id = q.test_id AND qs.q_index = q.q_index
+                WHERE qs.test_id=%s AND qs.total_answers > 0
+                ORDER BY success_rate ASC
+                LIMIT %s
+            """, (test_id, limit)).fetchall()
+
+    def get_test_analytics(self, test_id):
+        """Test bo'yicha to'liq analitika"""
+        with self._conn() as c:
+            row = c.execute("""
+                SELECT
+                    COUNT(*) as total_sessions,
+                    AVG(score) as avg_score,
+                    MAX(score) as max_score,
+                    MIN(score) as min_score,
+                    AVG(duration_sec) as avg_duration
+                FROM sessions
+                WHERE test_id=%s AND state='finished'
+            """, (test_id,)).fetchone()
+            return row
+
+    def get_global_stats(self):
+        """Platforma bo'yicha umumiy statistika (admin uchun)"""
+        with self._conn() as c:
+            users = c.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
+            tests = c.execute("SELECT COUNT(*) as c FROM tests").fetchone()['c']
+            sessions = c.execute("SELECT COUNT(*) as c FROM sessions WHERE state='finished'").fetchone()['c']
+            premium = c.execute("SELECT COUNT(*) as c FROM users WHERE status='premium'").fetchone()['c']
+            today = int(time.time()) - 86400
+            new_today = c.execute("SELECT COUNT(*) as c FROM users WHERE registered_at >= %s", (today,)).fetchone()['c']
+            return {
+                "total_users": users,
+                "total_tests": tests,
+                "total_sessions": sessions,
+                "premium_users": premium,
+                "new_users_today": new_today,
+            }
+
+    def get_top_tests(self, limit=10):
+        """Eng ko'p yechilgan testlar"""
+        with self._conn() as c:
+            return c.execute("""
+                SELECT t.test_id, t.title, t.public_name, COUNT(s.session_id) as plays
+                FROM tests t
+                LEFT JOIN sessions s ON t.test_id = s.test_id AND s.state='finished'
+                GROUP BY t.test_id
+                HAVING plays > 0
+                ORDER BY plays DESC
+                LIMIT %s
+            """, (limit,)).fetchall()
+
+    def get_user_progress(self, user_id):
+        """Foydalanuvchining o'sish dinamikasi (oxirgi 30 kun)"""
+        with self._conn() as c:
+            return c.execute("""
+                SELECT DATE(FROM_UNIXTIME(finished_at)) as day, COUNT(*) as cnt, AVG(score) as avg_score
+                FROM sessions
+                WHERE user_id=%s AND state='finished' AND finished_at >= %s
+                GROUP BY day
+                ORDER BY day ASC
+            """, (user_id, int(time.time()) - 30*86400)).fetchall()
+
+    # ================= 🗂️ KATEGORIYALAR VA TEGLAR =================
+    def get_categories(self):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM categories ORDER BY name ASC").fetchall()
+
+    def add_category(self, name, emoji="📚"):
+        with self._conn() as c:
+            try:
+                c.execute("INSERT INTO categories (name, emoji, created_at) VALUES (%s, %s, %s)", (name, emoji, int(time.time())))
+                return True
+            except Exception:
+                return False
+
+    def delete_category(self, category_id):
+        with self._conn() as c:
+            c.execute("DELETE FROM categories WHERE id=%s", (category_id,))
+            return True
+
+    def set_test_category(self, test_id, category_id):
+        with self._conn() as c:
+            c.execute("UPDATE tests SET category_id=%s WHERE test_id=%s", (category_id, test_id))
+
+    def set_test_meta(self, test_id, category_id=None, tags=None, difficulty=None):
+        """Test metama'lumotlarini yangilaydi (kategoriya, teglar, qiyinlik)"""
+        with self._conn() as c:
+            c.execute("""UPDATE tests SET
+                category_id = COALESCE(%s, category_id),
+                tags = COALESCE(%s, tags),
+                difficulty = COALESCE(%s, difficulty)
+                WHERE test_id=%s""", (category_id, tags, difficulty, test_id))
+
+    def get_tests_by_category(self, category_id, limit=50):
+        with self._conn() as c:
+            return c.execute("""
+                SELECT t.*, COUNT(s.session_id) as plays
+                FROM tests t
+                LEFT JOIN sessions s ON t.test_id = s.test_id AND s.state='finished'
+                WHERE t.category_id=%s AND t.public_name IS NOT NULL
+                GROUP BY t.test_id
+                ORDER BY plays DESC
+                LIMIT %s
+            """, (category_id, limit)).fetchall()
+
+    def search_tests_advanced(self, query=None, category_id=None, difficulty=None, limit=50):
+        """Kengaytirilgan qidiruv (nom, kategoriya, qiyinlik bo'yicha)"""
+        with self._conn() as c:
+            sql = """SELECT t.*, COUNT(s.session_id) as plays
+                     FROM tests t
+                     LEFT JOIN sessions s ON t.test_id = s.test_id AND s.state='finished'
+                     WHERE t.public_name IS NOT NULL"""
+            params = []
+            if query:
+                sql += " AND (t.public_name LIKE %s OR t.title LIKE %s OR t.tags LIKE %s)"
+                q = f"%{query}%"
+                params.extend([q, q, q])
+            if category_id:
+                sql += " AND t.category_id=%s"
+                params.append(category_id)
+            if difficulty:
+                sql += " AND t.difficulty=%s"
+                params.append(difficulty)
+            sql += " GROUP BY t.test_id ORDER BY plays DESC LIMIT %s"
+            params.append(limit)
+            return c.execute(sql, tuple(params)).fetchall()
+
+    # ================= 👥 O'QUV GURUHLARI (SINFLAR) =================
+    def create_study_group(self, group_id, name, owner_id, join_code, description=""):
+        with self._conn() as c:
+            c.execute("""
+                INSERT INTO study_groups (group_id, name, owner_id, join_code, description, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (group_id, name, owner_id, join_code, description, int(time.time())))
+            # Yaratuvchini o'qituvchi sifatida qo'shish
+            c.execute("INSERT IGNORE INTO group_members (group_id, user_id, role, joined_at) VALUES (%s, %s, 'teacher', %s)",
+                      (group_id, owner_id, int(time.time())))
+
+    def get_study_group(self, group_id):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM study_groups WHERE group_id=%s", (group_id,)).fetchone()
+
+    def get_group_by_code(self, join_code):
+        with self._conn() as c:
+            return c.execute("SELECT * FROM study_groups WHERE join_code=%s", (join_code,)).fetchone()
+
+    def join_group(self, group_id, user_id, role='student'):
+        with self._conn() as c:
+            exists = c.execute("SELECT 1 FROM group_members WHERE group_id=%s AND user_id=%s", (group_id, user_id)).fetchone()
+            if exists:
+                return False
+            c.execute("INSERT INTO group_members (group_id, user_id, role, joined_at) VALUES (%s, %s, %s, %s)",
+                      (group_id, user_id, role, int(time.time())))
+            return True
+
+    def leave_group(self, group_id, user_id):
+        with self._conn() as c:
+            c.execute("DELETE FROM group_members WHERE group_id=%s AND user_id=%s", (group_id, user_id))
+            return True
+
+    def get_user_groups(self, user_id):
+        """Foydalanuvchi a'zo bo'lgan guruhlar"""
+        with self._conn() as c:
+            return c.execute("""
+                SELECT g.*, gm.role
+                FROM study_groups g
+                JOIN group_members gm ON g.group_id = gm.group_id
+                WHERE gm.user_id=%s
+                ORDER BY g.created_at DESC
+            """, (user_id,)).fetchall()
+
+    def get_group_members(self, group_id):
+        with self._conn() as c:
+            return c.execute("""
+                SELECT gm.*, u.first_name, u.last_name, u.username
+                FROM group_members gm
+                JOIN users u ON gm.user_id = u.user_id
+                WHERE gm.group_id=%s
+                ORDER BY gm.role DESC, gm.joined_at ASC
+            """, (group_id,)).fetchall()
+
+    def assign_test_to_group(self, group_id, test_id, assigned_by, deadline_ts=None):
+        with self._conn() as c:
+            c.execute("""
+                INSERT INTO group_assignments (group_id, test_id, assigned_by, deadline_ts, assigned_at)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (group_id, test_id, assigned_by, deadline_ts, int(time.time())))
+
+    def get_group_assignments(self, group_id):
+        with self._conn() as c:
+            return c.execute("""
+                SELECT ga.*, t.title, t.public_name
+                FROM group_assignments ga
+                JOIN tests t ON ga.test_id = t.test_id
+                WHERE ga.group_id=%s
+                ORDER BY ga.assigned_at DESC
+            """, (group_id,)).fetchall()
+
+    def get_group_leaderboard(self, group_id):
+        """Guruh ichidagi o'quvchilar reytingi (yig'ilgan ball bo'yicha)"""
+        with self._conn() as c:
+            return c.execute("""
+                SELECT u.user_id, u.first_name, u.username,
+                       COUNT(DISTINCT s.test_id) as tests_done,
+                       COALESCE(SUM(s.score),0) as total_score
+                FROM group_members gm
+                JOIN users u ON gm.user_id = u.user_id
+                LEFT JOIN sessions s ON s.user_id = u.user_id AND s.state='finished'
+                WHERE gm.group_id=%s AND gm.role='student'
+                GROUP BY u.user_id
+                ORDER BY total_score DESC
+            """, (group_id,)).fetchall()
+
+    # ================= 🔔 BILDIRISHNOMALAR =================
+    def add_notification(self, user_id, title, body, ntype="info"):
+        with self._conn() as c:
+            c.execute("""
+                INSERT INTO notifications (user_id, title, body, type, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (user_id, title, body, ntype, int(time.time())))
+
+    def get_notifications(self, user_id, unread_only=False, limit=30):
+        with self._conn() as c:
+            if unread_only:
+                return c.execute("SELECT * FROM notifications WHERE user_id=%s AND is_read=0 ORDER BY created_at DESC LIMIT %s", (user_id, limit)).fetchall()
+            return c.execute("SELECT * FROM notifications WHERE user_id=%s ORDER BY created_at DESC LIMIT %s", (user_id, limit)).fetchall()
+
+    def count_unread_notifications(self, user_id):
+        with self._conn() as c:
+            row = c.execute("SELECT COUNT(*) as cnt FROM notifications WHERE user_id=%s AND is_read=0", (user_id,)).fetchone()
+            return row['cnt'] if row else 0
+
+    def mark_notification_read(self, notif_id):
+        with self._conn() as c:
+            c.execute("UPDATE notifications SET is_read=1 WHERE id=%s", (notif_id,))
+
+    def mark_all_read(self, user_id):
+        with self._conn() as c:
+            c.execute("UPDATE notifications SET is_read=1 WHERE user_id=%s", (user_id,))
+
+    def get_due_assignments(self, hours_before=24):
+        """Deadline yaqinlashgan vazifalarni qaytaradi (eslatma yuborish uchun)"""
+        now = int(time.time())
+        soon = now + hours_before * 3600
+        with self._conn() as c:
+            return c.execute("""
+                SELECT ga.*, t.title, g.name as group_name
+                FROM group_assignments ga
+                JOIN tests t ON ga.test_id = t.test_id
+                JOIN study_groups g ON ga.group_id = g.group_id
+                WHERE ga.deadline_ts IS NOT NULL
+                  AND ga.deadline_ts > %s AND ga.deadline_ts <= %s
+            """, (now, soon)).fetchall()
+
+    # ================= ⭐ SHARHLAR VA BAHOLAR (REVIEWS) =================
+    def add_review(self, test_id, user_id, rating, comment=""):
+        with self._conn() as c:
+            c.execute("""
+                INSERT INTO test_reviews (test_id, user_id, rating, comment, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE rating=VALUES(rating), comment=VALUES(comment), created_at=VALUES(created_at)
+            """, (test_id, user_id, rating, comment, int(time.time())))
+
+    def get_reviews(self, test_id, limit=50):
+        with self._conn() as c:
+            return c.execute("""
+                SELECT r.*, u.first_name, u.username
+                FROM test_reviews r
+                JOIN users u ON r.user_id = u.user_id
+                WHERE r.test_id=%s
+                ORDER BY r.created_at DESC
+                LIMIT %s
+            """, (test_id, limit)).fetchall()
+
+    def get_test_rating(self, test_id):
+        """Test o'rtacha bahosi va sharhlar soni"""
+        with self._conn() as c:
+            row = c.execute("""
+                SELECT AVG(rating) as avg_rating, COUNT(*) as review_count
+                FROM test_reviews WHERE test_id=%s
+            """, (test_id,)).fetchone()
+            return {
+                "avg_rating": round(float(row['avg_rating']), 1) if row and row['avg_rating'] else 0.0,
+                "review_count": row['review_count'] if row else 0,
+            }
+
+    # ================= 🔖 BOOKMARKLAR (SAQLANGAN TESTLAR) =================
+    def add_bookmark(self, user_id, test_id):
+        with self._conn() as c:
+            c.execute("INSERT IGNORE INTO test_bookmarks (user_id, test_id, created_at) VALUES (%s, %s, %s)",
+                      (user_id, test_id, int(time.time())))
+
+    def remove_bookmark(self, user_id, test_id):
+        with self._conn() as c:
+            c.execute("DELETE FROM test_bookmarks WHERE user_id=%s AND test_id=%s", (user_id, test_id))
+
+    def is_bookmarked(self, user_id, test_id):
+        with self._conn() as c:
+            return c.execute("SELECT 1 FROM test_bookmarks WHERE user_id=%s AND test_id=%s", (user_id, test_id)).fetchone() is not None
+
+    def get_bookmarks(self, user_id):
+        with self._conn() as c:
+            return c.execute("""
+                SELECT t.*, b.created_at as bookmarked_at
+                FROM test_bookmarks b
+                JOIN tests t ON b.test_id = t.test_id
+                WHERE b.user_id=%s
+                ORDER BY b.created_at DESC
+            """, (user_id,)).fetchall()
+
+
+    # ================= 🎯 TEST YAKUNLASH POST-PROCESSING (Gamification) =================
+    def process_test_completion(self, user_id, test_id, session_id, correct, total, score, is_owner=False):
+        """
+        Test yakunlangach barcha gamification jarayonlarini bajaradi:
+        - Statistika yangilash, XP berish, streak, yutuqlar, savol statistikasi.
+        Natijani dict ko'rinishida qaytaradi: {xp_gained, new_level, new_achievements, streak}
+        Eslatma: o'z testini ishlaganda XP/streak berilmaydi (is_owner=True).
+        """
+        result = {"xp_gained": 0, "new_level": None, "new_achievements": [], "streak": 0}
+        try:
+            # 1. Savol statistikasini yozish (har bir savol bo'yicha)
+            with self._conn() as c:
+                answers = c.execute("SELECT q_index, is_correct FROM answers WHERE session_id=%s", (session_id,)).fetchall()
+            for a in answers:
+                self.record_question_answer(test_id, a['q_index'], bool(a['is_correct']))
+
+            # O'z testini ishlasa - reyting/XP bermaymiz (aldovning oldini olish)
+            if is_owner:
+                return result
+
+            # 2. Umumiy statistika
+            self.record_test_taken(user_id, correct, total)
+
+            # 3. Streak yangilash
+            result["streak"] = self.update_streak(user_id)
+
+            # 4. XP hisoblash: har to'g'ri javob +10 XP, tugatgani uchun +20 XP
+            xp_gained = int(correct) * 10 + 20
+            # Streak bonusi
+            if result["streak"] >= 7:
+                xp_gained = int(xp_gained * 1.5)
+            result["xp_gained"] = xp_gained
+            new_level = self.add_xp(user_id, xp_gained)
+            result["new_level"] = new_level
+
+            # 5. Mukammal natija yutug'i (100% to'g'ri)
+            if total > 0 and correct == total:
+                if self.grant_achievement(user_id, "perfect_score"):
+                    result["new_achievements"].append("perfect_score")
+
+            # 6. Boshqa yutuqlarni tekshirish
+            result["new_achievements"].extend(self.check_and_grant_achievements(user_id))
+        except Exception as e:
+            logging.error(f"process_test_completion xatosi: {e}")
+        return result

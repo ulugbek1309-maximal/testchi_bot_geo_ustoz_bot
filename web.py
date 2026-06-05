@@ -11,8 +11,10 @@ import urllib.parse
 import base64
 import html
 import random
+import io
 import resend
 from groq import Groq
+from openpyxl import Workbook
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, request, render_template, render_template_string, abort, jsonify, redirect, send_from_directory, session, Response, stream_with_context
@@ -2019,6 +2021,529 @@ def api_admin_channel_delete():
     
     return jsonify({"success": True})
 
+# ==========================================
+# 📊 STATISTIKA, GAMIFICATION, KUTUBXONA SAHIFALARI
+# ==========================================
+_PAGE_STYLE = """
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif}
+  body{background:radial-gradient(circle at top,#101b34 0%,#070b15 70%,#05060d 100%);color:#f3f6ff;min-height:100vh;padding:20px}
+  .wrap{max-width:900px;margin:0 auto}
+  .nav{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
+  .nav a{padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.08);color:#f3f6ff;text-decoration:none;border:1px solid rgba(255,255,255,.12);font-size:14px}
+  .nav a:hover{background:rgba(255,255,255,.16)}
+  .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:22px;margin-bottom:16px;backdrop-filter:blur(12px)}
+  h1{font-size:24px;margin-bottom:18px}
+  h2{font-size:18px;color:#38d39f;margin-bottom:12px}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px}
+  .stat-box{background:rgba(0,0,0,.25);border-radius:12px;padding:16px;text-align:center}
+  .stat-num{font-size:26px;font-weight:700;color:#38d39f}
+  .stat-label{font-size:13px;color:rgba(243,246,255,.65);margin-top:4px}
+  .bar{height:14px;background:rgba(0,0,0,.3);border-radius:999px;overflow:hidden;margin:10px 0}
+  .bar-fill{height:100%;background:linear-gradient(90deg,#38d39f,#6cb2ff)}
+  .ach{display:flex;align-items:center;gap:14px;padding:12px;border-radius:12px;margin-bottom:8px;background:rgba(0,0,0,.2)}
+  .ach.locked{opacity:.45}
+  .ach .em{font-size:30px}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:10px;margin-bottom:8px;background:rgba(0,0,0,.25)}
+  .row.me{background:rgba(56,211,159,.15);border:1px solid rgba(56,211,159,.4)}
+  .btn{display:inline-block;padding:10px 16px;border-radius:10px;background:rgba(56,211,159,.15);color:#38d39f;border:1px solid rgba(56,211,159,.3);text-decoration:none;cursor:pointer;font-weight:600;font-size:14px}
+  .tag{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(108,178,255,.15);color:#6cb2ff;font-size:12px;margin:2px}
+  input,select,textarea{width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.2);color:#f3f6ff;font-size:14px;margin-bottom:12px}
+  .empty{text-align:center;padding:40px;color:rgba(243,246,255,.5)}
+</style>
+"""
+
+def _nav_html(token, lang="uz"):
+    L = {
+        "uz": ["🏠 Bosh sahifa","📊 Statistika","🏅 Yutuqlar","🏆 Reyting","📚 Kutubxona","👥 Guruhlar","🔔 Bildirishnomalar"],
+        "uz_cyrl": ["🏠 Бош саҳифа","📊 Статистика","🏅 Ютуқлар","🏆 Рейтинг","📚 Кутубхона","👥 Гуруҳлар","🔔 Билдиришномалар"],
+        "ru": ["🏠 Главная","📊 Статистика","🏅 Достижения","🏆 Рейтинг","📚 Библиотека","👥 Группы","🔔 Уведомления"],
+    }.get(lang, None)
+    if L is None:
+        L = ["🏠 Bosh sahifa","📊 Statistika","🏅 Yutuqlar","🏆 Reyting","📚 Kutubxona","👥 Guruhlar","🔔 Bildirishnomalar"]
+    paths = ["/","/stats","/achievements","/leaderboard","/library","/my-groups","/notifications"]
+    links = "".join([f'<a href="{p}?token={token}">{name}</a>' for p, name in zip(paths, L)])
+    return f'<div class="nav">{links}</div>'
+
+@app.route("/stats")
+def web_stats():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    uid = int(user["user_id"])
+    stats = to_dict(db.get_user_stats(uid)) or {}
+    level = int(stats.get("level", 1) or 1)
+    xp = int(stats.get("xp", 0) or 0)
+    cur_lvl_xp = db.xp_for_level(level)
+    next_lvl_xp = db.xp_for_level(level + 1)
+    needed = max(1, next_lvl_xp - cur_lvl_xp)
+    pct = min(100, int((xp - cur_lvl_xp) * 100 / needed))
+    total_q = int(stats.get("total_questions", 0) or 0)
+    total_c = int(stats.get("total_correct", 0) or 0)
+    accuracy = round(total_c * 100 / total_q, 1) if total_q > 0 else 0
+    progress = db.get_user_progress(uid)
+    progress_rows = "".join([f"<div class='row'><span>{to_dict(p)['day']}</span><span>{to_dict(p)['cnt']} test · {round(float(to_dict(p)['avg_score'] or 0),1)} ball</span></div>" for p in progress]) or f"<div class='empty'>{'Маълумот йўқ' if lang=='uz_cyrl' else ('Нет данных' if lang=='ru' else 'Malumot yoq')}</div>"
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📊 {'Статистика' if lang=='ru' else ('Статистика' if lang=='uz_cyrl' else 'Statistika')}</h1>
+      <div class="card">
+        <h2>⭐ {'Уровень' if lang=='ru' else ('Даража' if lang=='uz_cyrl' else 'Daraja')} {level}</h2>
+        <div class="bar"><div class="bar-fill" style="width:{pct}%"></div></div>
+        <p style="color:rgba(243,246,255,.65);font-size:13px">{xp} / {next_lvl_xp} XP ({pct}%)</p>
+      </div>
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num">{int(stats.get('tests_taken',0) or 0)}</div><div class="stat-label">{'Тестов пройдено' if lang=='ru' else ('Ишланган' if lang=='uz_cyrl' else 'Ishlangan')}</div></div>
+          <div class="stat-box"><div class="stat-num">{int(stats.get('tests_created',0) or 0)}</div><div class="stat-label">{'Создано' if lang=='ru' else ('Яратилган' if lang=='uz_cyrl' else 'Yaratilgan')}</div></div>
+          <div class="stat-box"><div class="stat-num">{accuracy}%</div><div class="stat-label">{'Точность' if lang=='ru' else ('Аниқлик' if lang=='uz_cyrl' else 'Aniqlik')}</div></div>
+          <div class="stat-box"><div class="stat-num">🔥 {int(stats.get('current_streak',0) or 0)}</div><div class="stat-label">{'Серия' if lang=='ru' else ('Серия' if lang=='uz_cyrl' else 'Streak')}</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📈 {'Последние 30 дней' if lang=='ru' else ('Сўнгги 30 кун' if lang=='uz_cyrl' else 'Songgi 30 kun')}</h2>
+        {progress_rows}
+      </div>
+    </div>
+    """
+    return html_page
+
+@app.route("/achievements")
+def web_achievements():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    uid = int(user["user_id"])
+    earned = {dict(a)['code'] for a in db.get_user_achievements(uid)}
+    all_ach = db.get_all_achievements()
+    items = ""
+    for a in all_ach:
+        a = dict(a)
+        name = (a.get('title_ru') if lang == 'ru' else a.get('title_uz'))
+        desc = (a.get('description_ru') if lang == 'ru' else a.get('description_uz'))
+        locked = "" if a['code'] in earned else "locked"
+        check = "✅" if a['code'] in earned else "🔒"
+        items += f"<div class='ach {locked}'><div class='em'>{a.get('emoji','🏅')}</div><div><b>{name}</b> {check}<br><span style='color:rgba(243,246,255,.6);font-size:13px'>{desc} · +{a.get('xp_reward',0)} XP</span></div></div>"
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>🏅 {'Достижения' if lang=='ru' else ('Ютуқлар' if lang=='uz_cyrl' else 'Yutuqlar')} ({len(earned)}/{len(all_ach)})</h1>
+      <div class="card">{items}</div>
+    </div>
+    """
+    return html_page
+
+@app.route("/leaderboard")
+def web_leaderboard():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    uid = int(user["user_id"])
+    top_100, user_data = db.get_current_month_leaderboard(uid)
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+    rows = ""
+    for item in top_100[:50]:
+        me = "me" if item['user_id'] == uid else ""
+        medal = medals.get(item['rank'], f"{item['rank']}.")
+        rows += f"<div class='row {me}'><span>{medal} {html.escape(str(item.get('name') or 'User'))}</span><span><b>{item['score']}</b> ball</span></div>"
+    if not rows:
+        rows = f"<div class='empty'>{'Нет данных' if lang=='ru' else ('Маълумот йўқ' if lang=='uz_cyrl' else 'Malumot yoq')}</div>"
+    my = ""
+    if user_data:
+        my = f"<div class='card'><div class='row me'><span>👤 {'Ваше место' if lang=='ru' else ('Сизнинг ўрнингиз' if lang=='uz_cyrl' else 'Sizning orningiz')}</span><span><b>#{user_data['rank']}</b> · {user_data['score']} ball</span></div></div>"
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>🏆 {'Месячный рейтинг' if lang=='ru' else ('Ойлик рейтинг' if lang=='uz_cyrl' else 'Oylik reyting')}</h1>
+      {my}
+      <div class="card">{rows}</div>
+    </div>
+    """
+    return html_page
+
+@app.route("/library")
+def web_library():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    cat_id = request.args.get("category", type=int)
+    query = request.args.get("q", "").strip()
+    categories = db.get_categories()
+    tests = db.search_tests_advanced(query=query or None, category_id=cat_id, limit=50)
+    cat_chips = f'<a class="tag" href="/library?token={token}">{"Все" if lang=="ru" else ("Барчаси" if lang=="uz_cyrl" else "Barchasi")}</a>'
+    for c in categories:
+        c = dict(c)
+        cat_chips += f'<a class="tag" href="/library?token={token}&category={c["id"]}">{c.get("emoji","")} {c["name"]}</a>'
+    test_cards = ""
+    for t in tests:
+        t = dict(t)
+        rating = db.get_test_rating(t['test_id'])
+        stars = "⭐" * int(round(rating['avg_rating'])) if rating['avg_rating'] else ""
+        pname = t.get('public_name') or t['test_id']
+        test_cards += f"""<div class='row'><div><b>{html.escape(t.get('title') or '—')}</b><br>
+          <span style='color:rgba(243,246,255,.6);font-size:13px'>@{html.escape(pname)} · ▶️ {t.get('plays',0)} · {stars} {rating['avg_rating'] or ''}</span></div>
+          <a class='btn' href='/solve/{t['test_id']}?token={token}'>{'Решить' if lang=='ru' else ('Ишлаш' if lang=='uz_cyrl' else 'Yechish')}</a></div>"""
+    if not test_cards:
+        test_cards = f"<div class='empty'>{'Тесты не найдены' if lang=='ru' else ('Тест топилмади' if lang=='uz_cyrl' else 'Test topilmadi')}</div>"
+    placeholder = 'Поиск...' if lang == 'ru' else ('Қидирув...' if lang == 'uz_cyrl' else 'Qidiruv...')
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📚 {'Библиотека тестов' if lang=='ru' else ('Тестлар кутубхонаси' if lang=='uz_cyrl' else 'Testlar kutubxonasi')}</h1>
+      <div class="card">
+        <form method="get" action="/library">
+          <input type="hidden" name="token" value="{token}">
+          <input type="text" name="q" value="{html.escape(query)}" placeholder="{placeholder}">
+          <button class="btn" type="submit">🔍 {'Поиск' if lang=='ru' else ('Қидирув' if lang=='uz_cyrl' else 'Qidirish')}</button>
+        </form>
+        <div style="margin-top:14px">{cat_chips}</div>
+      </div>
+      <div class="card">{test_cards}</div>
+    </div>
+    """
+    return html_page
+
+@app.route("/my-groups")
+def web_my_groups():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    uid = int(user["user_id"])
+    groups = db.get_user_groups(uid)
+    cards = ""
+    for g in groups:
+        g = dict(g)
+        role = "👨‍🏫" if g.get('role') == 'teacher' else "🎓"
+        cards += f"""<div class='row'><div><b>{role} {html.escape(g.get('name'))}</b><br>
+          <span style='color:rgba(243,246,255,.6);font-size:13px'>🔑 {g.get('join_code')}</span></div>
+          <a class='btn' href='/group/{g['group_id']}?token={token}'>{'Открыть' if lang=='ru' else ('Очиш' if lang=='uz_cyrl' else 'Ochish')}</a></div>"""
+    if not cards:
+        cards = f"<div class='empty'>{'Нет групп' if lang=='ru' else ('Гуруҳ йўқ' if lang=='uz_cyrl' else 'Guruh yoq')}</div>"
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>👥 {'Мои группы' if lang=='ru' else ('Менинг гуруҳларим' if lang=='uz_cyrl' else 'Mening guruhlarim')}</h1>
+      <div class="card">
+        <h2>➕ {'Создать группу' if lang=='ru' else ('Гуруҳ яратиш' if lang=='uz_cyrl' else 'Guruh yaratish')}</h2>
+        <input type="text" id="gname" placeholder="{'Название' if lang=='ru' else ('Номи' if lang=='uz_cyrl' else 'Nomi')}">
+        <button class="btn" onclick="createGroup()">{'Создать' if lang=='ru' else ('Яратиш' if lang=='uz_cyrl' else 'Yaratish')}</button>
+        <h2 style="margin-top:18px">🔑 {'Присоединиться' if lang=='ru' else ('Қўшилиш' if lang=='uz_cyrl' else 'Qoshilish')}</h2>
+        <input type="text" id="gcode" placeholder="{'Код' if lang=='ru' else ('Код' if lang=='uz_cyrl' else 'Kod')}">
+        <button class="btn" onclick="joinGroup()">{'Войти' if lang=='ru' else ('Кириш' if lang=='uz_cyrl' else 'Kirish')}</button>
+      </div>
+      <div class="card">{cards}</div>
+    </div>
+    <script>
+      const token="{token}";
+      function createGroup(){{
+        const name=document.getElementById('gname').value.trim();
+        if(!name)return;
+        fetch('/api/group/create',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{token,name}})}})
+          .then(r=>r.json()).then(d=>{{if(d.success)location.reload();else alert(d.error||'Error');}});
+      }}
+      function joinGroup(){{
+        const code=document.getElementById('gcode').value.trim();
+        if(!code)return;
+        fetch('/api/group/join',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{token,code}})}})
+          .then(r=>r.json()).then(d=>{{if(d.success)location.reload();else alert(d.error||'Error');}});
+      }}
+    </script>
+    """
+    return html_page
+
+@app.route("/group/<group_id>")
+def web_group_detail(group_id):
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    group = to_dict(db.get_study_group(group_id))
+    if not group:
+        return abort(404)
+    members = db.get_group_members(group_id)
+    board = db.get_group_leaderboard(group_id)
+    assignments = db.get_group_assignments(group_id)
+    mem_rows = "".join([f"<div class='row'><span>{'👨‍🏫' if dict(m).get('role')=='teacher' else '🎓'} {html.escape(dict(m).get('first_name') or 'User')}</span></div>" for m in members])
+    board_rows = "".join([f"<div class='row'><span>{html.escape(dict(b).get('first_name') or 'User')}</span><span>{dict(b).get('tests_done',0)} test · {round(float(dict(b).get('total_score') or 0),1)} ball</span></div>" for b in board]) or "<div class='empty'>—</div>"
+    asg_rows = "".join([f"<div class='row'><span>📝 {html.escape(dict(a).get('title') or '—')}</span><a class='btn' href='/solve/{dict(a)['test_id']}?token={token}'>▶️</a></div>" for a in assignments]) or "<div class='empty'>—</div>"
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>👥 {html.escape(group.get('name'))}</h1>
+      <div class="card"><h2>🔑 {'Код' if lang=='ru' else ('Код' if lang=='uz_cyrl' else 'Kod')}: {group.get('join_code')}</h2></div>
+      <div class="card"><h2>📝 {'Задания' if lang=='ru' else ('Вазифалар' if lang=='uz_cyrl' else 'Vazifalar')}</h2>{asg_rows}</div>
+      <div class="card"><h2>🏆 {'Рейтинг' if lang=='ru' else ('Рейтинг' if lang=='uz_cyrl' else 'Reyting')}</h2>{board_rows}</div>
+      <div class="card"><h2>👤 {'Участники' if lang=='ru' else ('Аъзолар' if lang=='uz_cyrl' else 'Azolar')} ({len(members)})</h2>{mem_rows}</div>
+    </div>
+    """
+    return html_page
+
+@app.route("/notifications")
+def web_notifications():
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    uid = int(user["user_id"])
+    notifs = db.get_notifications(uid, limit=30)
+    db.mark_all_read(uid)
+    rows = ""
+    for n in notifs:
+        n = dict(n)
+        rows += f"<div class='row'><div><b>{html.escape(n.get('title') or '')}</b><br><span style='color:rgba(243,246,255,.6);font-size:13px'>{html.escape(n.get('body') or '')}</span></div></div>"
+    if not rows:
+        rows = f"<div class='empty'>{'Нет уведомлений' if lang=='ru' else ('Билдиришнома йўқ' if lang=='uz_cyrl' else 'Bildirishnoma yoq')}</div>"
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>🔔 {'Уведомления' if lang=='ru' else ('Билдиришномалар' if lang=='uz_cyrl' else 'Bildirishnomalar')}</h1>
+      <div class="card">{rows}</div>
+    </div>
+    """
+    return html_page
+
+# ==========================================
+# 📡 GURUH, SHARH, BOOKMARK API'LARI
+# ==========================================
+@app.route("/api/group/create", methods=["POST"])
+def api_group_create():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 401
+    name = (data.get("name") or "").strip()[:100]
+    if not name:
+        return jsonify({"success": False, "error": "Name required"}), 400
+    group_id = uuid.uuid4().hex[:12]
+    join_code = uuid.uuid4().hex[:6].upper()
+    try:
+        db.create_study_group(group_id, name, int(user["user_id"]), join_code)
+        return jsonify({"success": True, "group_id": group_id, "join_code": join_code})
+    except Exception as e:
+        logging.error(f"Group create error: {e}")
+        return jsonify({"success": False, "error": "Server error"}), 500
+
+@app.route("/api/group/join", methods=["POST"])
+def api_group_join():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 401
+    code = (data.get("code") or "").strip().upper()
+    group = db.get_group_by_code(code)
+    if not group:
+        return jsonify({"success": False, "error": "Group not found"}), 404
+    db.join_group(dict(group)["group_id"], int(user["user_id"]), "student")
+    return jsonify({"success": True})
+
+@app.route("/api/review/add", methods=["POST"])
+def api_review_add():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 401
+    test_id = data.get("test_id")
+    rating = int(data.get("rating", 5))
+    comment = (data.get("comment") or "")[:500]
+    if not test_id or rating < 1 or rating > 5:
+        return jsonify({"success": False, "error": "Invalid data"}), 400
+    db.add_review(test_id, int(user["user_id"]), rating, comment)
+    return jsonify({"success": True})
+
+@app.route("/api/bookmark/toggle", methods=["POST"])
+def api_bookmark_toggle():
+    data = request.json or {}
+    user = validate_token(data.get("token"))
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 401
+    test_id = data.get("test_id")
+    uid = int(user["user_id"])
+    if db.is_bookmarked(uid, test_id):
+        db.remove_bookmark(uid, test_id)
+        return jsonify({"success": True, "bookmarked": False})
+    else:
+        db.add_bookmark(uid, test_id)
+        return jsonify({"success": True, "bookmarked": True})
+
+@app.route("/api/notifications/count")
+def api_notifications_count():
+    user = validate_token(request.args.get("token"))
+    if not user:
+        return jsonify({"count": 0})
+    return jsonify({"count": db.count_unread_notifications(int(user["user_id"]))})
+
+@app.route("/admin/stats")
+def admin_stats():
+    """Admin uchun global statistika dashboard"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user or int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+    g = db.get_global_stats()
+    top_tests = db.get_top_tests(limit=10)
+    top_rows = "".join([f"<div class='row'><span>📝 {html.escape(dict(t).get('title') or '—')}</span><span>▶️ {dict(t).get('plays',0)}</span></div>" for t in top_tests]) or "<div class='empty'>—</div>"
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📈 {'Глобальная статистика' if lang=='ru' else ('Глобал статистика' if lang=='uz_cyrl' else 'Global statistika')}</h1>
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num">{g['total_users']}</div><div class="stat-label">{'Пользователи' if lang=='ru' else ('Фойдаланувчилар' if lang=='uz_cyrl' else 'Foydalanuvchilar')}</div></div>
+          <div class="stat-box"><div class="stat-num">{g['total_tests']}</div><div class="stat-label">{'Тесты' if lang=='ru' else ('Тестлар' if lang=='uz_cyrl' else 'Testlar')}</div></div>
+          <div class="stat-box"><div class="stat-num">{g['total_sessions']}</div><div class="stat-label">{'Прохождений' if lang=='ru' else ('Ишланган' if lang=='uz_cyrl' else 'Ishlangan')}</div></div>
+          <div class="stat-box"><div class="stat-num">{g['premium_users']}</div><div class="stat-label">Premium</div></div>
+          <div class="stat-box"><div class="stat-num">+{g['new_users_today']}</div><div class="stat-label">{'Сегодня' if lang=='ru' else ('Бугун' if lang=='uz_cyrl' else 'Bugun')}</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>🔥 {'Популярные тесты' if lang=='ru' else ('Машҳур тестлар' if lang=='uz_cyrl' else 'Mashhur testlar')}</h2>
+        {top_rows}
+      </div>
+    </div>
+    """
+    return html_page
+
+@app.route("/export-excel/<test_id>")
+def web_export_excel(test_id):
+    """Test natijalarini ko'p varaqli Excel hisobot sifatida yuklab olish"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    test = to_dict(db.get_test(test_id))
+    if not test:
+        return abort(404, get_text('test_not_found', lang))
+    if int(test.get("owner_user_id", 0)) != int(user["user_id"]) and int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    allr = db.all_results(test_id)
+    wb = Workbook()
+
+    # 1-varaq: Natijalar
+    ws = wb.active
+    ws.title = "Natijalar"
+    for col, hname in enumerate(["O'rin", "Foydalanuvchi", "Ball", "To'g'ri", "Vaqt (s)"], 1):
+        ws.cell(row=1, column=col).value = hname
+    for i, r in enumerate(allr, 1):
+        r = dict(r)
+        try:
+            with db._conn() as c:
+                ans = c.execute("SELECT COUNT(*) as total, SUM(is_correct) as correct FROM answers WHERE session_id=%s", (r.get("session_id"),)).fetchone()
+            correct_n = int((ans or {}).get("correct") or 0)
+            total_n = int((ans or {}).get("total") or 0)
+            correct_str = f"{correct_n}/{total_n}" if total_n else "-"
+        except Exception:
+            correct_str = "-"
+        name = (r.get("username") and f"@{r.get('username')}") or (f"{r.get('first_name') or ''} {r.get('last_name') or ''}").strip() or f"User{r.get('user_id')}"
+        ws.cell(row=i+1, column=1).value = i
+        ws.cell(row=i+1, column=2).value = name
+        ws.cell(row=i+1, column=3).value = float(r.get("score") or 0)
+        ws.cell(row=i+1, column=4).value = correct_str
+        ws.cell(row=i+1, column=5).value = int(r.get("duration_sec") or 0)
+
+    # 2-varaq: Tahlil
+    try:
+        a = dict(db.get_test_analytics(test_id) or {})
+        ws2 = wb.create_sheet("Tahlil")
+        for ri, (k, v) in enumerate([
+            ("Test nomi", test.get("title", "-")),
+            ("Jami qatnashchilar", int(a.get("total_sessions") or 0)),
+            ("O'rtacha ball", round(float(a.get("avg_score") or 0), 2)),
+            ("Eng yuqori ball", round(float(a.get("max_score") or 0), 2)),
+            ("Eng past ball", round(float(a.get("min_score") or 0), 2)),
+            ("O'rtacha vaqt (s)", int(a.get("avg_duration") or 0)),
+        ], 1):
+            ws2.cell(row=ri, column=1).value = k
+            ws2.cell(row=ri, column=2).value = v
+    except Exception as e:
+        logging.error(f"Web export tahlil xatosi: {e}")
+
+    # 3-varaq: Savollar tahlili
+    try:
+        hardest = db.get_hardest_questions(test_id, limit=100)
+        ws3 = wb.create_sheet("Savollar")
+        for col, hname in enumerate(["#", "Savol", "Javoblar", "To'g'ri", "Muvaffaqiyat %"], 1):
+            ws3.cell(row=1, column=col).value = hname
+        for ri, q in enumerate(hardest, 1):
+            q = dict(q)
+            ws3.cell(row=ri+1, column=1).value = int(q.get("q_index", 0)) + 1
+            ws3.cell(row=ri+1, column=2).value = (q.get("question") or "")[:120]
+            ws3.cell(row=ri+1, column=3).value = int(q.get("total_answers") or 0)
+            ws3.cell(row=ri+1, column=4).value = int(q.get("correct_answers") or 0)
+            ws3.cell(row=ri+1, column=5).value = float(q.get("success_rate") or 0)
+    except Exception as e:
+        logging.error(f"Web export savollar xatosi: {e}")
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"{(test.get('title') or 'test')}_natijalar.xlsx".replace(" ", "_")
+    return Response(
+        buf.getvalue(),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.route("/test-analytics/<test_id>")
+def web_test_analytics(test_id):
+    """Test bo'yicha batafsil analitika sahifasi (egasi uchun)"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user:
+        return abort(401, get_text('login_first', lang))
+    test = to_dict(db.get_test(test_id))
+    if not test:
+        return abort(404)
+    if int(test.get("owner_user_id", 0)) != int(user["user_id"]) and int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+    a = dict(db.get_test_analytics(test_id) or {})
+    hardest = db.get_hardest_questions(test_id, limit=10)
+    rating = db.get_test_rating(test_id)
+    hard_rows = ""
+    for q in hardest:
+        q = dict(q)
+        rate = float(q.get("success_rate") or 0)
+        color = "#ef4444" if rate < 40 else ("#fbbf24" if rate < 70 else "#38d39f")
+        hard_rows += f"""<div class='row'><span>{int(q.get('q_index',0))+1}. {html.escape((q.get('question') or '')[:60])}</span>
+          <span style='color:{color};font-weight:700'>{rate}%</span></div>"""
+    if not hard_rows:
+        hard_rows = "<div class='empty'>—</div>"
+    html_page = _PAGE_STYLE + f"""
+    <div class="wrap">
+      {_nav_html(token, lang)}
+      <h1>📈 {html.escape(test.get('title') or 'Test')}</h1>
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num">{int(a.get('total_sessions') or 0)}</div><div class="stat-label">{'Участников' if lang=='ru' else ('Қатнашчилар' if lang=='uz_cyrl' else 'Qatnashchilar')}</div></div>
+          <div class="stat-box"><div class="stat-num">{round(float(a.get('avg_score') or 0),1)}</div><div class="stat-label">{'Средний' if lang=='ru' else ('Ўртача' if lang=='uz_cyrl' else 'Ortacha')}</div></div>
+          <div class="stat-box"><div class="stat-num">{round(float(a.get('max_score') or 0),1)}</div><div class="stat-label">Max</div></div>
+          <div class="stat-box"><div class="stat-num">⭐{rating['avg_rating']}</div><div class="stat-label">{rating['review_count']} {'отзывов' if lang=='ru' else ('шарҳ' if lang=='uz_cyrl' else 'sharh')}</div></div>
+        </div>
+        <a class="btn" style="margin-top:14px;display:inline-block" href="/export-excel/{test_id}?token={token}">📥 Excel</a>
+      </div>
+      <div class="card">
+        <h2>📊 {'Сложные вопросы' if lang=='ru' else ('Қийин саволлар' if lang=='uz_cyrl' else 'Qiyin savollar')}</h2>
+        {hard_rows}
+      </div>
+    </div>
+    """
+    return html_page
+
 @app.route("/create-visual-test", methods=["GET", "POST"])
 def create_visual_test():
     if request.method == "POST":
@@ -2468,9 +2993,29 @@ def solve_test(test_id):
 
             db.finish_session(session_id, now, final_score, duration)
 
+            # 🎮 Gamification post-processing (XP, streak, yutuqlar, statistika)
+            is_owner = int(test.get("owner_user_id", 0)) == int(user_id)
+            gamify = db.process_test_completion(
+                user_id=user_id, test_id=test_id, session_id=session_id,
+                correct=correct_count, total=len(qs), score=final_score, is_owner=is_owner
+            )
+
+            # Yangi yutuqlar uchun bildirishnoma yaratish
+            try:
+                for ach_code in gamify.get("new_achievements", []):
+                    db.add_notification(user_id, "🏅 Yangi yutuq!", f"Siz yangi yutuqqa erishdingiz: {ach_code}", "achievement")
+                if gamify.get("new_level"):
+                    db.add_notification(user_id, "⭐ Yangi daraja!", f"Tabriklaymiz! Siz {gamify['new_level']}-darajaga yetdingiz!", "level")
+            except Exception:
+                pass
+
             return jsonify({
                 "success": True, "score": final_score, "correct_answers": correct_count,
-                "total": len(qs), "duration": duration, "type": scoring_type
+                "total": len(qs), "duration": duration, "type": scoring_type,
+                "xp_gained": gamify.get("xp_gained", 0),
+                "new_level": gamify.get("new_level"),
+                "new_achievements": gamify.get("new_achievements", []),
+                "streak": gamify.get("streak", 0)
             })
 
     except Exception as e:

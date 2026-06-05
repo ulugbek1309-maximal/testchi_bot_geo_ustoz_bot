@@ -176,6 +176,12 @@
             <p>✅ To'g'ri: <b id="resCorrect" style="color:var(--accent)">0</b></p>
             <p>⏱ Vaqt: <b id="finalTime">0</b> soniya</p>
         </div>
+        <div id="gamifyBox" style="margin-bottom: 20px; display: none;">
+            <div id="xpBox" style="display:none; background: rgba(56,211,159,0.12); border:1px solid rgba(56,211,159,0.3); border-radius:12px; padding:12px; margin-bottom:10px; font-size:16px; font-weight:600; color:#38d39f;"></div>
+            <div id="streakBox" style="display:none; background: rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.3); border-radius:12px; padding:12px; margin-bottom:10px; font-size:15px; color:#fb923c;"></div>
+            <div id="levelBox" style="display:none; background: rgba(108,178,255,0.12); border:1px solid rgba(108,178,255,0.3); border-radius:12px; padding:12px; margin-bottom:10px; font-size:16px; font-weight:600; color:#6cb2ff;"></div>
+            <div id="achBox" style="display:none;"></div>
+        </div>
         <a href="/?token={{ token }}" class="btn btn-primary" style="margin: 20px auto;">Dashboard'ga qaytish</a>
       </div>
     </main>
@@ -384,6 +390,39 @@
             if (result.type === 'percentage') unit = "%";
             if (result.type === 'minus' || result.type === 'custom') unit = " ball";
             document.getElementById('scoreUnit').innerText = unit;
+
+            // 🎮 Gamification natijalarini ko'rsatish
+            try {
+              const gamifyBox = document.getElementById('gamifyBox');
+              let anyGamify = false;
+              if (result.xp_gained && result.xp_gained > 0) {
+                const xpBox = document.getElementById('xpBox');
+                xpBox.innerText = "✨ +" + result.xp_gained + " XP";
+                xpBox.style.display = 'block';
+                anyGamify = true;
+              }
+              if (result.streak && result.streak > 1) {
+                const streakBox = document.getElementById('streakBox');
+                streakBox.innerText = "🔥 " + result.streak + " kunlik seriya!";
+                streakBox.style.display = 'block';
+                anyGamify = true;
+              }
+              if (result.new_level) {
+                const levelBox = document.getElementById('levelBox');
+                levelBox.innerText = "⭐ Yangi daraja: " + result.new_level + "!";
+                levelBox.style.display = 'block';
+                anyGamify = true;
+              }
+              if (result.new_achievements && result.new_achievements.length > 0) {
+                const achBox = document.getElementById('achBox');
+                achBox.innerHTML = result.new_achievements.map(a =>
+                  "<div style='background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:12px;margin-bottom:8px;color:#fbbf24;font-weight:600'>🏅 Yangi yutuq!</div>"
+                ).join('');
+                achBox.style.display = 'block';
+                anyGamify = true;
+              }
+              if (anyGamify) gamifyBox.style.display = 'block';
+            } catch(e) { console.error(e); }
 
             document.getElementById('resultScreen').style.display = 'block';
           } else {

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Muhit o'zgaruvchilari (maxfiy!)
+.env
+.env.*
+
+# Vaqtinchalik fayllar
+*.xlsx
+export_*.xlsx
+*.log
+
+# Yuklangan fayllar
+static/uploads/
+
+# OS
+.DS_Store
+Thumbs.db
