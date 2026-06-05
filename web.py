@@ -4671,63 +4671,149 @@ def export_csv(test_id):
     )
 
 # ==========================================
-# 🔲 TASK 5: QR KOD
+# 🔲 QR KOD — Python serverida generatsiya (CDN kerak emas)
 # ==========================================
+
+def _generate_qr_svg(data: str, size: int = 300) -> str:
+    """
+    Tashqi kutubxonasiz oddiy QR kod SVG generatsiyasi.
+    qrcode kutubxonasi o'rnatilgan bo'lsa — undan foydalanadi,
+    o'rnatilmagan bo'lsa — fallback sifatida Google Charts API ishlatadi.
+    """
+    # 1-usul: qrcode kutubxonasi (PythonAnywhere'da bo'lishi mumkin)
+    try:
+        import qrcode
+        import qrcode.image.svg
+        import io
+        factory = qrcode.image.svg.SvgImage
+        qr = qrcode.make(data, image_factory=factory, box_size=10, border=4)
+        buf = io.BytesIO()
+        qr.save(buf)
+        return buf.getvalue().decode('utf-8')
+    except ImportError:
+        pass
+
+    # 2-usul: segno kutubxonasi
+    try:
+        import segno
+        import io
+        qr = segno.make(data)
+        buf = io.StringIO()
+        qr.save(buf, kind='svg', scale=8, border=4)
+        return buf.getvalue()
+    except ImportError:
+        pass
+
+    # 3-usul: Google Charts API orqali (img tag)
+    return None
+
+
 @app.route("/qr/<test_id>")
 def test_qr(test_id):
-    """Test uchun QR kod SVG sifatida"""
+    """Test uchun QR kod sahifasi"""
     token = request.args.get("token")
     user = validate_token(token)
     if not user: return abort(401)
     test = db.get_test(test_id)
     if not test: return abort(404)
     test = dict(test)
+
     bot_username = get_bot_username()
     deep_link = f"https://t.me/{bot_username}?start=test_{test_id}"
     title = html.escape(test.get("title", "Test"))
     pub_name = test.get("public_name")
-    if pub_name:
-        solve_url = f"{WEB_BASE_URL.rstrip('/')}/solve/{test_id}?token={token}"
-    else:
-        solve_url = deep_link
+    solve_url = f"{WEB_BASE_URL.rstrip('/')}/solve/{test_id}?token={token}" if pub_name else deep_link
+    url_escaped = html.escape(solve_url)
 
-    # QR kod JavaScript bilan render qilinadi (qrcode.js CDN)
+    # QR SVG generatsiya qilish
+    svg_content = _generate_qr_svg(solve_url)
+
+    if svg_content:
+        # Python kutubxonasi orqali generatsiya qilindi
+        qr_html = f"""
+        <div id="qr-box" style="background:#fff;padding:16px;border-radius:16px;display:inline-block">
+            {svg_content}
+        </div>"""
+        download_btn = f"""
+        <button class="btn" onclick="downloadQR()" style="margin-top:16px">
+            📥 Yuklab olish (SVG)
+        </button>
+        <script>
+        function downloadQR() {{
+            const svg = document.querySelector('#qr-box svg');
+            if (!svg) return;
+            const blob = new Blob([svg.outerHTML], {{type: 'image/svg+xml'}});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'qr_{test_id}.svg';
+            a.click();
+        }}
+        </script>"""
+    else:
+        # Fallback: Google Charts API
+        gc_url = f"https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl={requests.utils.quote(solve_url)}&choe=UTF-8"
+        qr_html = f"""
+        <div id="qr-box" style="background:#fff;padding:16px;border-radius:16px;display:inline-block">
+            <img src="{html.escape(gc_url)}" alt="QR kod" width="280" height="280"
+                 style="display:block"
+                 onerror="this.parentElement.innerHTML='<p style=color:#f56565>QR kod yuklanmadi. URL ni nusxalab oling.</p>'">
+        </div>"""
+        download_btn = f"""
+        <a href="{html.escape(gc_url)}" download="qr_{test_id}.png" class="btn" style="margin-top:16px;display:inline-block;text-decoration:none">
+            📥 Yuklab olish
+        </a>"""
+
     page = f"""<!DOCTYPE html>
 <html><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QR - {title}</title>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR — {title}</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,sans-serif}}
 body{{background:#0f172a;color:#f3f6ff;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;text-align:center}}
 h2{{margin-bottom:8px;color:#38d39f;font-size:20px}}
 .sub{{color:#718096;font-size:13px;margin-bottom:24px}}
-#qr canvas{{border-radius:16px;padding:16px;background:#fff}}
-.link{{margin-top:18px;padding:10px 16px;background:rgba(255,255,255,.07);border-radius:8px;font-size:12px;color:#6cb2ff;word-break:break-all;max-width:340px}}
-.btn{{margin-top:16px;background:#38d39f;color:#000;border:none;padding:12px 24px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px}}
-.back{{color:#6cb2ff;font-size:14px;margin-top:18px}}
+.link{{margin-top:18px;padding:12px 16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:10px;font-size:12px;color:#6cb2ff;word-break:break-all;max-width:340px;cursor:pointer}}
+.btn{{background:#38d39f;color:#000;border:none;padding:12px 24px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px}}
+.back{{color:#6cb2ff;font-size:14px;margin-top:18px;text-decoration:none;display:block}}
+.copy-hint{{font-size:11px;color:#718096;margin-top:6px}}
 </style>
 </head>
 <body>
 <a class="back" href="/test/{test_id}?token={token}">← Orqaga</a>
 <br><br>
 <h2>🔲 {title}</h2>
-<p class="sub">Quyidagi QR kodni skanerlang</p>
-<div id="qr"></div>
-<div class="link">{html.escape(solve_url)}</div>
-<button class="btn" onclick="downloadQR()">📥 Yuklab olish (PNG)</button>
+<p class="sub">QR kodni skanerlang yoki havolani nusxalab oling</p>
+
+{qr_html}
+
+{download_btn}
+
+<div class="link" onclick="copyUrl()" title="Bosib nusxalash">
+    {url_escaped}
+</div>
+<div class="copy-hint">👆 Bosib nusxalash</div>
+
+<a class="back" href="{url_escaped}">🔗 Havolani ochish</a>
+
 <script>
-const url = {json.dumps(solve_url)};
-QRCode.toCanvas(document.createElement('canvas'), url, {{width:280,margin:2}}, function(err,canvas){{
-  if(!err) document.getElementById('qr').appendChild(canvas);
-}});
-function downloadQR(){{
-  const canvas = document.querySelector('#qr canvas');
-  if(!canvas)return;
-  const a = document.createElement('a');
-  a.download = 'qr_{test_id}.png';
-  a.href = canvas.toDataURL('image/png');
-  a.click();
+function copyUrl() {{
+    navigator.clipboard.writeText({json.dumps(solve_url)}).then(() => {{
+        const el = document.querySelector('.link');
+        const old = el.textContent;
+        el.style.color = '#68d391';
+        el.textContent = '✅ Nusxalandi!';
+        setTimeout(() => {{ el.style.color = '#6cb2ff'; el.textContent = old; }}, 2000);
+    }}).catch(() => {{
+        // Eski brauzer fallback
+        const ta = document.createElement('textarea');
+        ta.value = {json.dumps(solve_url)};
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('✅ Nusxalandi!');
+    }});
 }}
 </script>
 </body></html>"""
