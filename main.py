@@ -86,6 +86,15 @@ resend.api_key = RESEND_API_KEY
 # db avval yaratilishi kerak, keyin kanallar yuklanadi
 db = DB()
 
+def safe_get_setting(key, default=None):
+    """db.get_setting xavfsiz wrapper — metod yo'q bo'lsa default qaytaradi"""
+    try:
+        if hasattr(db, 'get_setting'):
+            return db.get_setting(key, default)
+    except Exception:
+        pass
+    return default
+
 # Majburiy kanallarni bazadan yuklash funksiyasi
 def load_required_channels_from_db():
     """Bazadan aktiv kanallarni yuklash"""
@@ -2495,7 +2504,7 @@ async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Yetarli GWT yo'q. Balansingiz: {balance} GWT")
             return
 
-    expire_h = int(db.get_setting('challenge_expire_h', 24))
+    expire_h = int(safe_get_setting('challenge_expire_h', 24))
     challenge_id = db.create_challenge(test_id, user_id, rival_id, gwt_bet, expire_hours=expire_h)
 
     # Raqibga xabar yuborish
@@ -2556,8 +2565,8 @@ async def cmd_stake(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/stake MIQDOR — GWT tokenlarni staking qilish"""
     user_id = update.effective_user.id
     lang = get_user_lang(user_id)
-    apy = db.get_setting('staking_apy', 12)
-    lock_days = db.get_setting('staking_lock_days', 30)
+    apy = safe_get_setting('staking_apy', 12)
+    lock_days = safe_get_setting('staking_lock_days', 30)
 
     if not context.args:
         balance = db.get_token_balance(user_id)
@@ -2973,6 +2982,8 @@ async def job_check_scheduled_tests(context: ContextTypes.DEFAULT_TYPE):
     """Har soatda: vaqti kelgan scheduled testlarni ochish va eslatma yuborish"""
     try:
         # 1. Vaqti kelgan scheduled testlarni ochish
+        if not hasattr(db, 'get_scheduled_tests_due'):
+            return
         due_tests = db.get_scheduled_tests_due()
         for t in due_tests:
             t = dict(t)

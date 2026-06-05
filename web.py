@@ -222,6 +222,15 @@ def inject_globals():
 # ==========================================
 db = DB()
 
+def safe_get_setting(key, default=None):
+    """db.get_setting xavfsiz wrapper"""
+    try:
+        if hasattr(db, 'get_setting'):
+            return db.get_setting(key, default)
+    except Exception:
+        pass
+    return default
+
 # Database yaratilgandan keyin kanallarni yuklash
 REQUIRED_CHANNELS = load_required_channels_from_db()
 
@@ -4786,7 +4795,7 @@ def admin_settings():
     if not user or int(user["user_id"]) not in SUPERADMINS:
         return abort(403)
 
-    settings = [dict(s) for s in db.get_all_settings()]
+    settings = [dict(s) for s in (db.get_all_settings() if hasattr(db, 'get_all_settings') else [])]
     saved_msg = request.args.get("msg", "")
 
     rows = ""
@@ -5001,7 +5010,8 @@ def api_settings_save():
     value = (data.get("value") or "").strip()
     if not key:
         return jsonify({"success": False, "error": "Key kerak"}), 400
-    db.set_setting(key, value, int(user["user_id"]))
+    if hasattr(db, 'set_setting'):
+        db.set_setting(key, value, int(user["user_id"]))
     return jsonify({"success": True})
 
 @app.route("/api/admin/moderation/rules")
@@ -5234,8 +5244,8 @@ def admin_staking():
         return abort(403)
 
     stakes = [dict(s) for s in db.get_all_staking_stats()]
-    apy = db.get_setting('staking_apy', 12)
-    lock_days = db.get_setting('staking_lock_days', 30)
+    apy = safe_get_setting('staking_apy', 12)
+    lock_days = safe_get_setting('staking_lock_days', 30)
     total_staked = sum(float(s.get('amount', 0)) for s in stakes)
     total_reward = sum(float(s.get('total_reward', 0)) for s in stakes)
 
@@ -5278,8 +5288,8 @@ def web_staking():
     uid = int(user["user_id"])
     balance = db.get_token_balance(uid)
     stakes = db.get_user_staking(uid)
-    apy = db.get_setting('staking_apy', 12)
-    lock_days = db.get_setting('staking_lock_days', 30)
+    apy = safe_get_setting('staking_apy', 12)
+    lock_days = safe_get_setting('staking_lock_days', 30)
 
     stake_rows = ""
     for s in stakes:
@@ -5435,7 +5445,7 @@ def api_staking_start():
     amount = float(data.get("amount") or 0)
     if amount <= 0:
         return jsonify({"success": False, "error": "Miqdor 0 dan katta bo'lishi kerak"}), 400
-    lock_days = int(db.get_setting('staking_lock_days', 30))
+    lock_days = int(safe_get_setting('staking_lock_days', 30))
     ok, result = db.start_staking(int(user["user_id"]), amount, lock_days)
     if not ok:
         return jsonify({"success": False, "error": result}), 400
@@ -5567,7 +5577,7 @@ def api_challenge_create():
     rival = dict(rival)
     if rival['user_id'] == uid:
         return jsonify({"success": False, "error": "O'zingizga challenge yubora olmaysiz"}), 400
-    expire_h = int(db.get_setting('challenge_expire_h', 24))
+    expire_h = int(safe_get_setting('challenge_expire_h', 24))
     challenge_id = db.create_challenge(test_id, uid, rival['user_id'], gwt_bet, expire_hours=expire_h)
     return jsonify({"success": True, "challenge_id": challenge_id})
 

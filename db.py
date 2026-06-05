@@ -771,10 +771,11 @@ class DB:
             except: pass
 
             # Boshlang'ich sozlamalar
-            try:
-                self._seed_bot_settings(c)
-            except Exception as e:
-                logging.error(f"Bot sozlamalari seed xatosi: {e}")
+            if hasattr(self, '_seed_bot_settings'):
+                try:
+                    self._seed_bot_settings(c)
+                except Exception as e:
+                    logging.error(f"Bot sozlamalari seed xatosi: {e}")
 
             # ==============================================================
             # 🔗 BLOKCHEYN VA HAMYONLAR JADVALLARI
@@ -917,8 +918,10 @@ class DB:
             # 🌱 BOSHLANG'ICH MA'LUMOTLAR (SEED) - Kategoriyalar va Yutuqlar
             # ==============================================================
             try:
-                self._seed_categories(c)
-                self._seed_achievements(c)
+                if hasattr(self, '_seed_categories'):
+                    self._seed_categories(c)
+                if hasattr(self, '_seed_achievements'):
+                    self._seed_achievements(c)
             except Exception as e:
                 logging.error(f"Seed xatosi: {e}")
 
@@ -3269,3 +3272,119 @@ def to_dict_safe(row):
                 "challenge_finished": dict(challenge_stats)['finished'] if challenge_stats else 0,
             })
             return base
+
+
+
+# ==============================================================
+# 🛡️ STUB METODLAR — Eski versiyalar uchun xavfsizlik
+# Bu metodlar yangi versiyada to'liq metodlar bilan almashtiriladi
+# PythonAnywhere'da eski db.py bo'lsa ham bot ishlaydi
+# ==============================================================
+
+def _ensure_stubs(cls):
+    """Klasga yo'q metodlarni stub sifatida qo'shadi"""
+
+    stubs = {
+        # Bot sozlamalari
+        '_seed_bot_settings':       lambda self, c: None,
+        'get_setting':              lambda self, key, default=None: default,
+        'set_setting':              lambda self, key, value, admin_id=0: None,
+        'get_all_settings':         lambda self: [],
+
+        # Scheduled tests
+        'get_scheduled_tests_due':  lambda self: [],
+        'get_upcoming_tests':       lambda self, hours=24: [],
+        'schedule_test_open':       lambda self, test_id, open_at_ts: None,
+
+        # Pagination
+        'get_tests_paginated':      lambda self, owner_id, page=1, limit=10: ([], 0),
+        'get_public_tests_paginated': lambda self, query=None, category_id=None, page=1, limit=12: ([], 0),
+
+        # Staking
+        'start_staking':            lambda self, user_id, amount, lock_days=30: (False, "Not available"),
+        'unstake':                  lambda self, staking_id, user_id: (False, "Not available"),
+        'get_user_staking':         lambda self, user_id: [],
+        'get_all_staking_stats':    lambda self: [],
+        'process_staking_rewards':  lambda self: None,
+
+        # Kuponlar
+        'create_coupon':            lambda self, code, **kw: 0,
+        'get_coupon':               lambda self, code: (None, "Not available"),
+        'use_coupon':               lambda self, coupon_id, user_id: (False, "Not available"),
+        'get_all_coupons':          lambda self, active_only=False: [],
+        'toggle_coupon':            lambda self, coupon_id, is_active: None,
+        'delete_coupon':            lambda self, coupon_id: None,
+
+        # Challenge
+        'create_challenge':         lambda self, test_id, challenger_id, challenged_id, gwt_bet=0, expire_hours=24: 0,
+        'get_challenge':            lambda self, challenge_id: None,
+        'get_user_challenges':      lambda self, user_id: [],
+        'submit_challenge_score':   lambda self, challenge_id, user_id, score: (False, "Not available"),
+
+        # Savol report
+        'report_question':          lambda self, test_id, q_index, user_id, report_type, comment="": None,
+        'get_question_reports':     lambda self, status='pending', limit=50: [],
+        'resolve_report':           lambda self, report_id, status='resolved': None,
+
+        # Test izohlari
+        'add_test_comment':         lambda self, test_id, user_id, comment, parent_id=None: 0,
+        'get_test_comments':        lambda self, test_id, limit=50: [],
+        'like_comment':             lambda self, comment_id: None,
+        'delete_comment':           lambda self, comment_id, user_id=None, is_admin=False: None,
+
+        # Email hisobot
+        'subscribe_email_report':   lambda self, user_id, email, frequency='weekly': None,
+        'unsubscribe_email_report': lambda self, user_id: None,
+        'get_email_report_subscribers': lambda self, frequency='weekly': [],
+        'mark_email_sent':          lambda self, report_id: None,
+
+        # Moderatsiya
+        'add_moderation_rule':      lambda self, rule_type, value, added_by=0: None,
+        'get_moderation_rules':     lambda self, rule_type=None: [],
+        'toggle_moderation_rule':   lambda self, rule_id, is_active: None,
+        'delete_moderation_rule':   lambda self, rule_id: None,
+        'check_custom_moderation':  lambda self, text: True,
+
+        # Bulk
+        'bulk_give_premium':        lambda self, user_ids, months, admin_id: 0,
+        'bulk_ban_users':           lambda self, user_ids, admin_id, reason="Bulk ban": 0,
+        'bulk_archive_tests':       lambda self, test_ids, user_id: 0,
+
+        # Adaptive
+        'get_adaptive_level':       lambda self, user_id, q_bank_id: 1,
+        'update_adaptive_progress': lambda self, user_id, q_bank_id, is_correct: None,
+        'get_adaptive_questions':   lambda self, user_id, category_id=None, limit=10: [],
+
+        # Free-text
+        'save_freetext_answer':     lambda self, session_id, q_index, user_answer: None,
+        'get_freetext_answers':     lambda self, session_id: [],
+        'save_freetext_ai_score':   lambda self, freetext_id, score, feedback: None,
+        'get_pending_freetext':     lambda self, limit=20: [],
+
+        # Ko'p to'g'ri javob
+        'set_multi_correct':        lambda self, test_id, q_index, correct_indices: None,
+        'get_multi_correct':        lambda self, test_id, q_index: None,
+
+        # Guruh subscription
+        'create_group_subscription': lambda self, group_id, plan, max_members, months, price, created_by: None,
+        'get_group_subscription':   lambda self, group_id: None,
+        'get_all_group_subscriptions': lambda self: [],
+
+        # Extended stats
+        'get_extended_global_stats': lambda self: {
+            "total_users": 0, "total_tests": 0, "total_sessions": 0,
+            "premium_users": 0, "new_users_today": 0, "active_today": 0,
+            "token_circulation": 0.0, "total_staked": 0.0, "staking_count": 0,
+            "coupon_count": 0, "coupon_uses": 0, "challenge_count": 0, "challenge_finished": 0
+        },
+    }
+
+    for method_name, stub_func in stubs.items():
+        if not hasattr(cls, method_name):
+            setattr(cls, method_name, stub_func)
+
+    return cls
+
+
+# Stub metodlarni DB klassiga qo'shamiz (faqat yo'q metodlar uchun)
+_ensure_stubs(DB)
