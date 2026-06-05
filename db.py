@@ -2993,43 +2993,73 @@ def to_dict_safe(row):
 
     # ================= 💎 STAKING =================
     def start_staking(self, user_id, amount, lock_days=30):
-        apy = float(self.get_setting('staking_apy', 12))
-        unlock_at = int(time.time()) + lock_days * 86400
-        with self._conn() as c:
-            # Balans tekshirish
-            wallet = c.execute("SELECT balance FROM wallets WHERE user_id=%s", (user_id,)).fetchone()
-            if not wallet or float(dict(wallet)['balance']) < float(amount):
-                return False, "Yetarli GWT yo'q"
-            # Walletdan yechib olish
-            c.execute("UPDATE wallets SET balance=balance-%s WHERE user_id=%s", (float(amount), user_id))
-            c.execute("""INSERT INTO staking (user_id, amount, apy, start_at, unlock_at, last_reward_at)
-                VALUES (%s, %s, %s, %s, %s, %s)""",
-                (user_id, float(amount), apy, int(time.time()), unlock_at, int(time.time())))
-            return True, c.lastrowid
+        # get_setting xavfsiz chaqiruv
+        try:
+            apy = float(self.get_setting('staking_apy', 12) or 12)
+        except Exception:
+            apy = 12.0
+        unlock_at = int(time.time()) + int(lock_days) * 86400
+        try:
+            with self._conn() as c:
+                # Staking jadvali borligini tekshirish
+                try:
+                    c.execute('''CREATE TABLE IF NOT EXISTS staking (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id BIGINT,
+                        amount DECIMAL(10,2),
+                        apy DECIMAL(5,2) DEFAULT 12.0,
+                        start_at BIGINT,
+                        unlock_at BIGINT,
+                        last_reward_at BIGINT,
+                        total_reward DECIMAL(10,2) DEFAULT 0,
+                        is_active TINYINT DEFAULT 1
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
+                except Exception:
+                    pass
+                # Balans tekshirish
+                wallet = c.execute("SELECT balance FROM wallets WHERE user_id=%s", (user_id,)).fetchone()
+                if not wallet or float(dict(wallet)['balance']) < float(amount):
+                    return False, "Yetarli GWT yo'q"
+                # Walletdan yechib olish
+                c.execute("UPDATE wallets SET balance=balance-%s WHERE user_id=%s", (float(amount), user_id))
+                c.execute("""INSERT INTO staking (user_id, amount, apy, start_at, unlock_at, last_reward_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)""",
+                    (user_id, float(amount), apy, int(time.time()), unlock_at, int(time.time())))
+                return True, c.lastrowid
+        except Exception as e:
+            logging.error(f"start_staking xato: {e}")
+            return False, f"Xato: {e}"
 
     def get_user_staking(self, user_id):
-        with self._conn() as c:
-            return c.execute("SELECT * FROM staking WHERE user_id=%s AND is_active=1 ORDER BY start_at DESC",
-                             (user_id,)).fetchall()
+        try:
+            with self._conn() as c:
+                return c.execute("SELECT * FROM staking WHERE user_id=%s AND is_active=1 ORDER BY start_at DESC",
+                                 (user_id,)).fetchall()
+        except Exception as e:
+            logging.error(f"get_user_staking xato: {e}")
+            return []
 
     def unstake(self, staking_id, user_id):
-        with self._conn() as c:
-            stake = to_dict_safe(c.execute("SELECT * FROM staking WHERE id=%s AND user_id=%s AND is_active=1",
-                                           (staking_id, user_id)).fetchone())
-            if not stake:
-                return False, "Staking topilmadi"
-            now = int(time.time())
-            unlock_at = int(stake.get('unlock_at') or 0)
-            early = now < unlock_at
-            amount = float(stake.get('amount') or 0)
-            reward = float(stake.get('total_reward') or 0)
-            if early:
-                # Erta olish - 10% jarime
-                penalty = amount * 0.1
-                amount = amount - penalty
-            c.execute("UPDATE staking SET is_active=0 WHERE id=%s", (staking_id,))
-            c.execute("UPDATE wallets SET balance=balance+%s WHERE user_id=%s", (amount + reward, user_id))
-            return True, {"amount": amount, "reward": reward, "early": early}
+        try:
+            with self._conn() as c:
+                stake = to_dict_safe(c.execute("SELECT * FROM staking WHERE id=%s AND user_id=%s AND is_active=1",
+                                               (staking_id, user_id)).fetchone())
+                if not stake:
+                    return False, "Staking topilmadi"
+                now = int(time.time())
+                unlock_at = int(stake.get('unlock_at') or 0)
+                early = now < unlock_at
+                amount = float(stake.get('amount') or 0)
+                reward = float(stake.get('total_reward') or 0)
+                if early:
+                    penalty = amount * 0.1
+                    amount = amount - penalty
+                c.execute("UPDATE staking SET is_active=0 WHERE id=%s", (staking_id,))
+                c.execute("UPDATE wallets SET balance=balance+%s WHERE user_id=%s", (amount + reward, user_id))
+                return True, {"amount": amount, "reward": reward, "early": early}
+        except Exception as e:
+            logging.error(f"unstake xato: {e}")
+            return False, f"Xato: {e}"
 
     def process_staking_rewards(self):
         """Kunlik staking mukofotlarini hisoblash (scheduler uchun)"""
@@ -3300,26 +3330,17 @@ def _ensure_stubs(cls):
         'get_tests_paginated':      lambda self, owner_id, page=1, limit=10: ([], 0),
         'get_public_tests_paginated': lambda self, query=None, category_id=None, page=1, limit=12: ([], 0),
 
-        # Staking
-        'start_staking':            lambda self, user_id, amount, lock_days=30: (False, "Not available"),
-        'unstake':                  lambda self, staking_id, user_id: (False, "Not available"),
-        'get_user_staking':         lambda self, user_id: [],
-        'get_all_staking_stats':    lambda self: [],
-        'process_staking_rewards':  lambda self: None,
+        # Staking — haqiqiy metodlar yuqorida mavjud, stub kerak emas
+        # 'start_staking', 'unstake', 'get_user_staking', 'get_all_staking_stats'
+        # 'process_staking_rewards' — bular DB klassida to'liq yozilgan
 
-        # Kuponlar
-        'create_coupon':            lambda self, code, **kw: 0,
-        'get_coupon':               lambda self, code: (None, "Not available"),
-        'use_coupon':               lambda self, coupon_id, user_id: (False, "Not available"),
-        'get_all_coupons':          lambda self, active_only=False: [],
-        'toggle_coupon':            lambda self, coupon_id, is_active: None,
-        'delete_coupon':            lambda self, coupon_id: None,
+        # Kuponlar — haqiqiy metodlar yuqorida mavjud
+        # 'create_coupon', 'get_coupon', 'use_coupon', 'get_all_coupons'
+        # 'toggle_coupon', 'delete_coupon' — DB klassida to'liq yozilgan
 
-        # Challenge
-        'create_challenge':         lambda self, test_id, challenger_id, challenged_id, gwt_bet=0, expire_hours=24: 0,
-        'get_challenge':            lambda self, challenge_id: None,
-        'get_user_challenges':      lambda self, user_id: [],
-        'submit_challenge_score':   lambda self, challenge_id, user_id, score: (False, "Not available"),
+        # Challenge — haqiqiy metodlar yuqorida mavjud
+        # 'create_challenge', 'get_challenge', 'get_user_challenges'
+        # 'submit_challenge_score' — DB klassida to'liq yozilgan
 
         # Savol report
         'report_question':          lambda self, test_id, q_index, user_id, report_type, comment="": None,
