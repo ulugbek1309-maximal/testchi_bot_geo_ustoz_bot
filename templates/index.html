@@ -341,6 +341,12 @@
         <a href="/affiliate?token={{ token }}" title="Hamkor">🤝</a>
         <a href="/account?token={{ token }}" title="Hisobim">👤</a>
 
+        <!-- Dark/Light tema switch -->
+        <button id="theme-btn" onclick="toggleTheme()" title="Tema"
+          style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--text);padding:6px 10px;border-radius:999px;cursor:pointer;font-size:14px;flex-shrink:0">
+          🌙
+        </button>
+
         {# ADMIN — Katta ekranda ko'rinadi, mobilda yashiriladi #}
         {% if is_admin %}
         <span class="nav-admin-span" style="display:flex;align-items:center;border-left:1px solid rgba(255,255,255,0.15);padding-left:8px;margin-left:4px;gap:4px;flex-shrink:0;">
@@ -443,6 +449,11 @@
         <a href="/guide?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
             <div style="font-size:32px;">📖</div>
             <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Qo`llanma' if lang=='uz' else ('Қўлланма' if lang=='uz_cyrl' else 'Инструкция') }}</div>
+        </a>
+
+        <a href="/import-test?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">📥</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Import (Excel/CSV)' if lang=='uz' else ('Импорт (Excel/CSV)' if lang=='uz_cyrl' else 'Импорт') }}</div>
         </a>
 
         {# ADMIN MAXSUS KARTALAR — FAQAT ADMINGA #}
@@ -617,6 +628,14 @@
                   <a class="btn" href="/test-analytics/{{ t.get('test_id', '') }}?token={{ token }}" style="flex: 1; background: rgba(56, 211, 159, 0.12); color: #38d39f; border-color: rgba(56, 211, 159, 0.3);">
                     📈 {% if lang == 'uz' %}Tahlil{% elif lang == 'uz_cyrl' %}Таҳлил{% else %}Аналитика{% endif %}
                   </a>
+
+                  <a class="btn" href="/live-results/{{ t.get('test_id', '') }}?token={{ token }}" style="flex: 1; background: rgba(248, 113, 113, 0.12); color: #f87171; border-color: rgba(248, 113, 113, 0.3);">
+                    📡 Live
+                  </a>
+
+                  <a class="btn" href="/qr/{{ t.get('test_id', '') }}?token={{ token }}" style="flex: 1; background: rgba(251, 191, 36, 0.12); color: #fbbf24; border-color: rgba(251, 191, 36, 0.3);">
+                    🔲 QR
+                  </a>
                 </div>
 
               </div>
@@ -704,6 +723,64 @@
         dd.classList.remove('open');
       }
     });
+
+    // ==========================================
+    // 🎨 DARK / LIGHT TEMA
+    // ==========================================
+    const LIGHT_CSS = `
+      :root {
+        --bg: #f0f4f8 !important;
+        --card: rgba(255,255,255,0.92) !important;
+        --text: #1a202c !important;
+        --muted: rgba(26,32,44,0.65) !important;
+        --border: rgba(0,0,0,0.1) !important;
+      }
+      body { background: linear-gradient(135deg, #e2e8f0 0%, #f7fafc 100%) !important; }
+      nav { background: rgba(255,255,255,0.95) !important; }
+      .navbar a { color: #2d3748 !important; background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; }
+      .navbar h1 a { color: #2d3748 !important; }
+      .lang-btn { color: #4a5568 !important; }
+      .card { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.08) !important; }
+      .form-field { background: rgba(0,0,0,0.05) !important; color: #1a202c !important; border-color: rgba(0,0,0,0.15) !important; }
+      .badge { background: rgba(0,0,0,0.07) !important; color: #2d3748 !important; }
+      .btn { color: #2d3748 !important; background: rgba(0,0,0,0.08) !important; }
+    `;
+    let lightStyleEl = null;
+
+    function applyTheme(theme) {
+      const btn = document.getElementById('theme-btn');
+      if (theme === 'light') {
+        if (!lightStyleEl) {
+          lightStyleEl = document.createElement('style');
+          lightStyleEl.id = 'light-theme';
+          lightStyleEl.textContent = LIGHT_CSS;
+          document.head.appendChild(lightStyleEl);
+        }
+        if (btn) btn.textContent = '☀️';
+        localStorage.setItem('theme_' + token, 'light');
+      } else {
+        if (lightStyleEl) { lightStyleEl.remove(); lightStyleEl = null; }
+        if (btn) btn.textContent = '🌙';
+        localStorage.setItem('theme_' + token, 'dark');
+      }
+    }
+
+    function toggleTheme() {
+      const cur = localStorage.getItem('theme_' + token) || 'dark';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      fetch('/api/theme/toggle', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({token, theme: next})
+      });
+    }
+
+    // Saqlangan temani yuklash
+    (function() {
+      const saved = localStorage.getItem('theme_' + token) || 'dark';
+      applyTheme(saved);
+    })();
 
     // --- JONLI (LIVE) NARX HISOBLAGICH ---
     const GWT_TO_USD = 10.0;    // 1 GWT = 10$

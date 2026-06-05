@@ -2082,39 +2082,159 @@ def web_stats():
         return abort(401, get_text('login_first', lang))
     uid = int(user["user_id"])
     stats = to_dict(db.get_user_stats(uid)) or {}
-    level = int(stats.get("level", 1) or 1)
-    xp = int(stats.get("xp", 0) or 0)
-    cur_lvl_xp = db.xp_for_level(level)
+    level   = int(stats.get("level", 1) or 1)
+    xp      = int(stats.get("xp", 0) or 0)
+    cur_lvl_xp  = db.xp_for_level(level)
     next_lvl_xp = db.xp_for_level(level + 1)
-    needed = max(1, next_lvl_xp - cur_lvl_xp)
-    pct = min(100, int((xp - cur_lvl_xp) * 100 / needed))
+    needed  = max(1, next_lvl_xp - cur_lvl_xp)
+    pct     = min(100, int((xp - cur_lvl_xp) * 100 / needed))
     total_q = int(stats.get("total_questions", 0) or 0)
     total_c = int(stats.get("total_correct", 0) or 0)
     accuracy = round(total_c * 100 / total_q, 1) if total_q > 0 else 0
+    streak  = int(stats.get("current_streak", 0) or 0)
+    longest = int(stats.get("longest_streak", 0) or 0)
+
+    # Chart uchun ma'lumotlar
     progress = db.get_user_progress(uid)
-    progress_rows = "".join([f"<div class='row'><span>{to_dict(p)['day']}</span><span>{to_dict(p)['cnt']} test · {round(float(to_dict(p)['avg_score'] or 0),1)} ball</span></div>" for p in progress]) or f"<div class='empty'>{'Маълумот йўқ' if lang=='uz_cyrl' else ('Нет данных' if lang=='ru' else 'Malumot yoq')}</div>"
+    chart_labels = json.dumps([str(to_dict(p)['day']) for p in progress])
+    chart_tests  = json.dumps([int(to_dict(p)['cnt']) for p in progress])
+    chart_scores = json.dumps([round(float(to_dict(p)['avg_score'] or 0), 1) for p in progress])
+
+    # Heatmap (24 soat faollik)
+    heatmap = db.get_user_activity_heatmap(uid)
+    heatmap_data = json.dumps([heatmap.get(i, 0) for i in range(24)])
+    heatmap_labels = json.dumps([f"{i:02d}:00" for i in range(24)])
+    # Chart 2 backgroundColor — f-string + backtick muammoidan himoya
+    heatmap_bg_js = "hmData.map(v=>v===0?'rgba(255,255,255,0.05)':'rgba(56,211,159,'+(0.2+0.8*(v/maxHm)).toFixed(2)+')')"
+
+    lbl_stats    = {"ru": "Статистика",    "uz_cyrl": "Статистика"   }.get(lang, "Statistika")
+    lbl_level    = {"ru": "Уровень",       "uz_cyrl": "Даража"       }.get(lang, "Daraja")
+    lbl_taken    = {"ru": "Пройдено",      "uz_cyrl": "Ишланган"     }.get(lang, "Ishlangan")
+    lbl_created  = {"ru": "Создано",       "uz_cyrl": "Яратилган"    }.get(lang, "Yaratilgan")
+    lbl_accuracy = {"ru": "Точность",      "uz_cyrl": "Аниқлик"      }.get(lang, "Aniqlik")
+    lbl_streak   = {"ru": "Серия",         "uz_cyrl": "Серия"        }.get(lang, "Streak")
+    lbl_longest  = {"ru": "Рекорд серии",  "uz_cyrl": "Рекорд серия" }.get(lang, "Rekord streak")
+    lbl_30       = {"ru": "Активность (последние 30 дней)", "uz_cyrl": "Фаоллик (30 кун)"}.get(lang, "Faollik (30 kun)")
+    lbl_tests    = {"ru": "Тестов",        "uz_cyrl": "Тестлар"      }.get(lang, "Testlar")
+    lbl_avg      = {"ru": "Средний балл",  "uz_cyrl": "Ўртача балл"  }.get(lang, "Ortacha ball")
+    lbl_hour     = {"ru": "По часам",      "uz_cyrl": "Соатлар бўйича"}.get(lang, "Soatlar bo'yicha")
+
+    lbl_no_data  = {"ru": "Данных нет", "uz_cyrl": "Маълумот йўқ"}.get(lang, "Ma'lumot yo'q")
+
     html_page = _PAGE_STYLE + f"""
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <div class="wrap">
       {_nav_html(token, lang)}
-      <h1>📊 {'Статистика' if lang=='ru' else ('Статистика' if lang=='uz_cyrl' else 'Statistika')}</h1>
+      <h1>📊 {lbl_stats}</h1>
+
+      <!-- XP Progress -->
       <div class="card">
-        <h2>⭐ {'Уровень' if lang=='ru' else ('Даража' if lang=='uz_cyrl' else 'Daraja')} {level}</h2>
+        <h2>⭐ {lbl_level} {level}</h2>
         <div class="bar"><div class="bar-fill" style="width:{pct}%"></div></div>
         <p style="color:rgba(243,246,255,.65);font-size:13px">{xp} / {next_lvl_xp} XP ({pct}%)</p>
       </div>
+
+      <!-- Stat boxes -->
       <div class="card">
         <div class="stat-grid">
-          <div class="stat-box"><div class="stat-num">{int(stats.get('tests_taken',0) or 0)}</div><div class="stat-label">{'Тестов пройдено' if lang=='ru' else ('Ишланган' if lang=='uz_cyrl' else 'Ishlangan')}</div></div>
-          <div class="stat-box"><div class="stat-num">{int(stats.get('tests_created',0) or 0)}</div><div class="stat-label">{'Создано' if lang=='ru' else ('Яратилган' if lang=='uz_cyrl' else 'Yaratilgan')}</div></div>
-          <div class="stat-box"><div class="stat-num">{accuracy}%</div><div class="stat-label">{'Точность' if lang=='ru' else ('Аниқлик' if lang=='uz_cyrl' else 'Aniqlik')}</div></div>
-          <div class="stat-box"><div class="stat-num">🔥 {int(stats.get('current_streak',0) or 0)}</div><div class="stat-label">{'Серия' if lang=='ru' else ('Серия' if lang=='uz_cyrl' else 'Streak')}</div></div>
+          <div class="stat-box"><div class="stat-num">{int(stats.get('tests_taken',0) or 0)}</div><div class="stat-label">{lbl_taken}</div></div>
+          <div class="stat-box"><div class="stat-num">{int(stats.get('tests_created',0) or 0)}</div><div class="stat-label">{lbl_created}</div></div>
+          <div class="stat-box"><div class="stat-num">{accuracy}%</div><div class="stat-label">{lbl_accuracy}</div></div>
+          <div class="stat-box"><div class="stat-num">🔥 {streak}</div><div class="stat-label">{lbl_streak}</div></div>
+          <div class="stat-box"><div class="stat-num">🏆 {longest}</div><div class="stat-label">{lbl_longest}</div></div>
+          <div class="stat-box"><div class="stat-num">{total_c}</div><div class="stat-label">✅ {lbl_taken}</div></div>
         </div>
       </div>
+
+      <!-- Chart 1: 30 kunlik faollik -->
       <div class="card">
-        <h2>📈 {'Последние 30 дней' if lang=='ru' else ('Сўнгги 30 кун' if lang=='uz_cyrl' else 'Songgi 30 kun')}</h2>
-        {progress_rows}
+        <h2>📈 {lbl_30}</h2>
+        {"<canvas id='activityChart' style='max-height:220px'></canvas>" if progress else "<div class='empty'>" + lbl_no_data + "</div>"}
+      </div>
+
+      <!-- Chart 2: Soatlik faollik -->
+      <div class="card">
+        <h2>🕐 {lbl_hour}</h2>
+        <canvas id="heatmapChart" style="max-height:260px"></canvas>
       </div>
     </div>
+
+    <script>
+    Chart.defaults.color = 'rgba(243,246,255,0.7)';
+    Chart.defaults.font  = {{family: "-apple-system, sans-serif", size: 11}};
+
+    // Chart 1 — Faollik
+    const labels = {chart_labels};
+    if(labels.length > 0) {{
+      const ctx1 = document.getElementById('activityChart').getContext('2d');
+      new Chart(ctx1, {{
+        data: {{
+          labels: labels,
+          datasets: [
+            {{
+              type: 'bar',
+              label: '{lbl_tests}',
+              data: {chart_tests},
+              backgroundColor: 'rgba(56,211,159,0.35)',
+              borderColor: '#38d39f',
+              borderWidth: 1.5,
+              borderRadius: 5,
+              yAxisID: 'y'
+            }},
+            {{
+              type: 'line',
+              label: '{lbl_avg}',
+              data: {chart_scores},
+              borderColor: '#6cb2ff',
+              backgroundColor: 'rgba(108,178,255,0.1)',
+              borderWidth: 2,
+              pointRadius: 3,
+              tension: 0.4,
+              fill: true,
+              yAxisID: 'y2'
+            }}
+          ]
+        }},
+        options: {{
+          responsive: true, maintainAspectRatio: true,
+          interaction: {{mode: 'index', intersect: false}},
+          plugins: {{legend: {{labels: {{color: 'rgba(243,246,255,0.7)'}}}}}},
+          scales: {{
+            x: {{grid: {{color: 'rgba(255,255,255,0.05)'}}, ticks: {{maxTicksLimit: 8}}}},
+            y:  {{position: 'left',  grid: {{color: 'rgba(255,255,255,0.05)'}}, beginAtZero: true}},
+            y2: {{position: 'right', grid: {{display: false}}, beginAtZero: true}}
+          }}
+        }}
+      }});
+    }}
+
+    // Chart 2 — Soatlik heatmap
+    const ctx2 = document.getElementById('heatmapChart').getContext('2d');
+    const hmData = {heatmap_data};
+    const maxHm  = Math.max(...hmData, 1);
+    new Chart(ctx2, {{
+      type: 'bar',
+      data: {{
+        labels: {heatmap_labels},
+        datasets: [{{
+          label: '{lbl_tests}',
+          data: hmData,
+          backgroundColor: {heatmap_bg_js},
+          borderColor: 'rgba(56,211,159,0.4)',
+          borderWidth: 1,
+          borderRadius: 4
+        }}]
+      }},
+      options: {{
+        responsive: true, maintainAspectRatio: true,
+        plugins: {{legend: {{display: false}}}},
+        scales: {{
+          x: {{grid: {{color: 'rgba(255,255,255,0.05)'}}, ticks: {{maxTicksLimit: 12}}}},
+          y: {{grid: {{color: 'rgba(255,255,255,0.05)'}}, beginAtZero: true, display: false}}
+        }}
+      }}
+    }});
+    </script>
     """
     return html_page
 
@@ -4203,6 +4323,457 @@ def api_leaderboard():
         return jsonify({"success": True, "top": top_100, "user": user_info})
     except Exception as e:
         return jsonify({"success": False, "error": "Server xatosi"}), 500
+
+# ==========================================
+# 📄 TASK 2: PAGINATION API
+# ==========================================
+@app.route("/api/my-tests")
+def api_my_tests():
+    """Sahifalash bilan foydalanuvchi testlarini qaytaradi"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    try:
+        tests, total = db.get_tests_paginated(int(user["user_id"]), page, limit)
+        return jsonify({
+            "success": True, "tests": tests, "total": total,
+            "page": page, "limit": limit,
+            "has_more": (page * limit) < total
+        })
+    except Exception as e:
+        logging.error(f"api_my_tests xato: {e}")
+        return jsonify({"success": False, "error": "Server xatosi"}), 500
+
+@app.route("/api/public-tests")
+def api_public_tests():
+    """Ommaviy testlar — sahifalash + filter"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    if not user: return jsonify({"success": False}), 401
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 12))
+    query = request.args.get("q", "").strip() or None
+    cat = request.args.get("category", type=int)
+    try:
+        tests, total = db.get_public_tests_paginated(query, cat, page, limit)
+        return jsonify({
+            "success": True, "tests": tests, "total": total,
+            "page": page, "has_more": (page * limit) < total
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": "Server xatosi"}), 500
+
+# ==========================================
+# 📡 TASK 3: REAL-TIME NATIJALAR (SSE)
+# ==========================================
+@app.route("/api/results-stream/<test_id>")
+def results_stream(test_id):
+    """Server-Sent Events orqali real-time natijalar"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    if not user: return abort(401)
+
+    def generate():
+        last_count = -1
+        tries = 0
+        while tries < 60:  # max 5 daqiqa (5s * 60)
+            try:
+                results = db.all_results(test_id)
+                cur_count = len(results)
+                if cur_count != last_count:
+                    last_count = cur_count
+                    data = []
+                    test = db.get_test(test_id)
+                    scoring = dict(test).get("scoring_type", "standard") if test else "standard"
+                    for i, r in enumerate(results, 1):
+                        r = dict(r)
+                        name = (r.get("username") and f"@{r['username']}") or \
+                               f"{r.get('first_name','')}{r.get('last_name','')}".strip() or \
+                               f"User{r.get('user_id','')}"
+                        data.append({
+                            "rank": i, "name": name,
+                            "score": float(r.get("score") or 0),
+                            "duration": int(r.get("duration_sec") or 0),
+                            "user_id": r.get("user_id")
+                        })
+                    yield f"data: {json.dumps({'count': cur_count, 'results': data})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                break
+            import time as _time; _time.sleep(5)
+            tries += 1
+        yield "data: {\"done\": true}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+@app.route("/live-results/<test_id>")
+def live_results_page(test_id):
+    """Test natijalari real-time sahifasi"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user: return abort(401)
+    test = db.get_test(test_id)
+    if not test: return abort(404)
+    test = dict(test)
+    title = html.escape(test.get("title", "Test"))
+
+    page = f"""<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>📡 {title} — Real-time</title>
+  <style>
+    *{{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,sans-serif}}
+    body{{background:#0f172a;color:#f3f6ff;padding:20px;min-height:100vh}}
+    h1{{font-size:20px;margin-bottom:6px;color:#38d39f}}
+    .sub{{color:#718096;font-size:13px;margin-bottom:20px}}
+    .badge{{display:inline-block;background:rgba(56,211,159,.2);color:#38d39f;padding:4px 12px;border-radius:999px;font-size:13px;margin-bottom:16px}}
+    .row{{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,.06);border-radius:12px;margin-bottom:8px;border:1px solid rgba(255,255,255,.08);animation:fadeIn .3s ease}}
+    .row.me{{background:rgba(56,211,159,.1);border-color:rgba(56,211,159,.3)}}
+    @keyframes fadeIn{{from{{opacity:0;transform:translateY(6px)}}to{{opacity:1;transform:translateY(0)}}}}
+    .medal{{font-size:20px;width:32px;flex-shrink:0}}
+    .name{{flex:1;padding:0 12px;font-size:15px}}
+    .score{{font-weight:700;color:#38d39f;font-size:16px}}
+    .dur{{color:#718096;font-size:12px;margin-top:2px}}
+    #dot{{display:inline-block;width:8px;height:8px;border-radius:50%;background:#38d39f;margin-right:6px;animation:pulse 1.5s infinite}}
+    @keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.3}}}}
+    .back{{display:inline-block;color:#6cb2ff;font-size:14px;margin-bottom:16px;text-decoration:none}}
+  </style>
+</head>
+<body>
+  <a class="back" href="/test/{test_id}?token={token}">← Orqaga</a>
+  <h1>📡 {title}</h1>
+  <p class="sub">Real-time natijalar</p>
+  <div class="badge"><span id="dot"></span><span id="cnt">0</span> ta qatnashchi</div>
+  <div id="list"></div>
+  <script>
+    const myId = {int(user["user_id"])};
+    const medals = ["🥇","🥈","🥉"];
+    const src = new EventSource("/api/results-stream/{test_id}?token={token}");
+    src.onmessage = (e) => {{
+      const d = JSON.parse(e.data);
+      if(d.done){{ src.close(); document.getElementById('dot').style.animation='none'; document.getElementById('dot').style.background='#718096'; return; }}
+      if(d.error)return;
+      document.getElementById('cnt').textContent = d.count;
+      const list = document.getElementById('list');
+      list.innerHTML = '';
+      d.results.forEach(r => {{
+        const medal = medals[r.rank-1] || r.rank+'.';
+        const me = r.user_id == myId ? ' me' : '';
+        const mins = Math.floor(r.duration/60), secs = r.duration%60;
+        const durStr = mins>0 ? mins+'d '+secs+'s' : secs+'s';
+        list.innerHTML += `<div class="row${{me}}"><div class="medal">${{medal}}</div><div class="name">${{r.name}}</div><div><div class="score">${{r.score}}</div><div class="dur">⏱ ${{durStr}}</div></div></div>`;
+      }});
+    }};
+  </script>
+</body>
+</html>"""
+    return page
+
+# ==========================================
+# 📥 TASK 4: TEST IMPORT (Excel/CSV)
+# ==========================================
+@app.route("/import-test", methods=["GET", "POST"])
+def import_test():
+    """Excel yoki CSV fayldan test yaratish"""
+    token = request.args.get("token") or request.form.get("token")
+    user = validate_token(token)
+    lang = session.get("lang", "uz")
+    if not user: return abort(401)
+    uid = int(user["user_id"])
+
+    if request.method == "GET":
+        chats = [c for c in db.chats_for_user(uid) if c.get("bot_is_admin")]
+        chat_opts = "".join([
+            f'<option value="{c["chat_id"]}">{html.escape(c.get("title",""))}</option>'
+            for c in chats
+        ])
+        return f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test Import</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,sans-serif}}
+body{{background:#0f172a;color:#f3f6ff;padding:20px;min-height:100vh}}
+.wrap{{max-width:600px;margin:0 auto}}
+.card{{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:22px;margin-bottom:18px}}
+h1{{font-size:22px;margin-bottom:4px;color:#38d39f}}
+.sub{{color:#718096;font-size:13px;margin-bottom:20px}}
+label{{display:block;font-size:13px;color:#a0aec0;margin-bottom:6px;margin-top:14px}}
+input,select{{width:100%;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:#f3f6ff;font-size:14px}}
+.btn{{background:#38d39f;color:#000;border:none;padding:13px 24px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;width:100%;margin-top:16px}}
+.hint{{background:rgba(108,178,255,.1);border:1px solid rgba(108,178,255,.2);border-radius:10px;padding:14px;margin-top:14px;font-size:13px;color:#6cb2ff;line-height:1.7}}
+a{{color:#6cb2ff;font-size:14px}}
+</style></head>
+<body><div class="wrap">
+<a href="/?token={token}">← Orqaga</a>
+<br><br>
+<h1>📥 Test Import</h1>
+<p class="sub">Excel (.xlsx) yoki CSV (.csv) fayldan test yarating</p>
+<div class="card">
+<form method="POST" enctype="multipart/form-data">
+  <input type="hidden" name="token" value="{token}">
+  <label>Test fayli (.xlsx yoki .csv)</label>
+  <input type="file" name="file" accept=".xlsx,.csv" required>
+  <label>Test nomi (ixtiyoriy, fayldan olinadi)</label>
+  <input type="text" name="title" placeholder="Masalan: Tarix testi">
+  <label>Guruh/kanal</label>
+  <select name="chat_id">
+    <option value="{uid}">🔒 Private (faqat men)</option>
+    {chat_opts}
+  </select>
+  <button class="btn" type="submit">📥 Import qilish</button>
+</form>
+<div class="hint">
+  <b>📋 Excel format (A-E ustunlar):</b><br>
+  A: Savol matni<br>
+  B: 1-variant<br>
+  C: 2-variant<br>
+  D: 3-variant (ixtiyoriy)<br>
+  E: 4-variant (ixtiyoriy)<br>
+  F: To'g'ri javob (1, 2, 3 yoki 4)<br><br>
+  <b>CSV format:</b> vergul bilan ajratilgan, xuddi shu tartibda
+</div>
+</div>
+</div></body></html>"""
+
+    # POST — faylni qayta ishlash
+    file = request.files.get("file")
+    if not file or file.filename == "":
+        return redirect(f"/import-test?token={token}&msg=Fayl tanlanmadi")
+    title_override = request.form.get("title", "").strip()
+    try:
+        chat_id = int(request.form.get("chat_id", uid))
+    except Exception:
+        chat_id = uid
+
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    questions = []
+    title = title_override or "Import test"
+
+    try:
+        if ext == "xlsx":
+            from openpyxl import load_workbook
+            wb = load_workbook(file)
+            ws = wb.active
+            if not title_override and ws.title and ws.title != "Sheet":
+                title = ws.title
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if not row[0]: continue
+                q_text = str(row[0]).strip()
+                opts = [str(row[i]).strip() for i in range(1, 5) if i < len(row) and row[i]]
+                try:
+                    correct_idx = int(row[5]) - 1 if len(row) > 5 and row[5] else 0
+                except Exception:
+                    correct_idx = 0
+                if q_text and len(opts) >= 2:
+                    questions.append({"question": q_text, "options": opts,
+                                      "correct_index": max(0, min(correct_idx, len(opts)-1))})
+        elif ext == "csv":
+            import csv, io
+            content = file.read().decode("utf-8-sig")
+            reader = csv.reader(io.StringIO(content))
+            next(reader, None)  # header
+            for row in reader:
+                if not row or not row[0].strip(): continue
+                q_text = row[0].strip()
+                opts = [row[i].strip() for i in range(1, 5) if i < len(row) and row[i].strip()]
+                try:
+                    correct_idx = int(row[5]) - 1 if len(row) > 5 and row[5].strip() else 0
+                except Exception:
+                    correct_idx = 0
+                if q_text and len(opts) >= 2:
+                    questions.append({"question": q_text, "options": opts,
+                                      "correct_index": max(0, min(correct_idx, len(opts)-1))})
+    except Exception as e:
+        logging.error(f"Import parse xato: {e}")
+        return redirect(f"/import-test?token={token}&msg=Faylni o'qishda xato: {e}")
+
+    if not questions:
+        return redirect(f"/import-test?token={token}&msg=Savollar topilmadi. Format to'g'riligini tekshiring.")
+
+    test_id = uuid.uuid4().hex[:10]
+    db.create_test(test_id, uid, chat_id, title, 60, int(time.time()))
+    for i, q in enumerate(questions):
+        db.add_question(test_id, i, q["question"], q["options"], q["correct_index"])
+
+    manage_url = f"/test/{test_id}?token={token}"
+    return redirect(f"{manage_url}&msg=✅ {len(questions)} ta savol import qilindi!")
+
+# ==========================================
+# 📤 TASK 4b: CSV EXPORT
+# ==========================================
+@app.route("/export-csv/<test_id>")
+def export_csv(test_id):
+    """Test natijalarini CSV sifatida yuklab olish"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    if not user: return abort(401)
+    test = db.get_test(test_id)
+    if not test: return abort(404)
+    test = dict(test)
+    if int(test.get("owner_user_id", 0)) != int(user["user_id"]) and int(user["user_id"]) not in SUPERADMINS:
+        return abort(403)
+
+    import csv, io
+    allr = db.all_results(test_id)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["O'rin", "Foydalanuvchi", "Username", "Ball", "Vaqt (soniya)"])
+    for i, r in enumerate(allr, 1):
+        r = dict(r)
+        name = f"{r.get('first_name','')} {r.get('last_name','')}".strip() or f"User{r.get('user_id','')}"
+        writer.writerow([i, name, r.get("username", ""), float(r.get("score") or 0), int(r.get("duration_sec") or 0)])
+
+    filename = f"{(test.get('title') or 'test')[:40]}_natijalar.csv"
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv; charset=utf-8-sig",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+# ==========================================
+# 🔲 TASK 5: QR KOD
+# ==========================================
+@app.route("/qr/<test_id>")
+def test_qr(test_id):
+    """Test uchun QR kod SVG sifatida"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    if not user: return abort(401)
+    test = db.get_test(test_id)
+    if not test: return abort(404)
+    test = dict(test)
+    bot_username = get_bot_username()
+    deep_link = f"https://t.me/{bot_username}?start=test_{test_id}"
+    title = html.escape(test.get("title", "Test"))
+    pub_name = test.get("public_name")
+    if pub_name:
+        solve_url = f"{WEB_BASE_URL.rstrip('/')}/solve/{test_id}?token={token}"
+    else:
+        solve_url = deep_link
+
+    # QR kod JavaScript bilan render qilinadi (qrcode.js CDN)
+    page = f"""<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR - {title}</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,sans-serif}}
+body{{background:#0f172a;color:#f3f6ff;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;text-align:center}}
+h2{{margin-bottom:8px;color:#38d39f;font-size:20px}}
+.sub{{color:#718096;font-size:13px;margin-bottom:24px}}
+#qr canvas{{border-radius:16px;padding:16px;background:#fff}}
+.link{{margin-top:18px;padding:10px 16px;background:rgba(255,255,255,.07);border-radius:8px;font-size:12px;color:#6cb2ff;word-break:break-all;max-width:340px}}
+.btn{{margin-top:16px;background:#38d39f;color:#000;border:none;padding:12px 24px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px}}
+.back{{color:#6cb2ff;font-size:14px;margin-top:18px}}
+</style>
+</head>
+<body>
+<a class="back" href="/test/{test_id}?token={token}">← Orqaga</a>
+<br><br>
+<h2>🔲 {title}</h2>
+<p class="sub">Quyidagi QR kodni skanerlang</p>
+<div id="qr"></div>
+<div class="link">{html.escape(solve_url)}</div>
+<button class="btn" onclick="downloadQR()">📥 Yuklab olish (PNG)</button>
+<script>
+const url = {json.dumps(solve_url)};
+QRCode.toCanvas(document.createElement('canvas'), url, {{width:280,margin:2}}, function(err,canvas){{
+  if(!err) document.getElementById('qr').appendChild(canvas);
+}});
+function downloadQR(){{
+  const canvas = document.querySelector('#qr canvas');
+  if(!canvas)return;
+  const a = document.createElement('a');
+  a.download = 'qr_{test_id}.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}}
+</script>
+</body></html>"""
+    return page
+
+# ==========================================
+# 🎨 TASK 6: DARK/LIGHT TEMA SWITCH
+# ==========================================
+@app.route("/api/theme/toggle", methods=["POST"])
+def toggle_theme():
+    """Foydalanuvchi temasini saqlash"""
+    data = request.json or {}
+    token = data.get("token")
+    user = validate_token(token)
+    if not user: return jsonify({"success": False}), 401
+    theme = data.get("theme", "dark")
+    if theme not in ("dark", "light"):
+        return jsonify({"success": False, "error": "Invalid theme"}), 400
+    session[f"theme_{user['user_id']}"] = theme
+    try:
+        with db._conn() as c:
+            # users jadvaliga theme ustuni qo'shish (migration)
+            try:
+                c.execute("ALTER TABLE users ADD COLUMN theme VARCHAR(10) DEFAULT 'dark'")
+            except Exception:
+                pass
+            c.execute("UPDATE users SET theme=%s WHERE user_id=%s", (theme, user["user_id"]))
+    except Exception as e:
+        logging.error(f"Theme save xato: {e}")
+    return jsonify({"success": True, "theme": theme})
+
+@app.route("/api/theme/get")
+def get_theme():
+    """Foydalanuvchi temasini olish"""
+    token = request.args.get("token")
+    user = validate_token(token)
+    if not user: return jsonify({"theme": "dark"})
+    uid = int(user["user_id"])
+    theme = session.get(f"theme_{uid}", "dark")
+    try:
+        with db._conn() as c:
+            row = c.execute("SELECT theme FROM users WHERE user_id=%s", (uid,)).fetchone()
+            if row and dict(row).get("theme"):
+                theme = dict(row)["theme"]
+    except Exception:
+        pass
+    return jsonify({"theme": theme})
+
+# ==========================================
+# 📅 TASK 9: SCHEDULED TESTS WEB API
+# ==========================================
+@app.route("/api/schedule-test", methods=["POST"])
+def api_schedule_test():
+    """Testni ma'lum vaqtda ochish uchun rejalashtirish"""
+    data = request.json or {}
+    token = data.get("token")
+    user = validate_token(token)
+    if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
+    test_id = data.get("test_id")
+    open_at_str = data.get("open_at", "").strip()  # "DD/MM/YYYY HH:MM"
+    if not test_id or not open_at_str:
+        return jsonify({"success": False, "error": "test_id va open_at kerak"}), 400
+    test = db.get_test(test_id)
+    if not test: return jsonify({"success": False, "error": "Test topilmadi"}), 404
+    test = dict(test)
+    if int(test.get("owner_user_id", 0)) != int(user["user_id"]) and int(user["user_id"]) not in SUPERADMINS:
+        return jsonify({"success": False, "error": "Ruxsat yo'q"}), 403
+    try:
+        from datetime import datetime
+        open_dt = datetime.strptime(open_at_str, "%d/%m/%Y %H:%M")
+        open_ts = int(open_dt.replace(tzinfo=TZ).timestamp())
+    except Exception:
+        return jsonify({"success": False, "error": "Vaqt formati noto'g'ri (DD/MM/YYYY HH:MM)"}), 400
+    if open_ts <= int(time.time()):
+        return jsonify({"success": False, "error": "Vaqt o'tib ketgan"}), 400
+    db.schedule_test_open(test_id, open_ts)
+    return jsonify({"success": True, "open_at": open_at_str, "test_id": test_id})
 
 def check_content_with_ai(title, questions_text):
     if not title and not questions_text: return True, "Hammasi joyida"

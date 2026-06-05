@@ -2416,6 +2416,292 @@ async def cmd_give_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.HTML
     )
 
+# ==========================================
+# ❓ TASK 7: /help KOMANDASI
+# ==========================================
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/help — barcha komandalar ro'yxati"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    is_admin = user_id in SUPERADMINS or user_id in LOWER_ADMINS
+
+    if lang == "ru":
+        user_cmds = (
+            "📋 <b>Список команд</b>\n\n"
+            "🔹 <b>Основные:</b>\n"
+            "/start — Главное меню\n"
+            "/help — Эта справка\n\n"
+            "🔹 <b>Тесты:</b>\n"
+            "/aitest &lt;тема&gt; — Создать тест через AI\n"
+            "/copytest &lt;id&gt; — Скопировать тест\n"
+            "/templink &lt;id&gt; [часы] — Временная ссылка\n"
+            "/translatetest &lt;id&gt; &lt;ru/en&gt; — Перевести тест\n\n"
+            "🔹 <b>Обучение:</b>\n"
+            "/flashcard — Открыть Flashcards\n"
+            "/newflashset &lt;название&gt; — Создать набор\n"
+            "/addcard &lt;set_id&gt; Вопрос | Ответ — Добавить карточку\n\n"
+            "🔹 <b>Статистика:</b>\n"
+            "/stats — Мои достижения и уровень\n"
+            "/achievements — Список достижений\n"
+            "/top — Рейтинг месяца\n"
+            "/myerrors — Мои частые ошибки\n\n"
+            "🔹 <b>Сообщество:</b>\n"
+            "/groups — Мои группы\n"
+            "/creategroup &lt;название&gt; — Создать группу\n"
+            "/joingroup &lt;код&gt; — Войти в группу\n"
+            "/affiliate — Партнёрская программа\n\n"
+            "🔹 <b>Аккаунт:</b>\n"
+            "/mycerts — Мои сертификаты\n"
+            "/notifications — Уведомления\n"
+        )
+    elif lang == "uz_cyrl":
+        user_cmds = (
+            "📋 <b>Буйруқлар рўйхати</b>\n\n"
+            "🔹 <b>Асосий:</b>\n"
+            "/start — Асосий меню\n"
+            "/help — Ушбу ёрдам\n\n"
+            "🔹 <b>Тестлар:</b>\n"
+            "/aitest &lt;мавзу&gt; — AI орқали тест яратиш\n"
+            "/copytest &lt;id&gt; — Тестни нусхалаш\n"
+            "/templink &lt;id&gt; [соат] — Вақтинчалик ҳавола\n"
+            "/translatetest &lt;id&gt; &lt;ru/en&gt; — Тестни таржима қилиш\n\n"
+            "🔹 <b>Ўрганиш:</b>\n"
+            "/flashcard — Флэшкардлар\n"
+            "/newflashset &lt;ном&gt; — Тўплам яратиш\n"
+            "/addcard &lt;set_id&gt; Савол | Жавоб — Карта қўшиш\n\n"
+            "🔹 <b>Статистика:</b>\n"
+            "/stats — Даражам ва статистикам\n"
+            "/achievements — Ютуқларим\n"
+            "/top — Ойлик рейтинг\n"
+            "/myerrors — Кўп хато қилинган саволлар\n\n"
+            "🔹 <b>Жамоа:</b>\n"
+            "/groups — Гуруҳларим\n"
+            "/creategroup &lt;ном&gt; — Гуруҳ яратиш\n"
+            "/joingroup &lt;код&gt; — Гуруҳга қўшилиш\n"
+            "/affiliate — Ҳамкор дастури\n\n"
+            "🔹 <b>Аккаунт:</b>\n"
+            "/mycerts — Сертификатларим\n"
+            "/notifications — Билдиришномалар\n"
+        )
+    else:
+        user_cmds = (
+            "📋 <b>Komandalar ro'yxati</b>\n\n"
+            "🔹 <b>Asosiy:</b>\n"
+            "/start — Asosiy menyu\n"
+            "/help — Ushbu yordam\n\n"
+            "🔹 <b>Testlar:</b>\n"
+            "/aitest &lt;mavzu&gt; — AI orqali test yaratish\n"
+            "/copytest &lt;id&gt; — Testni nusxalash\n"
+            "/templink &lt;id&gt; [soat] — Vaqtinchalik havola\n"
+            "/translatetest &lt;id&gt; &lt;ru/en&gt; — Testni tarjima qilish\n\n"
+            "🔹 <b>O'rganish:</b>\n"
+            "/flashcard — Flashcardlar\n"
+            "/newflashset &lt;nom&gt; — To'plam yaratish\n"
+            "/addcard &lt;set_id&gt; Savol | Javob — Karta qo'shish\n\n"
+            "🔹 <b>Statistika:</b>\n"
+            "/stats — Darajam va statistikam\n"
+            "/achievements — Yutuqlarim\n"
+            "/top — Oylik reyting\n"
+            "/myerrors — Ko'p xato qilingan savollar\n\n"
+            "🔹 <b>Jamoa:</b>\n"
+            "/groups — Guruhlarim\n"
+            "/creategroup &lt;nom&gt; — Guruh yaratish\n"
+            "/joingroup &lt;kod&gt; — Guruhga qo'shilish\n"
+            "/affiliate — Hamkor dasturi\n\n"
+            "🔹 <b>Hisob:</b>\n"
+            "/mycerts — Sertifikatlarim\n"
+            "/notifications — Bildirishnomalar\n"
+        )
+
+    admin_cmds = ""
+    if is_admin:
+        admin_cmds = (
+            "\n━━━━━━━━━━━━━━━━━━━━\n"
+            "🔴 <b>Admin komandalar:</b>\n"
+            "/broadcast &lt;matn&gt; — Barcha foydalanuvchilarga xabar\n"
+            "/broadcastpremium &lt;matn&gt; — Faqat premiumlarga\n"
+            "/managechannels — Kanallarni ko'rish\n"
+            "/addchannel @nom — Kanal qo'shish\n"
+            "/removechannel @nom — Kanal o'chirish\n"
+            "/deletechannel @nom — Kanal butunlay o'chirish\n"
+        )
+        if user_id in SUPERADMINS:
+            admin_cmds += "/givepremium &lt;user_id&gt; &lt;oy&gt; — Premium berish\n"
+
+    await update.message.reply_text(
+        user_cmds + admin_cmds,
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True
+    )
+
+# ==========================================
+# 🔍 TASK 8: INLINE MODE
+# ==========================================
+from telegram import InlineQueryResultArticle, InputTextMessageContent
+
+async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Inline mode: @bot_username <qidiruv> — testlarni qidirish"""
+    query = update.inline_query
+    if not query:
+        return
+    search_text = (query.query or "").strip()
+
+    try:
+        if search_text:
+            results_raw = db.search_public_tests(f"@{search_text}" if not search_text.startswith("@") else search_text)
+        else:
+            # Bo'sh qidiruv — mashhur testlar
+            top, _ = db.get_public_tests_paginated(limit=10)
+            results_raw = top
+    except Exception:
+        results_raw = []
+
+    bot_username = context.bot.username
+    items = []
+    for r in (results_raw or [])[:10]:
+        r = dict(r)
+        test_id = r.get("test_id", "")
+        title = r.get("title", "Test")
+        pub_name = r.get("public_name", "")
+        deep_link = f"https://t.me/{bot_username}?start=test_{test_id}"
+        items.append(
+            InlineQueryResultArticle(
+                id=test_id,
+                title=f"🧩 {title}",
+                description=f"@{pub_name}" if pub_name else f"ID: {test_id}",
+                input_message_content=InputTextMessageContent(
+                    f"🧩 <b>{html.escape(title)}</b>\n\n"
+                    f"📎 Test: @{pub_name}\n"
+                    f"▶️ Boshlash: {deep_link}",
+                    parse_mode=ParseMode.HTML
+                ),
+                thumbnail_url="https://telegram.org/img/t_logo.png"
+            )
+        )
+
+    if not items:
+        items = [InlineQueryResultArticle(
+            id="no_results",
+            title="🔍 Hech narsa topilmadi",
+            description="Boshqa kalit so'z bilan qidirib ko'ring",
+            input_message_content=InputTextMessageContent(
+                f"🔍 <b>'{search_text}'</b> bo'yicha test topilmadi.",
+                parse_mode=ParseMode.HTML
+            )
+        )]
+
+    await query.answer(items, cache_time=10)
+
+# ==========================================
+# 📅 TASK 9: SCHEDULED TESTS (bot job)
+# ==========================================
+async def job_check_scheduled_tests(context: ContextTypes.DEFAULT_TYPE):
+    """Har soatda: vaqti kelgan scheduled testlarni ochish va eslatma yuborish"""
+    try:
+        # 1. Vaqti kelgan scheduled testlarni ochish
+        due_tests = db.get_scheduled_tests_due()
+        for t in due_tests:
+            t = dict(t)
+            with db._conn() as c:
+                c.execute("UPDATE tests SET status='open' WHERE test_id=%s", (t["test_id"],))
+            # Egasiga xabar
+            try:
+                await context.bot.send_message(
+                    chat_id=t["owner_user_id"],
+                    text=f"✅ <b>Test ochildi!</b>\n\n📝 <b>{h(t.get('title',''))}</b>\nFoydalanuvchilar endi testni boshlashlari mumkin.",
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception:
+                pass
+
+        # 2. Deadline yaqinlashgan testlar uchun eslatma (1 soat qolganida)
+        soon = int(time.time()) + 3600
+        with db._conn() as c:
+            upcoming = c.execute("""
+                SELECT * FROM tests
+                WHERE status='open' AND deadline_ts IS NOT NULL
+                AND deadline_ts BETWEEN %s AND %s
+            """, (int(time.time()), soon)).fetchall()
+
+        for t in upcoming:
+            t = dict(t)
+            try:
+                await context.bot.send_message(
+                    chat_id=t["owner_user_id"],
+                    text=f"⏰ <b>Eslatma!</b>\n\n📝 <b>{h(t.get('title',''))}</b>\nTestning muddati <b>1 soat</b> ichida tugaydi!",
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception:
+                pass
+    except Exception as e:
+        logging.error(f"job_check_scheduled_tests xato: {e}")
+
+# ==========================================
+# 📢 TASK 11: ASYNC BROADCAST (parallel)
+# ==========================================
+async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin barcha foydalanuvchilarga parallel xabar yuboradi"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text(get_bot_text('admin_only', lang))
+        return
+    if not context.args:
+        await update.message.reply_text(
+            "📢 <b>Foydalanish:</b>\n"
+            "/broadcast Xabar matni — barchaga\n"
+            "/broadcastpremium Xabar — faqat premium",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    text = " ".join(context.args)
+    cmd = update.message.text.split()[0].lower()
+    target = "premium" if "premium" in cmd else "all"
+
+    user_ids = db.get_all_user_ids(status_filter="premium" if target == "premium" else None)
+    broadcast_id = db.create_broadcast(user_id, text, target=target)
+
+    wait = await update.message.reply_text(
+        f"⏳ Yuborilmoqda... Jami: <b>{len(user_ids)}</b> ta",
+        parse_mode=ParseMode.HTML
+    )
+
+    # Parallel yuborish: 25 ta bir vaqtda
+    BATCH_SIZE = 25
+    sent = fail = 0
+
+    async def send_one(uid):
+        nonlocal sent, fail
+        try:
+            await context.bot.send_message(chat_id=uid, text=text, parse_mode=ParseMode.HTML)
+            sent += 1
+        except Exception:
+            fail += 1
+
+    for i in range(0, len(user_ids), BATCH_SIZE):
+        batch = user_ids[i:i + BATCH_SIZE]
+        await asyncio.gather(*[send_one(uid) for uid in batch], return_exceptions=True)
+        # Progress yangilash har 100 ta
+        if (i + BATCH_SIZE) % 100 == 0:
+            try:
+                await wait.edit_text(
+                    f"⏳ {i + BATCH_SIZE}/{len(user_ids)}...\n✅ {sent} | ❌ {fail}",
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception:
+                pass
+        await asyncio.sleep(0.05)  # rate limit himoyasi
+
+    db.update_broadcast_stats(broadcast_id, sent=sent, fail=fail, status="done")
+    await wait.edit_text(
+        f"✅ <b>Broadcast yakunlandi!</b>\n\n"
+        f"👥 Jami: <b>{len(user_ids)}</b>\n"
+        f"✅ Yuborildi: <b>{sent}</b>\n"
+        f"❌ Xato: <b>{fail}</b>",
+        parse_mode=ParseMode.HTML
+    )
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         try:
@@ -5924,6 +6210,12 @@ if __name__ == "__main__":
         except Exception as e:
             logging.error(f"Eslatma job xatosi: {e}")
 
+        # Scheduled testlarni har soatda tekshirish
+        try:
+            app.job_queue.run_repeating(job_check_scheduled_tests, interval=3600, first=60)
+        except Exception as e:
+            logging.error(f"Scheduled test job xatosi: {e}")
+
 
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
@@ -5989,6 +6281,16 @@ if __name__ == "__main__":
 
     # Admin - Premium berish
     app.add_handler(CommandHandler("givepremium", cmd_give_premium))
+
+    # Help
+    app.add_handler(CommandHandler("help", cmd_help))
+
+    # Broadcast (async, parallel)
+    app.add_handler(CommandHandler(["broadcast", "broadcastall", "broadcastpremium"], cmd_broadcast))
+
+    # Inline mode
+    from telegram.ext import InlineQueryHandler
+    app.add_handler(InlineQueryHandler(inline_query_handler))
 
     # 3. Tugmalar va Matnlar (Messages & Callbacks)
     app.add_handler(CallbackQueryHandler(on_callback))

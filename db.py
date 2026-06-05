@@ -635,6 +635,32 @@ class DB:
                 logging.info("✅ GENESIS BLOCK YARATILDI: Jami 150,000 GWT Token chiqarildi.")
 
 
+            # ==============================================================
+            # ⚡ PERFORMANCE INDEXLAR (tezlashtirish)
+            # ==============================================================
+            index_cmds = [
+                "CREATE INDEX IF NOT EXISTS idx_sessions_user_state ON sessions(user_id, state)",
+                "CREATE INDEX IF NOT EXISTS idx_sessions_test ON sessions(test_id, state)",
+                "CREATE INDEX IF NOT EXISTS idx_answers_session ON answers(session_id)",
+                "CREATE INDEX IF NOT EXISTS idx_tests_owner ON tests(owner_user_id)",
+                "CREATE INDEX IF NOT EXISTS idx_tests_public ON tests(public_name)",
+                "CREATE INDEX IF NOT EXISTS idx_tests_status ON tests(status)",
+                "CREATE INDEX IF NOT EXISTS idx_tests_category ON tests(category_id)",
+                "CREATE INDEX IF NOT EXISTS idx_ai_history_user ON ai_chat_history(user_id, session_id)",
+                "CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, is_read)",
+                "CREATE INDEX IF NOT EXISTS idx_qbank_owner ON question_bank(owner_id)",
+                "CREATE INDEX IF NOT EXISTS idx_fc_set ON flashcards(set_id)",
+                "CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)",
+                "CREATE INDEX IF NOT EXISTS idx_ip_tracking_ip ON ip_tracking(ip, request_time)",
+                "CREATE INDEX IF NOT EXISTS idx_q_stats ON question_stats(test_id)",
+                "CREATE INDEX IF NOT EXISTS idx_broadcasts_status ON broadcasts(status)",
+            ]
+            for cmd in index_cmds:
+                try:
+                    c.execute(cmd)
+                except Exception:
+                    pass
+
             # Migratsiyalar (Eski bazani yangilash uchun ehtiyot choralari)
             try: c.execute("ALTER TABLE chats ADD COLUMN updated_at BIGINT;")
             except: pass
@@ -2457,3 +2483,81 @@ def to_dict_safe(row):
     """PyMySQL Row yoki None ni xavfsiz dict ga aylantiradi"""
     if row is None: return None
     return dict(row)
+
+
+    # ================= 📄 PAGINATION =================
+    def get_tests_paginated(self, owner_id, page=1, limit=10):
+        """Sahifalash bilan testlarni olish"""
+        offset = (page - 1) * limit
+        with self._conn() as c:
+            rows = c.execute("""
+                SELECT t.*, COUNT(DISTINCT s.session_id) as finished_count,
+                       COUNT(DISTINCT q.q_index) as q_count
+                FROM tests t
+                LEFT JOIN sessions s ON t.test_id=s.test_id AND s.state='finished'
+                LEFT JOIN questions q ON t.test_id=q.test_id
+                WHERE t.owner_user_id=%s
+                GROUP BY t.test_id
+                ORDER BY t.created_at DESC
+                LIMIT %s OFFSET %s
+            """, (owner_id, limit, offset)).fetchall()
+            total = c.execute(
+                "SELECT COUNT(*) as cnt FROM tests WHERE owner_user_id=%s", (owner_id,)
+            ).fetchone()
+            total_count = total['cnt'] if total else 0
+        return [dict(r) for r in rows], total_count
+
+    def get_public_tests_paginated(self, query=None, category_id=None, page=1, limit=12):
+        """Ommaviy testlar — sahifalash"""
+        offset = (page - 1) * limit
+        with self._conn() as c:
+            sql = """SELECT t.*, COUNT(DISTINCT s.session_id) as plays,
+                            AVG(r.rating) as avg_rating
+                     FROM tests t
+                     LEFT JOIN sessions s ON t.test_id=s.test_id AND s.state='finished'
+                     LEFT JOIN test_reviews r ON t.test_id=r.test_id
+                     WHERE t.public_name IS NOT NULL AND t.status='open'"""
+            params = []
+            if query:
+                sql += " AND (t.title LIKE %s OR t.public_name LIKE %s)"
+                params.extend([f"%{query}%", f"%{query}%"])
+            if category_id:
+                sql += " AND t.category_id=%s"
+                params.append(category_id)
+            count_sql = sql.replace(
+                "SELECT t.*, COUNT(DISTINCT s.session_id) as plays,\n                            AVG(r.rating) as avg_rating",
+                "SELECT COUNT(DISTINCT t.test_id) as cnt"
+            ).split("GROUP BY")[0]
+            sql += " GROUP BY t.test_id ORDER BY plays DESC LIMIT %s OFFSET %s"
+            rows = c.execute(sql, tuple(params + [limit, offset])).fetchall()
+            total = c.execute(count_sql, tuple(params)).fetchone()
+            total_count = total['cnt'] if total else 0
+        return [dict(r) for r in rows], total_count
+
+    # ================= 📅 SCHEDULED TESTS =================
+    def schedule_test_open(self, test_id, open_at_ts):
+        """Testni ma'lum vaqtda ochish uchun rejalashtirish"""
+        with self._conn() as c:
+            c.execute("UPDATE tests SET status='scheduled', deadline_ts=%s WHERE test_id=%s",
+                      (open_at_ts, test_id))
+
+    def get_scheduled_tests_due(self):
+        """Hozir ochilishi kerak bo'lgan rejalashtirilgan testlar"""
+        now = int(time.time())
+        with self._conn() as c:
+            return c.execute("""
+                SELECT * FROM tests
+                WHERE status='scheduled' AND deadline_ts IS NOT NULL AND deadline_ts <= %s
+            """, (now,)).fetchall()
+
+    def get_upcoming_tests(self, hours=24):
+        """Kelgusi N soat ichida ochilishi rejalashtirilgan testlar"""
+        now = int(time.time())
+        soon = now + hours * 3600
+        with self._conn() as c:
+            return c.execute("""
+                SELECT t.*, u.first_name, u.username
+                FROM tests t
+                JOIN users u ON t.owner_user_id=u.user_id
+                WHERE t.status='scheduled' AND t.deadline_ts BETWEEN %s AND %s
+            """, (now, soon)).fetchall()
