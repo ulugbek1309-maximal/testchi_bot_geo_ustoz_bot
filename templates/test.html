@@ -462,6 +462,53 @@
             </button>
           </form>
 
+          <!-- ⚔️ Challenge / 📈 Analytics / 📥 Export tugmalari -->
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+            <a href="/test-analytics/{{ test.get('test_id', '') }}?token={{ token }}"
+              class="btn" style="background:rgba(56,211,159,0.12);color:#38d39f;border-color:rgba(56,211,159,0.3);text-align:center;text-decoration:none">
+              📈 {% if lang == 'uz' %}Test Tahlili{% elif lang == 'uz_cyrl' %}Тест Таҳлили{% else %}Аналитика{% endif %}
+            </a>
+            <a href="/live-results/{{ test.get('test_id', '') }}?token={{ token }}"
+              class="btn" style="background:rgba(108,178,255,0.12);color:#6cb2ff;border-color:rgba(108,178,255,0.3);text-align:center;text-decoration:none">
+              📡 {% if lang == 'uz' %}Real-time natijalar{% elif lang == 'uz_cyrl' %}Реал-тайм натижалар{% else %}Real-time{% endif %}
+            </a>
+            <a href="/export-pdf/{{ test.get('test_id', '') }}?token={{ token }}" target="_blank"
+              class="btn" style="background:rgba(192,132,252,0.12);color:#c084fc;border-color:rgba(192,132,252,0.3);text-align:center;text-decoration:none">
+              🖨️ PDF
+            </a>
+            <a href="/export-excel/{{ test.get('test_id', '') }}?token={{ token }}"
+              class="btn" style="background:rgba(68,187,120,0.12);color:#48bb78;border-color:rgba(68,187,120,0.3);text-align:center;text-decoration:none">
+              📥 Excel
+            </a>
+            <a href="/qr/{{ test.get('test_id', '') }}?token={{ token }}"
+              class="btn" style="background:rgba(248,113,113,0.12);color:#f87171;border-color:rgba(248,113,113,0.3);text-align:center;text-decoration:none">
+              🔲 QR
+            </a>
+          </div>
+
+          <!-- ⚔️ Bu testga challenge yuborish -->
+          <div style="background:rgba(108,178,255,0.06);border:1px solid rgba(108,178,255,0.2);border-radius:12px;padding:14px;margin-bottom:20px">
+            <b style="color:#6cb2ff;font-size:14px">⚔️ Challenge</b>
+            <p style="font-size:12px;color:rgba(243,246,255,0.6);margin:6px 0 10px">
+              {% if lang == 'uz' %}Do'stingizni shu testdan bellashuvga taklif qiling
+              {% elif lang == 'uz_cyrl' %}Дўстингизни шу тестдан беллашувга таклиф қилинг
+              {% else %}Пригласите друга соревноваться по этому тесту{% endif %}
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input type="text" id="ch-user"
+                placeholder="@username"
+                style="flex:1;min-width:120px;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#f3f6ff;font-size:13px">
+              <input type="number" id="ch-bet" min="0" step="0.1" value="0"
+                placeholder="GWT"
+                style="width:75px;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#f3f6ff;font-size:13px">
+              <button onclick="sendTestChallenge('{{ test.get('test_id','') }}')"
+                style="padding:8px 14px;background:#6cb2ff;color:#000;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">
+                ⚔️ {% if lang == 'uz' %}Yuborish{% elif lang == 'uz_cyrl' %}Юбориш{% else %}Вызов{% endif %}
+              </button>
+            </div>
+            <div id="ch-msg" style="display:none;font-size:12px;margin-top:8px"></div>
+          </div>
+
           <hr>
 
           <h3 style="color: var(--danger);">🗑 
@@ -588,5 +635,45 @@
   <footer>
     <span>© Testchi - {% if lang == 'uz' %}Avtomatlashtirilgan Test Tizimi{% elif lang == 'uz_cyrl' %}Автоматлаштирилган Тест Тизими{% else %}Автоматизированная система тестов{% endif %}</span>
   </footer>
+
+  <script>
+    const TOKEN = new URLSearchParams(window.location.search).get("token") || "{{ token }}";
+
+    // ⚔️ Test boshqaruv sahifasidan challenge yuborish
+    async function sendTestChallenge(testId) {
+      const username = (document.getElementById('ch-user')?.value || '').replace('@','').trim();
+      const bet = parseFloat(document.getElementById('ch-bet')?.value) || 0;
+      const msgEl = document.getElementById('ch-msg');
+
+      if (!username) {
+        if (msgEl) { msgEl.style.display='block'; msgEl.style.color='#f87171'; msgEl.innerText='❌ Username kiriting!'; }
+        return;
+      }
+      if (msgEl) { msgEl.style.display='block'; msgEl.style.color='#a0aec0'; msgEl.innerText='⏳ Yuborilmoqda...'; }
+
+      try {
+        const res = await fetch('/api/challenge/create', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({token: TOKEN, username, test_id: testId, gwt_bet: bet})
+        });
+        const data = await res.json();
+        if (msgEl) {
+          msgEl.style.display = 'block';
+          if (data.success) {
+            msgEl.style.color = '#68d391';
+            msgEl.innerText = '✅ Challenge @' + username + ' ga yuborildi!';
+            document.getElementById('ch-user').value = '';
+            document.getElementById('ch-bet').value = '0';
+          } else {
+            msgEl.style.color = '#f87171';
+            msgEl.innerText = '❌ ' + (data.error || 'Xato');
+          }
+        }
+      } catch(e) {
+        if (msgEl) { msgEl.style.color='#f87171'; msgEl.innerText='❌ Server bilan aloqa uzildi'; }
+      }
+    }
+  </script>
 </body>
 </html>

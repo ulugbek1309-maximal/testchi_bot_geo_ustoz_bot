@@ -182,7 +182,41 @@
             <div id="levelBox" style="display:none; background: rgba(108,178,255,0.12); border:1px solid rgba(108,178,255,0.3); border-radius:12px; padding:12px; margin-bottom:10px; font-size:16px; font-weight:600; color:#6cb2ff;"></div>
             <div id="achBox" style="display:none;"></div>
         </div>
-        <a href="/?token={{ token }}" class="btn btn-primary" style="margin: 20px auto;">Dashboard'ga qaytish</a>
+        <!-- Challenge tugmasi — test yakunlanganda ko'rinadi -->
+        <div id="challengeBox" style="display:none; margin-bottom:16px;">
+          <div style="background:rgba(108,178,255,0.08);border:1px solid rgba(108,178,255,0.25);border-radius:14px;padding:16px;text-align:center;">
+            <div style="font-size:24px;margin-bottom:6px">⚔️</div>
+            <b style="color:#6cb2ff;font-size:15px">
+              {% if lang == 'uz' %}Do'stingizni challenge qiling!
+              {% elif lang == 'uz_cyrl' %}Дўстингизни челлендж қилинг!
+              {% else %}Вызовите друга на соревнование!{% endif %}
+            </b>
+            <p style="color:rgba(243,246,255,0.6);font-size:13px;margin:8px 0 12px">
+              {% if lang == 'uz' %}Shu test bo'yicha birini bellashuvga taklif qiling
+              {% elif lang == 'uz_cyrl' %}Шу тест бўйича бирини беллашувга таклиф қилинг
+              {% else %}Пригласите кого-то соревноваться по этому тесту{% endif %}
+            </p>
+            <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+              <input type="text" id="challengeUsername" placeholder="@username"
+                style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#f3f6ff;font-size:14px;width:160px">
+              <input type="number" id="challengeBet" min="0" step="0.1" value="0" placeholder="GWT stavka"
+                style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#f3f6ff;font-size:14px;width:130px">
+              <button onclick="sendChallenge()"
+                style="padding:10px 20px;background:#6cb2ff;color:#000;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">
+                ⚔️ {% if lang == 'uz' %}Taklif{% elif lang == 'uz_cyrl' %}Таклиф{% else %}Вызов{% endif %}
+              </button>
+            </div>
+            <div id="challengeMsg" style="margin-top:10px;font-size:13px;display:none"></div>
+          </div>
+        </div>
+
+        <a href="/?token={{ token }}" class="btn btn-primary" style="margin: 20px auto;">
+          {% if lang == 'uz' %}Dashboard'ga qaytish{% elif lang == 'uz_cyrl' %}Дашбордга қайтиш{% else %}На главную{% endif %}
+        </a>
+        <a href="/live-results/{{ test.test_id }}?token={{ token }}"
+          style="display:block;text-align:center;color:#6cb2ff;font-size:13px;margin-top:10px;text-decoration:none">
+          📡 {% if lang == 'uz' %}Natijalarni real-time ko'rish{% elif lang == 'uz_cyrl' %}Натижаларни real-time кўриш{% else %}Результаты в реальном времени{% endif %}
+        </a>
       </div>
     </main>
 
@@ -424,6 +458,11 @@
               if (anyGamify) gamifyBox.style.display = 'block';
             } catch(e) { console.error(e); }
 
+            // ⚔️ Challenge tugmasini ko'rsatish
+            try {
+              document.getElementById('challengeBox').style.display = 'block';
+            } catch(e) {}
+
             document.getElementById('resultScreen').style.display = 'block';
           } else {
             alert("Xatolik: " + result.error);
@@ -441,6 +480,49 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+      }
+
+      // ⚔️ Challenge yuborish funksiyasi
+      async function sendChallenge() {
+        const username = (document.getElementById('challengeUsername').value || '').replace('@','').trim();
+        const bet = parseFloat(document.getElementById('challengeBet').value) || 0;
+        const msgEl = document.getElementById('challengeMsg');
+
+        if (!username) {
+          msgEl.style.display = 'block';
+          msgEl.style.color = '#f87171';
+          msgEl.innerText = '❌ Username kiriting!';
+          return;
+        }
+
+        // test_id sahifa URL'idan olish
+        const testId = window.location.pathname.split('/solve/')[1]?.split('?')[0] || '';
+        const token = new URLSearchParams(window.location.search).get('token') || '';
+
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#a0aec0';
+        msgEl.innerText = '⏳ Yuborilmoqda...';
+
+        try {
+          const res = await fetch('/api/challenge/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({token, username, test_id: testId, gwt_bet: bet})
+          });
+          const data = await res.json();
+          if (data.success) {
+            msgEl.style.color = '#68d391';
+            msgEl.innerText = '✅ Challenge @' + username + " ga yuborildi!";
+            document.getElementById('challengeUsername').value = '';
+            document.getElementById('challengeBet').value = '0';
+          } else {
+            msgEl.style.color = '#f87171';
+            msgEl.innerText = '❌ ' + (data.error || 'Xato yuz berdi');
+          }
+        } catch(e) {
+          msgEl.style.color = '#f87171';
+          msgEl.innerText = '❌ Server bilan aloqa uzildi';
+        }
       }
     </script>
   {% endif %}
