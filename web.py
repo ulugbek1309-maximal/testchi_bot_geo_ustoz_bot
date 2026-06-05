@@ -468,7 +468,8 @@ def global_protection():
         return  # Bu sahifalarda PIN tekshirmaymiz
 
     if not session.get(f"pin_unlocked_{token}"):
-        if request.path.startswith('/solve/'):
+        # Barcha sahifalar uchun next_url saqlash (faqat /solve emas)
+        if not request.path.startswith('/api/'):
             session[f"next_url_{token}"] = request.path
         if request.path.startswith('/api/'):
             return jsonify({"error": "PIN Lock", "redirect": f"/pin-lock?token={token}"}), 403
@@ -798,24 +799,28 @@ def pin_manager():
                     return jsonify({"success": False, "error": "Bazaga saqlashda xato."})
             c.execute("COMMIT")
             session[f"pin_unlocked_{token}"] = True
-            return jsonify({"success": True})
+            next_url = session.pop(f"next_url_{token}", None)
+            return jsonify({"success": True, "next_url": next_url})
 
         elif action == "verify":
             if not current_pin:
                 session[f"pin_unlocked_{token}"] = True
-                return jsonify({"success": True})
+                next_url = session.pop(f"next_url_{token}", None)
+                return jsonify({"success": True, "next_url": next_url})
             hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
             if hashed_pin == current_pin:
                 db.update_pin_attempts(user["user_id"], reset=True)
                 session[f"pin_unlocked_{token}"] = True
-                return jsonify({"success": True})
+                next_url = session.pop(f"next_url_{token}", None)
+                return jsonify({"success": True, "next_url": next_url})
             else:
                 db.update_pin_attempts(user["user_id"])
                 return jsonify({"success": False, "error": "Wrong PIN!"})
 
         elif action == "biometric_unlock":
             session[f"pin_unlocked_{token}"] = True
-            return jsonify({"success": True})
+            next_url = session.pop(f"next_url_{token}", None)
+            return jsonify({"success": True, "next_url": next_url})
 
         elif action == "change":
             old_pin = data.get("old_pin", "")

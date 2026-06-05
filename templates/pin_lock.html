@@ -409,7 +409,11 @@
             const data = await res.json();
 
             if (data.success) {
-                window.location.href = `/?token=${token}`;
+                // next_url bo'lsa o'sha sahifaga, bo'lmasa bosh sahifaga
+                const dest = data.next_url
+                    ? `${data.next_url}${data.next_url.includes('?') ? '&' : '?'}token=${token}`
+                    : `/?token=${token}`;
+                window.location.href = dest;
             } else {
                 alert(data.error || "Xato!");
                 showErrorAnimation();
@@ -446,12 +450,13 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    // Agar account.html da bo'lsangiz unlockMainScreen() chaqirasiz
-                    // Agar pin_lock.html da bo'lsangiz window.location.href qilasiz
                     if (typeof unlockMainScreen === "function") {
                         unlockMainScreen();
                     } else {
-                        window.location.href = `/?token=${token}`;
+                        const dest = data.next_url
+                            ? `${data.next_url}${data.next_url.includes('?') ? '&' : '?'}token=${token}`
+                            : `/?token=${token}`;
+                        window.location.href = dest;
                     }
                 }
             }
