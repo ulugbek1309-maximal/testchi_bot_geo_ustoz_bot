@@ -2669,9 +2669,14 @@ def web_flashcards():
           <a class="btn" href="/flashcards/{s['id']}?token={token}">▶️</a>
         </div>"""
 
-    my_empty = "Hali to'plam yo'q"
-    pub_empty = "Hali ommaviy to'plam yo'q"
-    q_empty_fc = "Hali to'plam yo'q"
+    # O'zgaruvchilar (til bo'yicha)
+    title_lbl = {"ru": "Мои наборы",      "uz_cyrl": "Менинг тўпламларим"}.get(lang, "Mening to'plamlarim")
+    pub_lbl   = {"ru": "Публичные наборы", "uz_cyrl": "Оммавий тўпламлар"}.get(lang, "Ommaviy to'plamlar")
+    new_lbl   = {"ru": "Создать набор",   "uz_cyrl": "Тўплам яратиш"}.get(lang, "Yangi to'plam yaratish")
+    name_ph   = {"ru": "Название",        "uz_cyrl": "Номи"}.get(lang, "To'plam nomi")
+    btn_create = {"ru": "Создать",        "uz_cyrl": "Яратиш"}.get(lang, "Yaratish")
+    my_empty  = {"ru": "Нет наборов",     "uz_cyrl": "Тўплам йўқ"}.get(lang, "Hali to'plam yo'q")
+    pub_empty = {"ru": "Нет публичных наборов", "uz_cyrl": "Оммавий тўплам йўқ"}.get(lang, "Hali ommaviy to'plam yo'q")
 
     html_page = _PAGE_STYLE + f"""
     <div class="wrap">
@@ -2681,7 +2686,7 @@ def web_flashcards():
         <h2>➕ {new_lbl}</h2>
         <div style="display:flex;gap:10px">
           <input type="text" id="fs-title" placeholder="{name_ph}" style="flex:1;padding:11px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#f3f6ff">
-          <button class="btn" onclick="createSet()" style="background:#667eea;color:#fff;border:none">Yaratish</button>
+          <button class="btn" onclick="createSet()" style="background:#667eea;color:#fff;border:none">{btn_create}</button>
         </div>
       </div>
       <div class="card"><h2>📚 {title_lbl}</h2>
