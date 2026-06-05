@@ -231,6 +231,22 @@ def safe_get_setting(key, default=None):
         pass
     return default
 
+def safe_db(method_name, *args, default=None, **kwargs):
+    """
+    Istalgan DB metodini xavfsiz chaqirish.
+    Metod yo'q bo'lsa yoki xato bo'lsa default qaytaradi.
+    Ishlatish: safe_db('start_staking', uid, amount) yoki
+               safe_db('get_user_staking', uid, default=[])
+    """
+    try:
+        method = getattr(db, method_name, None)
+        if method is None:
+            return default
+        return method(*args, **kwargs)
+    except Exception as e:
+        logging.error(f"safe_db({method_name}) xato: {e}")
+        return default
+
 # Database yaratilgandan keyin kanallarni yuklash
 REQUIRED_CHANNELS = load_required_channels_from_db()
 
@@ -5246,7 +5262,7 @@ def admin_coupons():
     if not user or int(user["user_id"]) not in SUPERADMINS:
         return abort(403)
 
-    coupons = [dict(c) for c in db.get_all_coupons()]
+    coupons = [dict(c) for c in safe_db('get_all_coupons', default=[])]
     coupon_empty = "Hali kuponlar yo'q"
 
     rows = ""
@@ -5395,7 +5411,7 @@ def web_staking():
     if not user: return abort(401)
     uid = int(user["user_id"])
     balance = db.get_token_balance(uid)
-    stakes = db.get_user_staking(uid)
+    stakes = safe_db('get_user_staking', uid, default=[])
     apy = safe_get_setting('staking_apy', 12)
     lock_days = safe_get_setting('staking_lock_days', 30)
 
@@ -5554,17 +5570,23 @@ def api_staking_start():
     if amount <= 0:
         return jsonify({"success": False, "error": "Miqdor 0 dan katta bo'lishi kerak"}), 400
     lock_days = int(safe_get_setting('staking_lock_days', 30))
-    ok, result = db.start_staking(int(user["user_id"]), amount, lock_days)
+    result = safe_db('start_staking', int(user["user_id"]), amount, lock_days)
+    if result is None:
+        return jsonify({"success": False, "error": "Staking funksiyasi mavjud emas. db.py ni yangilang."}), 503
+    ok, res = result
     if not ok:
-        return jsonify({"success": False, "error": result}), 400
-    return jsonify({"success": True, "staking_id": result})
+        return jsonify({"success": False, "error": res}), 400
+    return jsonify({"success": True, "staking_id": res})
 
 @app.route("/api/staking/unstake", methods=["POST"])
 def api_staking_unstake():
     data = request.json or {}
     user = validate_token(data.get("token"))
     if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
-    ok, result = db.unstake(int(data.get("staking_id", 0)), int(user["user_id"]))
+    res = safe_db('unstake', int(data.get("staking_id", 0)), int(user["user_id"]))
+    if res is None:
+        return jsonify({"success": False, "error": "Staking funksiyasi mavjud emas."}), 503
+    ok, result = res
     if not ok:
         return jsonify({"success": False, "error": result}), 400
     return jsonify({"success": True, "result": result})
@@ -5641,7 +5663,7 @@ def web_challenges():
     lang = session.get("lang", "uz")
     if not user: return abort(401)
     uid = int(user["user_id"])
-    challenges = db.get_user_challenges(uid)
+    challenges = safe_db('get_user_challenges', uid, default=[])
 
     rows = ""
     status_map = {
@@ -5748,7 +5770,9 @@ def api_challenge_create():
     if rival['user_id'] == uid:
         return jsonify({"success": False, "error": "O'zingizga challenge yubora olmaysiz"}), 400
     expire_h = int(safe_get_setting('challenge_expire_h', 24))
-    challenge_id = db.create_challenge(test_id, uid, rival['user_id'], gwt_bet, expire_hours=expire_h)
+    challenge_id = safe_db('create_challenge', test_id, uid, rival['user_id'], gwt_bet, expire_hours=expire_h)
+    if challenge_id is None:
+        return jsonify({"success": False, "error": "Challenge funksiyasi mavjud emas."}), 503
     return jsonify({"success": True, "challenge_id": challenge_id})
 
 @app.route("/api/question/report", methods=["POST"])
@@ -5756,7 +5780,7 @@ def api_question_report():
     data = request.json or {}
     user = validate_token(data.get("token"))
     if not user: return jsonify({"success": False, "error": "Unauthorized"}), 401
-    db.report_question(
+    safe_db('report_question',
         data.get("test_id", ""),
         int(data.get("q_index", 0)),
         int(user["user_id"]),
@@ -5774,7 +5798,7 @@ def api_question_comment():
     comment = (data.get("comment") or "").strip()[:1000]
     if not test_id or not comment:
         return jsonify({"success": False, "error": "test_id va comment kerak"}), 400
-    cid = db.add_test_comment(test_id, int(user["user_id"]), comment, data.get("parent_id"))
+    cid = safe_db('add_test_comment', test_id, int(user["user_id"]), comment, data.get("parent_id"), default=0)
     return jsonify({"success": True, "comment_id": cid})
 
 @app.route("/api/question/comments")
@@ -5782,7 +5806,7 @@ def api_question_comments():
     user = validate_token(request.args.get("token"))
     if not user: return jsonify({"success": False}), 401
     test_id = request.args.get("test_id", "")
-    comments = [dict(c) for c in db.get_test_comments(test_id)]
+    comments = [dict(c) for c in safe_db('get_test_comments', test_id, default=[])]
     return jsonify({"success": True, "comments": comments})
 
 # ============================================================
@@ -5796,7 +5820,7 @@ def admin_reports():
     if not user or int(user["user_id"]) not in SUPERADMINS:
         return abort(403)
 
-    reports = [dict(r) for r in db.get_question_reports(status='pending')]
+    reports = [dict(r) for r in safe_db('get_question_reports', status='pending', default=[])]
     no_rep = "Kutilayotgan reportlar yo'q"
 
     rows = ""
@@ -5923,7 +5947,7 @@ def api_report_resolve():
     user = validate_token(data.get("token"))
     if not user or int(user["user_id"]) not in SUPERADMINS:
         return jsonify({"success": False}), 403
-    db.resolve_report(int(data.get("report_id", 0)), data.get("status", "resolved"))
+    safe_db('resolve_report', int(data.get("report_id", 0)), data.get("status", "resolved"))
     return jsonify({"success": True})
 
 @app.route("/api/admin/bulk/premium", methods=["POST"])
@@ -5932,7 +5956,7 @@ def api_bulk_premium():
     user = validate_token(data.get("token"))
     if not user or int(user["user_id"]) not in SUPERADMINS:
         return jsonify({"success": False}), 403
-    count = db.bulk_give_premium(data.get("user_ids", []), int(data.get("months", 1)), int(user["user_id"]))
+    count = safe_db('bulk_give_premium', data.get("user_ids", []), int(data.get("months", 1)), int(user["user_id"]), default=0)
     return jsonify({"success": True, "count": count})
 
 @app.route("/api/admin/bulk/ban", methods=["POST"])
@@ -5941,8 +5965,7 @@ def api_bulk_ban():
     user = validate_token(data.get("token"))
     if not user or int(user["user_id"]) not in SUPERADMINS:
         return jsonify({"success": False}), 403
-    count = db.bulk_ban_users(data.get("user_ids", []), int(user["user_id"]),
-                               data.get("reason", "Bulk ban"))
+    count = safe_db('bulk_ban_users', data.get("user_ids", []), int(user["user_id"]), data.get("reason", "Bulk ban"), default=0)
     return jsonify({"success": True, "count": count})
 
 # Email report subscribe API
@@ -5955,7 +5978,7 @@ def api_email_subscribe():
     freq  = data.get("frequency", "weekly")
     if "@" not in email:
         return jsonify({"success": False, "error": "Email noto'g'ri"}), 400
-    db.subscribe_email_report(int(user["user_id"]), email, freq)
+    safe_db('subscribe_email_report', int(user["user_id"]), email, freq)
     return jsonify({"success": True})
 
 @app.route("/api/email-report/unsubscribe", methods=["POST"])
@@ -5963,7 +5986,7 @@ def api_email_unsubscribe():
     data = request.json or {}
     user = validate_token(data.get("token"))
     if not user: return jsonify({"success": False}), 401
-    db.unsubscribe_email_report(int(user["user_id"]))
+    safe_db('unsubscribe_email_report', int(user["user_id"]))
     return jsonify({"success": True})
 
 def check_content_with_ai(title, questions_text):

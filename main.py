@@ -95,6 +95,20 @@ def safe_get_setting(key, default=None):
         pass
     return default
 
+def safe_db(method_name, *args, default=None, **kwargs):
+    """
+    Istalgan DB metodini xavfsiz chaqirish.
+    Eski db.py da metod yo'q bo'lsa xato bermaydi.
+    """
+    try:
+        method = getattr(db, method_name, None)
+        if method is None:
+            return default
+        return method(*args, **kwargs)
+    except Exception as e:
+        logging.error(f"safe_db({method_name}) xato: {e}")
+        return default
+
 # Majburiy kanallarni bazadan yuklash funksiyasi
 def load_required_channels_from_db():
     """Bazadan aktiv kanallarni yuklash"""
@@ -2602,7 +2616,7 @@ async def cmd_stake(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not context.args:
         balance = db.get_token_balance(user_id)
-        stakes = db.get_user_staking(user_id)
+        stakes = safe_db('get_user_staking', user_id, default=[])
         total_staked = sum(float(dict(s).get('amount', 0)) for s in stakes)
         total_reward = sum(float(dict(s).get('total_reward', 0)) for s in stakes)
         await update.message.reply_text(
@@ -2650,7 +2664,7 @@ async def cmd_unstake(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/unstake ID — Staking yechish"""
     user_id = update.effective_user.id
     if not context.args:
-        stakes = db.get_user_staking(user_id)
+        stakes = safe_db('get_user_staking', user_id, default=[])
         if not stakes:
             await update.message.reply_text("❌ Aktiv staking'laringiz yo'q.")
             return
@@ -2717,7 +2731,7 @@ async def cmd_report_question(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     report_type = context.args[2] if len(context.args) > 2 else "other"
     comment = " ".join(context.args[3:]) if len(context.args) > 3 else ""
-    db.report_question(test_id, q_index, user_id, report_type, comment)
+    db.report_question(test_id, q_index, user_id, report_type, comment) if hasattr(db, 'report_question') else None
     await update.message.reply_text(
         "✅ Xabaringiz admin ko'rib chiqadi. Rahmat!",
         parse_mode=ParseMode.HTML
@@ -2740,7 +2754,7 @@ async def cmd_emailreport(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     if context.args[0].lower() == "off":
-        db.unsubscribe_email_report(user_id)
+        safe_db('unsubscribe_email_report', user_id)
         await update.message.reply_text("✅ Email hisobot o'chirildi.")
         return
     email = context.args[0].strip()
@@ -2750,7 +2764,7 @@ async def cmd_emailreport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     frequency = context.args[1].lower() if len(context.args) > 1 else "weekly"
     if frequency not in ("weekly", "monthly"):
         frequency = "weekly"
-    db.subscribe_email_report(user_id, email, frequency)
+    safe_db('subscribe_email_report', user_id, email, frequency)
     freq_txt = "Haftalik" if frequency == "weekly" else "Oylik"
     await update.message.reply_text(
         f"✅ <b>Email hisobot yoqildi!</b>\n\n"
@@ -3761,7 +3775,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "email_report_off":
-        db.unsubscribe_email_report(user_id)
+        safe_db('unsubscribe_email_report', user_id)
         await q.answer("✅ Email hisobot o'chirildi!", show_alert=True)
         try:
             await q.message.edit_text("✅ Email hisobot o'chirildi.")
@@ -3807,7 +3821,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ==========================================
     if data.startswith("challenge_accept_"):
         challenge_id = int(data.replace("challenge_accept_", ""))
-        ch = db.get_challenge(challenge_id)
+        ch = safe_db('get_challenge', challenge_id)
         if not ch:
             await q.answer("Challenge topilmadi!", show_alert=True)
             return
@@ -3861,7 +3875,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data.startswith("challenge_reject_"):
         challenge_id = int(data.replace("challenge_reject_", ""))
-        ch = db.get_challenge(challenge_id)
+        ch = safe_db('get_challenge', challenge_id)
         if not ch:
             await q.answer("Challenge topilmadi!", show_alert=True)
             return
@@ -5992,8 +6006,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             context.user_data[K["mode"]] = "email_report_input"
             return
-        freq = context.user_data.pop('email_report_freq', 'weekly')
-        db.subscribe_email_report(user_id, email, freq)
+            freq = context.user_data.pop('email_report_freq', 'weekly')
+        safe_db('subscribe_email_report', user_id, email, freq)
         freq_txt = "Haftalik" if freq == "weekly" else "Oylik"
         msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
         await update.effective_chat.send_message(
@@ -6011,14 +6025,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "coupon_input":
         context.user_data.pop(K["mode"], None)
         code = text.strip().upper()
-        coupon, err = db.get_coupon(code)
+        coupon, err = safe_db('get_coupon', code, default=(None, "Kupon funksiyasi mavjud emas"))
+        if not isinstance(coupon, dict) and not coupon:
+            err = err or "Kupon topilmadi"
         if err:
             msg, kb_main = await build_main_menu(user_id, context.bot.username, lang)
             await update.effective_chat.send_message(
                 f"❌ {err}", reply_markup=kb_main
             )
             return
-        ok, use_err = db.use_coupon(coupon['id'], user_id)
+        ok, use_err = safe_db('use_coupon', coupon['id'], user_id, default=(False, "Xato"))
         if not ok:
             await update.effective_chat.send_message(f"❌ {use_err}")
             return
