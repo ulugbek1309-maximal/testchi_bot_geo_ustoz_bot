@@ -1602,336 +1602,159 @@ def admin_tests():
 
 @app.route("/admin/channels")
 def admin_channels():
-    """Admin panel - Majburiy kanallarni boshqarish"""
+    """Admin panel - Majburiy kanallarni boshqarish (f-string, Jinja2 yo'q)"""
     token = request.args.get("token")
     user = validate_token(token)
     lang = session.get("lang", "uz")
-    
-    if not user or int(user["user_id"]) not in SUPERADMINS: 
+
+    if not user or int(user["user_id"]) not in SUPERADMINS:
         return abort(403)
-    if not user.get("is_verified"): 
+    if not user.get("is_verified"):
         return redirect("/captcha")
-    
-    # Bazadan kanallarni olish
-    channels = db.get_all_required_channels(active_only=False)
-    
-    return render_template_string("""
-<!DOCTYPE html>
-<html lang="{{lang}}">
+
+    # channels -> dict ro'yxatiga aylantirish (PyMySQL Row -> dict)
+    channels = [dict(c) for c in db.get_all_required_channels(active_only=False)]
+
+    # Kanal qatorlarini HTML sifatida generatsiya qilish
+    channel_rows = ""
+    for ch in channels:
+        cid   = html.escape(ch.get("channel_id") or "")
+        ctitle = html.escape(ch.get("channel_title") or "Nom yo'q")
+        is_active = int(ch.get("is_active") or 0)
+        if is_active:
+            status_badge = '<span style="background:#c6f6d5;color:#22543d;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-left:8px">✅ Aktiv</span>'
+            toggle_btn   = f'<button class="btn-sm btn-danger" onclick="removeChannel(\'{cid}\')">O\'chirish</button>'
+        else:
+            status_badge = '<span style="background:#fed7d7;color:#742a2a;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-left:8px">❌ O\'chirilgan</span>'
+            toggle_btn   = f'<button class="btn-sm btn-success" onclick="activateChannel(\'{cid}\')">Yoqish</button>'
+
+        channel_rows += f"""
+        <div class="channel-item">
+          <div class="channel-info">
+            <div class="channel-id">{cid}{status_badge}</div>
+            <div class="channel-title">{ctitle}</div>
+          </div>
+          <div class="channel-actions">
+            {toggle_btn}
+            <button class="btn-sm btn-danger" onclick="deleteChannel('{cid}')">🗑 Butunlay</button>
+          </div>
+        </div>"""
+
+    if not channel_rows:
+        channel_rows = """<div style="text-align:center;padding:50px;color:#a0aec0">
+          <p style="font-size:15px">Hozircha majburiy kanallar qo'shilmagan</p></div>"""
+
+    page = f"""<!DOCTYPE html>
+<html lang="uz">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kanallarni Boshqarish</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container { max-width: 900px; margin: 0 auto; }
-        .header { 
-            background: white; 
-            padding: 25px 30px; 
-            border-radius: 16px; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-        .header h1 { color: #2d3748; font-size: 28px; margin-bottom: 8px; }
-        .header p { color: #718096; font-size: 14px; }
-        .add-form {
-            background: white;
-            padding: 25px 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-        .add-form h2 { color: #2d3748; margin-bottom: 15px; font-size: 20px; }
-        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
-        .input-group input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 15px;
-            transition: 0.2s;
-        }
-        .input-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 15px;
-            transition: 0.2s;
-        }
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-1px);
-        }
-        .btn-success {
-            background: #48bb78;
-            color: white;
-        }
-        .btn-danger {
-            background: #f56565;
-            color: white;
-        }
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 13px;
-        }
-        .channels-list {
-            background: white;
-            padding: 25px 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-        }
-        .channels-list h2 {
-            color: #2d3748;
-            margin-bottom: 20px;
-            font-size: 20px;
-        }
-        .channel-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            transition: 0.2s;
-        }
-        .channel-item:hover {
-            border-color: #cbd5e0;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        .channel-info { flex: 1; }
-        .channel-id {
-            font-size: 16px;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 4px;
-        }
-        .channel-title {
-            font-size: 13px;
-            color: #718096;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-        .status-active {
-            background: #c6f6d5;
-            color: #22543d;
-        }
-        .status-inactive {
-            background: #fed7d7;
-            color: #742a2a;
-        }
-        .channel-actions {
-            display: flex;
-            gap: 8px;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #a0aec0;
-        }
-        .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        .alert {
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 14px;
-        }
-        .alert-success {
-            background: #c6f6d5;
-            color: #22543d;
-            border: 1px solid #9ae6b4;
-        }
-        .alert-error {
-            background: #fed7d7;
-            color: #742a2a;
-            border: 1px solid #fc8181;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kanallarni Boshqarish</title>
+  <style>
+    *{{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}}
+    body{{background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:20px}}
+    .container{{max-width:900px;margin:0 auto}}
+    .box{{background:#fff;padding:25px 30px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.1);margin-bottom:24px}}
+    h1{{color:#2d3748;font-size:26px;margin-bottom:6px}}
+    h2{{color:#2d3748;font-size:18px;margin-bottom:14px}}
+    .input-group{{display:flex;gap:10px;margin-bottom:10px}}
+    .input-group input{{flex:1;padding:12px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:15px;outline:none;transition:.2s}}
+    .input-group input:focus{{border-color:#667eea}}
+    button{{padding:11px 20px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:.2s}}
+    .btn-primary{{background:#667eea;color:#fff}}
+    .btn-primary:hover{{background:#5568d3}}
+    .btn-success{{background:#48bb78;color:#fff}}
+    .btn-danger{{background:#f56565;color:#fff}}
+    .btn-sm{{padding:8px 14px;font-size:13px}}
+    .channel-item{{display:flex;align-items:center;justify-content:space-between;padding:14px;border:2px solid #e2e8f0;border-radius:12px;margin-bottom:10px;transition:.2s}}
+    .channel-item:hover{{border-color:#cbd5e0;box-shadow:0 4px 12px rgba(0,0,0,.06)}}
+    .channel-info{{flex:1}}
+    .channel-id{{font-size:16px;font-weight:600;color:#2d3748;margin-bottom:3px}}
+    .channel-title{{font-size:13px;color:#718096}}
+    .channel-actions{{display:flex;gap:8px}}
+    .alert{{padding:11px 14px;border-radius:8px;margin-bottom:12px;font-size:14px;display:none}}
+    .alert-success{{background:#c6f6d5;color:#22543d;border:1px solid #9ae6b4}}
+    .alert-error{{background:#fed7d7;color:#742a2a;border:1px solid #fc8181}}
+    .back{{display:inline-block;margin-bottom:16px;color:#fff;text-decoration:none;font-weight:600;opacity:.85}}
+    .back:hover{{opacity:1}}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📢 Majburiy Kanallar</h1>
-            <p>Botdan foydalanish uchun majburiy kanallarni boshqaring</p>
-        </div>
-
-        <div class="add-form">
-            <h2>➕ Yangi Kanal Qo'shish</h2>
-            <div id="alert-box"></div>
-            <div class="input-group">
-                <input type="text" id="channel-id" placeholder="@kanal_nomi" />
-                <button class="btn btn-primary" onclick="addChannel()">Qo'shish</button>
-            </div>
-            <p style="color: #718096; font-size: 13px; margin-top: 8px;">
-                ⚠️ Bot o'sha kanalga admin sifatida qo'shilgan bo'lishi kerak!
-            </p>
-        </div>
-
-        <div class="channels-list">
-            <h2>Kanallar ro'yxati ({{channels|length}})</h2>
-            
-            {% if channels %}
-                {% for channel in channels %}
-                <div class="channel-item">
-                    <div class="channel-info">
-                        <div class="channel-id">
-                            {{channel.channel_id}}
-                            <span class="status-badge {% if channel.is_active %}status-active{% else %}status-inactive{% endif %}">
-                                {% if channel.is_active %}✅ Aktiv{% else %}❌ O'chirilgan{% endif %}
-                            </span>
-                        </div>
-                        <div class="channel-title">{{channel.channel_title or 'Nom yo\'q'}}</div>
-                    </div>
-                    <div class="channel-actions">
-                        {% if channel.is_active %}
-                            <button class="btn btn-danger btn-sm" onclick="removeChannel('{{channel.channel_id}}')">
-                                O'chirish
-                            </button>
-                        {% else %}
-                            <button class="btn btn-success btn-sm" onclick="activateChannel('{{channel.channel_id}}')">
-                                Yoqish
-                            </button>
-                        {% endif %}
-                        <button class="btn btn-danger btn-sm" onclick="deleteChannel('{{channel.channel_id}}')">
-                            🗑️ Butunlay
-                        </button>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty-state">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
-                    </svg>
-                    <h3>Kanallar yo'q</h3>
-                    <p>Hozircha majburiy kanallar qo'shilmagan</p>
-                </div>
-            {% endif %}
-        </div>
+  <div class="container">
+    <a class="back" href="/?token={token}">← Asosiy menyu</a>
+    <div class="box">
+      <h1>📢 Majburiy Kanallar</h1>
+      <p style="color:#718096;font-size:14px">Botdan foydalanish uchun majburiy bo'lgan kanallarni boshqaring</p>
     </div>
 
-    <script>
-        const token = '{{token}}';
+    <div class="box">
+      <h2>➕ Yangi Kanal Qo'shish</h2>
+      <div id="alert-box" class="alert"></div>
+      <div class="input-group">
+        <input type="text" id="channel-id" placeholder="@kanal_nomi">
+        <button class="btn-primary" onclick="addChannel()">Qo'shish</button>
+      </div>
+      <p style="color:#718096;font-size:13px">⚠️ Bot o'sha kanalga admin sifatida qo'shilgan bo'lishi kerak!</p>
+    </div>
 
-        function showAlert(message, type) {
-            const alertBox = document.getElementById('alert-box');
-            alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            setTimeout(() => alertBox.innerHTML = '', 5000);
-        }
+    <div class="box">
+      <h2>Kanallar ro'yxati ({len(channels)} ta)</h2>
+      {channel_rows}
+    </div>
+  </div>
 
-        function addChannel() {
-            const channelId = document.getElementById('channel-id').value.trim();
-            if (!channelId) {
-                showAlert('❌ Kanal nomini kiriting!', 'error');
-                return;
-            }
-            if (!channelId.startsWith('@')) {
-                showAlert('❌ Kanal nomi @ bilan boshlanishi kerak!', 'error');
-                return;
-            }
+  <script>
+    const TOKEN = '{token}';
 
-            fetch('/api/admin/channel/add', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({token, channel_id: channelId})
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) {
-                    showAlert('✅ Kanal muvaffaqiyatli qo\'shildi!', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showAlert('❌ ' + (d.error || 'Xato yuz berdi'), 'error');
-                }
-            })
-            .catch(() => showAlert('❌ Server xatosi!', 'error'));
-        }
+    function showAlert(msg, type) {{
+      const el = document.getElementById('alert-box');
+      el.className = 'alert alert-' + type;
+      el.style.display = 'block';
+      el.textContent = msg;
+      setTimeout(() => {{ el.style.display = 'none'; }}, 4000);
+    }}
 
-        function removeChannel(channelId) {
-            if (!confirm('Bu kanalni deaktivatsiya qilasizmi?')) return;
-            
-            fetch('/api/admin/channel/remove', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({token, channel_id: channelId})
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) {
-                    showAlert('✅ Kanal o\'chirildi!', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showAlert('❌ ' + (d.error || 'Xato'), 'error');
-                }
-            });
-        }
+    function apiFetch(url, body) {{
+      return fetch(url, {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{...body, token: TOKEN}})
+      }}).then(r => r.json());
+    }}
 
-        function activateChannel(channelId) {
-            fetch('/api/admin/channel/activate', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({token, channel_id: channelId})
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) {
-                    showAlert('✅ Kanal yoqildi!', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showAlert('❌ ' + (d.error || 'Xato'), 'error');
-                }
-            });
-        }
+    function addChannel() {{
+      const cid = document.getElementById('channel-id').value.trim();
+      if (!cid) return showAlert('❌ Kanal nomini kiriting!', 'error');
+      if (!cid.startsWith('@')) return showAlert('❌ @ bilan boshlang!', 'error');
+      apiFetch('/api/admin/channel/add', {{channel_id: cid}})
+        .then(d => d.success ? (showAlert('✅ Qo\'shildi!', 'success'), setTimeout(() => location.reload(), 900))
+                             : showAlert('❌ ' + (d.error || 'Xato'), 'error'))
+        .catch(() => showAlert('❌ Server xatosi', 'error'));
+    }}
 
-        function deleteChannel(channelId) {
-            if (!confirm('DIQQAT! Bu kanal butunlay bazadan o\'chiriladi. Davom etasizmi?')) return;
-            
-            fetch('/api/admin/channel/delete', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({token, channel_id: channelId})
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) {
-                    showAlert('✅ Kanal butunlay o\'chirildi!', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showAlert('❌ ' + (d.error || 'Xato'), 'error');
-                }
-            });
-        }
-    </script>
+    function removeChannel(cid) {{
+      if (!confirm('Kanalni deaktivatsiya qilasizmi?')) return;
+      apiFetch('/api/admin/channel/remove', {{channel_id: cid}})
+        .then(d => d.success ? (showAlert('✅ O\'chirildi', 'success'), setTimeout(() => location.reload(), 900))
+                             : showAlert('❌ ' + (d.error || 'Xato'), 'error'));
+    }}
+
+    function activateChannel(cid) {{
+      apiFetch('/api/admin/channel/activate', {{channel_id: cid}})
+        .then(d => d.success ? (showAlert('✅ Yoqildi!', 'success'), setTimeout(() => location.reload(), 900))
+                             : showAlert('❌ ' + (d.error || 'Xato'), 'error'));
+    }}
+
+    function deleteChannel(cid) {{
+      if (!confirm('DIQQAT! Kanal butunlay bazadan o\'chiriladi. Davom etasizmi?')) return;
+      apiFetch('/api/admin/channel/delete', {{channel_id: cid}})
+        .then(d => d.success ? (showAlert('✅ O\'chirildi!', 'success'), setTimeout(() => location.reload(), 900))
+                             : showAlert('❌ ' + (d.error || 'Xato'), 'error'));
+    }}
+  </script>
 </body>
-</html>
-    """, token=token, channels=channels, lang=lang)
+</html>"""
+    return page
 
 @app.route("/api/admin/channel/add", methods=["POST"])
 def api_admin_channel_add():
