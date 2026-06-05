@@ -288,64 +288,62 @@
 
   <nav>
     <div class="navbar">
-      <h1><a href="https://t.me/geo_ustoz_bot" target="_blank" style="text-decoration: none; color: inherit;">Testchi</a></h1>
+      <h1><a href="/?token={{ token }}" style="text-decoration: none; color: inherit;">🎓 Testchi</a></h1>
       <div class="links">
 
-        <div style="display: flex; align-items: center; border-right: 1px solid rgba(255,255,255,0.2); padding-right: 10px; margin-right: 5px;">
-          <form action="/set-lang" method="POST" style="margin: 0;">
-              <input type="hidden" name="token" value="{{ token }}">
-              <input type="hidden" name="lang" value="uz">
-              <button type="submit" class="lang-btn {{ 'active' if lang == 'uz' else '' }}" title="Lotin">🇺🇿</button>
+        {# TIL TUGMALARI #}
+        <div style="display:flex;align-items:center;border-right:1px solid rgba(255,255,255,0.2);padding-right:10px;margin-right:5px;">
+          <form action="/set-lang" method="POST" style="margin:0;">
+            <input type="hidden" name="token" value="{{ token }}">
+            <input type="hidden" name="lang" value="uz">
+            <button type="submit" class="lang-btn {{ 'active' if lang=='uz' else '' }}" title="Lotin">🇺🇿</button>
           </form>
-          <form action="/set-lang" method="POST" style="margin: 0;">
-              <input type="hidden" name="token" value="{{ token }}">
-              <input type="hidden" name="lang" value="uz_cyrl">
-              <button type="submit" class="lang-btn {{ 'active' if lang == 'uz_cyrl' else '' }}" title="Кирилл">🇺🇿 Кр</button>
+          <form action="/set-lang" method="POST" style="margin:0;">
+            <input type="hidden" name="token" value="{{ token }}">
+            <input type="hidden" name="lang" value="uz_cyrl">
+            <button type="submit" class="lang-btn {{ 'active' if lang=='uz_cyrl' else '' }}" title="Кирилл">Кр</button>
           </form>
-          <form action="/set-lang" method="POST" style="margin: 0;">
-              <input type="hidden" name="token" value="{{ token }}">
-              <input type="hidden" name="lang" value="ru">
-              <button type="submit" class="lang-btn {{ 'active' if lang == 'ru' else '' }}" title="Русский">🇷🇺</button>
+          <form action="/set-lang" method="POST" style="margin:0;">
+            <input type="hidden" name="token" value="{{ token }}">
+            <input type="hidden" name="lang" value="ru">
+            <button type="submit" class="lang-btn {{ 'active' if lang=='ru' else '' }}" title="Русский">🇷🇺</button>
           </form>
         </div>
 
-        <a href="/?token={{ token }}" style="background: rgba(255,255,255,0.15);">
-            {% if lang == 'uz' %}Dashboard{% elif lang == 'uz_cyrl' %}Дашборд{% else %}Главная{% endif %}
+        {# FOYDALANUVCHI HAVOLALARI #}
+        <a href="/?token={{ token }}" style="background:rgba(255,255,255,0.15);">
+          🏠 {% if lang=='uz' %}Bosh{% elif lang=='uz_cyrl' %}Бош{% else %}Главная{% endif %}
         </a>
+        <a href="/stats?token={{ token }}">📊</a>
+        <a href="/achievements?token={{ token }}">🏅</a>
+        <a href="/leaderboard?token={{ token }}">🏆</a>
+        <a href="/library?token={{ token }}">📚</a>
+        <a href="/flashcards?token={{ token }}">🃏</a>
+        <a href="/my-groups?token={{ token }}">👥</a>
+        <a href="/notifications?token={{ token }}" style="position:relative">
+          🔔
+          {# <span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#f56565;color:#fff;border-radius:999px;font-size:10px;padding:1px 5px">0</span> #}
+        </a>
+        <a href="/affiliate?token={{ token }}">🤝</a>
+        <a href="/account?token={{ token }}">👤</a>
 
+        {# ADMIN HAVOLALARI — FAQAT ADMINGA KO'RINADI #}
         {% if is_admin %}
-          <a href="/admin/chats?token={{ token }}" style="color: #f6ad55; border-color: rgba(246, 173, 85, 0.4);">
-              {% if lang == 'uz' %}💬 Xabarlar{% elif lang == 'uz_cyrl' %}💬 Хабарлар{% else %}💬 Сообщения{% endif %}
-          </a>
-          <a href="/pendings?token={{ token }}" style="color: #6cb2ff; border-color: rgba(108, 178, 255, 0.4);">
-              {% if lang == 'uz' %}💰 To'lovlar{% elif lang == 'uz_cyrl' %}💰 Тўловлар{% else %}💰 Платежи{% endif %}
-          </a>
-          <a href="/admin/users?token={{ token }}" style="color: #38d39f; border-color: rgba(56, 211, 159, 0.4);">
-              {% if lang == 'uz' %}👥 Admin Panel{% elif lang == 'uz_cyrl' %}👥 Админ Панель{% else %}👥 Админ Панель{% endif %}
-          </a>
-          <a href="/admin/tests?token={{ token }}" style="color: #b794f4; border-color: rgba(183, 148, 244, 0.4);">
-              {% if lang == 'uz' %}🧩 Barcha Testlar{% elif lang == 'uz_cyrl' %}🧩 Барча Тестлар{% else %}🧩 Все Тесты{% endif %}
-          </a>
-          <a href="/admin/channels?token={{ token }}" style="color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
-              {% if lang == 'uz' %}📢 Kanallar{% elif lang == 'uz_cyrl' %}📢 Каналлар{% else %}📢 Каналы{% endif %}
-          </a>
-          <a href="/admin/stats?token={{ token }}" style="color: #38d39f; border-color: rgba(56, 211, 159, 0.4);">
-              {% if lang == 'uz' %}📈 Statistika{% elif lang == 'uz_cyrl' %}📈 Статистика{% else %}📈 Статистика{% endif %}
-          </a>
-          <a href="/admin/broadcast?token={{ token }}" style="color: #f87171; border-color: rgba(248, 113, 113, 0.4);">
-              {% if lang == 'uz' %}📢 Broadcast{% elif lang == 'uz_cyrl' %}📢 Broadcast{% else %}📢 Рассылка{% endif %}
-          </a>
-          <a href="/admin/ads?token={{ token }}" style="color: #c084fc; border-color: rgba(192, 132, 252, 0.4);">
-              {% if lang == 'uz' %}📣 Reklamalar{% elif lang == 'uz_cyrl' %}📣 Рекламалар{% else %}📣 Реклама{% endif %}
-          </a>
-          <a href="/admin/security?token={{ token }}" style="color: #f97316; border-color: rgba(249, 115, 22, 0.4);">
-              {% if lang == 'uz' %}🔐 Xavfsizlik{% elif lang == 'uz_cyrl' %}🔐 Хавфсизлик{% else %}🔐 Безопасность{% endif %}
-          </a>
+        <span style="display:flex;align-items:center;border-left:1px solid rgba(255,255,255,0.2);padding-left:10px;margin-left:5px;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px;width:100%">Admin</span>
+          <a href="/admin/users?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)" title="Foydalanuvchilar">👥</a>
+          <a href="/admin/stats?token={{ token }}" style="color:#68d391;border-color:rgba(104,211,145,0.4)" title="Global statistika">📈</a>
+          <a href="/admin/channels?token={{ token }}" style="color:#fbbf24;border-color:rgba(251,191,36,0.4)" title="Kanallar">📢</a>
+          <a href="/admin/broadcast?token={{ token }}" style="color:#f87171;border-color:rgba(248,113,113,0.4)" title="Broadcast">📣</a>
+          <a href="/admin/ads?token={{ token }}" style="color:#c084fc;border-color:rgba(192,132,252,0.4)" title="Reklamalar">💰</a>
+          <a href="/pendings?token={{ token }}" style="color:#6cb2ff;border-color:rgba(108,178,255,0.4)" title="To'lovlar">💳</a>
+          <a href="/admin/tests?token={{ token }}" style="color:#b794f4;border-color:rgba(183,148,244,0.4)" title="Barcha testlar">🧩</a>
+          <a href="/admin/chats?token={{ token }}" style="color:#f6ad55;border-color:rgba(246,173,85,0.4)" title="Xabarlar">💬</a>
+          <a href="/admin/security?token={{ token }}" style="color:#f97316;border-color:rgba(249,115,22,0.4)" title="Xavfsizlik">🔐</a>
+          <a href="/admin/ai-chats?token={{ token }}" style="color:#38d39f;border-color:rgba(56,211,159,0.4)" title="AI chatlar">🤖</a>
+        </span>
         {% endif %}
 
-        <a href="/account?token={{ token }}">
-            {% if lang == 'uz' %}Hisobim{% elif lang == 'uz_cyrl' %}Ҳисобим{% else %}Мой профиль{% endif %}
-        </a>
       </div>
     </div>
   </nav>
@@ -360,66 +358,107 @@
       </p>
     </section>
 
-    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 20px; gap: 15px;">
-        <a href="/ai-chat?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: linear-gradient(135deg, rgba(56, 211, 159, 0.1), rgba(45, 184, 136, 0.1)); border-color: rgba(56, 211, 159, 0.3);">
-            <div style="font-size: 35px;">🤖</div>
-            <div style="font-weight: 600; color: #38d39f; font-size: 16px;">AI Chat</div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 20px; gap: 14px;">
+
+        {# FOYDALANUVCHI KARTALAR #}
+        <a href="/ai-chat?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(56,211,159,0.1),rgba(45,184,136,0.1));border-color:rgba(56,211,159,0.3);">
+            <div style="font-size:32px;">🤖</div>
+            <div style="font-weight:600;color:#38d39f;font-size:14px;">AI Chat</div>
+        </a>
+        <a href="/search?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">🔍</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Qidiruv' if lang=='uz' else ('Қидирув' if lang=='uz_cyrl' else 'Поиск') }}</div>
+        </a>
+        <a href="/stats?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">📊</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Statistika' if lang=='uz' else ('Статистика' if lang=='uz_cyrl' else 'Статистика') }}</div>
+        </a>
+        <a href="/achievements?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">🏅</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Yutuqlar' if lang=='uz' else ('Ютуқлар' if lang=='uz_cyrl' else 'Достижения') }}</div>
+        </a>
+        <a href="/leaderboard?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">🏆</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Reyting' if lang=='uz' else ('Рейтинг' if lang=='uz_cyrl' else 'Рейтинг') }}</div>
+        </a>
+        <a href="/library?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">📚</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Kutubxona' if lang=='uz' else ('Кутубхона' if lang=='uz_cyrl' else 'Библиотека') }}</div>
+        </a>
+        <a href="/flashcards?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">🃏</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">Flashcards</div>
+        </a>
+        <a href="/question-bank?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">📦</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Savol Banki' if lang=='uz' else ('Савол Банки' if lang=='uz_cyrl' else 'Банк вопросов') }}</div>
+        </a>
+        <a href="/my-groups?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">👥</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Guruhlar' if lang=='uz' else ('Гуруҳлар' if lang=='uz_cyrl' else 'Группы') }}</div>
+        </a>
+        <a href="/notifications?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">🔔</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Bildirishnomalar' if lang=='uz' else ('Билдиришномалар' if lang=='uz_cyrl' else 'Уведомления') }}</div>
+        </a>
+        <a href="/affiliate?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">🤝</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Hamkor' if lang=='uz' else ('Ҳамкор' if lang=='uz_cyrl' else 'Партнёр') }}</div>
+        </a>
+        <a href="/guide?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <div style="font-size:32px;">📖</div>
+            <div style="font-weight:600;color:var(--text);font-size:14px;">{{ 'Qo`llanma' if lang=='uz' else ('Қўлланма' if lang=='uz_cyrl' else 'Инструкция') }}</div>
         </a>
 
-        <a href="/search?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">🔍</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Qidiruv' if lang == 'uz' else ('Қидирув' if lang == 'uz_cyrl' else 'Поиск') }}</div>
+        {# ADMIN MAXSUS KARTALAR — FAQAT ADMINGA #}
+        {% if is_admin %}
+        <a href="/admin/users?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(104,211,145,0.12),rgba(56,178,172,0.08));border-color:rgba(104,211,145,0.35);">
+            <div style="font-size:32px;">👥</div>
+            <div style="font-weight:700;color:#68d391;font-size:13px;">{{ 'Foydalanuvchilar' if lang=='uz' else ('Фойдаланувчилар' if lang=='uz_cyrl' else 'Пользователи') }}</div>
+            <span style="font-size:10px;color:rgba(104,211,145,0.8);background:rgba(104,211,145,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
         </a>
+        <a href="/admin/stats?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(104,211,145,0.12),rgba(56,178,172,0.08));border-color:rgba(104,211,145,0.35);">
+            <div style="font-size:32px;">📈</div>
+            <div style="font-weight:700;color:#68d391;font-size:13px;">Global Stat</div>
+            <span style="font-size:10px;color:rgba(104,211,145,0.8);background:rgba(104,211,145,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/channels?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.08));border-color:rgba(251,191,36,0.35);">
+            <div style="font-size:32px;">📢</div>
+            <div style="font-weight:700;color:#fbbf24;font-size:13px;">{{ 'Kanallar' if lang=='uz' else ('Каналлар' if lang=='uz_cyrl' else 'Каналы') }}</div>
+            <span style="font-size:10px;color:rgba(251,191,36,0.8);background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/broadcast?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(248,113,113,0.12),rgba(239,68,68,0.08));border-color:rgba(248,113,113,0.35);">
+            <div style="font-size:32px;">📣</div>
+            <div style="font-weight:700;color:#f87171;font-size:13px;">Broadcast</div>
+            <span style="font-size:10px;color:rgba(248,113,113,0.8);background:rgba(248,113,113,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/ads?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(192,132,252,0.12),rgba(167,139,250,0.08));border-color:rgba(192,132,252,0.35);">
+            <div style="font-size:32px;">💰</div>
+            <div style="font-weight:700;color:#c084fc;font-size:13px;">{{ 'Reklamalar' if lang=='uz' else ('Рекламалар' if lang=='uz_cyrl' else 'Реклама') }}</div>
+            <span style="font-size:10px;color:rgba(192,132,252,0.8);background:rgba(192,132,252,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/pendings?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(108,178,255,0.12),rgba(59,130,246,0.08));border-color:rgba(108,178,255,0.35);">
+            <div style="font-size:32px;">💳</div>
+            <div style="font-weight:700;color:#6cb2ff;font-size:13px;">{{ 'To'lovlar' if lang=='uz' else ('Тўловлар' if lang=='uz_cyrl' else 'Платежи') }}</div>
+            <span style="font-size:10px;color:rgba(108,178,255,0.8);background:rgba(108,178,255,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/tests?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(183,148,244,0.12),rgba(139,92,246,0.08));border-color:rgba(183,148,244,0.35);">
+            <div style="font-size:32px;">🧩</div>
+            <div style="font-weight:700;color:#b794f4;font-size:13px;">{{ 'Barcha Testlar' if lang=='uz' else ('Барча Тестлар' if lang=='uz_cyrl' else 'Все Тесты') }}</div>
+            <span style="font-size:10px;color:rgba(183,148,244,0.8);background:rgba(183,148,244,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/security?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(249,115,22,0.12),rgba(234,88,12,0.08));border-color:rgba(249,115,22,0.35);">
+            <div style="font-size:32px;">🔐</div>
+            <div style="font-weight:700;color:#f97316;font-size:13px;">{{ 'Xavfsizlik' if lang=='uz' else ('Хавфсизлик' if lang=='uz_cyrl' else 'Безопасность') }}</div>
+            <span style="font-size:10px;color:rgba(249,115,22,0.8);background:rgba(249,115,22,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        <a href="/admin/chats?token={{ token }}" class="card test-card" style="text-decoration:none;text-align:center;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(246,173,85,0.12),rgba(245,158,11,0.08));border-color:rgba(246,173,85,0.35);">
+            <div style="font-size:32px;">💬</div>
+            <div style="font-weight:700;color:#f6ad55;font-size:13px;">{{ 'Xabarlar' if lang=='uz' else ('Хабарлар' if lang=='uz_cyrl' else 'Сообщения') }}</div>
+            <span style="font-size:10px;color:rgba(246,173,85,0.8);background:rgba(246,173,85,0.15);padding:2px 8px;border-radius:999px">ADMIN</span>
+        </a>
+        {% endif %}
 
-        <a href="/guide?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">📖</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Qo`llanma' if lang == 'uz' else ('Қўлланма' if lang == 'uz_cyrl' else 'Инструкция') }}</div>
-        </a>
-
-        <a href="/stats?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">📊</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Statistika' if lang == 'uz' else ('Статистика' if lang == 'uz_cyrl' else 'Статистика') }}</div>
-        </a>
-
-        <a href="/achievements?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">🏅</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Yutuqlar' if lang == 'uz' else ('Ютуқлар' if lang == 'uz_cyrl' else 'Достижения') }}</div>
-        </a>
-
-        <a href="/leaderboard?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">🏆</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Reyting' if lang == 'uz' else ('Рейтинг' if lang == 'uz_cyrl' else 'Рейтинг') }}</div>
-        </a>
-
-        <a href="/library?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">📚</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Kutubxona' if lang == 'uz' else ('Кутубхона' if lang == 'uz_cyrl' else 'Библиотека') }}</div>
-        </a>
-
-        <a href="/my-groups?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">👥</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Guruhlar' if lang == 'uz' else ('Гуруҳлар' if lang == 'uz_cyrl' else 'Группы') }}</div>
-        </a>
-
-        <a href="/notifications?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">🔔</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Bildirishnomalar' if lang == 'uz' else ('Билдиришномалар' if lang == 'uz_cyrl' else 'Уведомления') }}</div>
-        </a>
-
-        <a href="/flashcards?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">🃏</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">Flashcards</div>
-        </a>
-
-        <a href="/question-bank?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">📦</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Savol banki' if lang == 'uz' else ('Савол банки' if lang == 'uz_cyrl' else 'Банк вопросов') }}</div>
-        </a>
-
-        <a href="/affiliate?token={{ token }}" class="card test-card" style="text-decoration: none; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-            <div style="font-size: 35px;">🤝</div>
-            <div style="font-weight: 600; color: var(--text); font-size: 16px;">{{ 'Hamkor dasturi' if lang == 'uz' else ('Ҳамкор дастури' if lang == 'uz_cyrl' else 'Партнёрство') }}</div>
-        </a>
     </div>
 
     <div class="card" style="border-color: #38d39f; background: rgba(56, 211, 159, 0.05); text-align: center; margin-top: 20px; margin-bottom: 20px;">

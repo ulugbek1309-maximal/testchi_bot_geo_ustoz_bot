@@ -1429,24 +1429,70 @@ async def build_main_menu(user_id: int, bot_username: str, lang: str = "uz") -> 
     is_superadmin = user_id in SUPERADMINS
     is_lower_admin = user_id in LOWER_ADMINS
 
+    # ===================== FOYDALANUVCHI MENYUSI =====================
     kb = [
-        [KeyboardButton(text=get_bot_text('btn_cabinet', lang)), KeyboardButton(text=get_bot_text('btn_account', lang))],
-        [KeyboardButton(text=get_bot_text('btn_wallet', lang))],
-        [KeyboardButton(text=get_bot_text('btn_ai', lang)), KeyboardButton(text=get_bot_text('btn_search', lang))],
-        [KeyboardButton(text=get_bot_text('btn_create_manual', lang)), KeyboardButton(text=get_bot_text('btn_create_word', lang))],
-        [KeyboardButton(text=get_bot_text('btn_results', lang)), KeyboardButton(text=get_bot_text('btn_check_chats', lang))],
-        [KeyboardButton(text=get_bot_text('btn_premium', lang)), KeyboardButton(text=get_bot_text('btn_top', lang))],
-        [KeyboardButton(text=get_bot_text('btn_add_bot', lang)), KeyboardButton(text=get_bot_text('btn_referral', lang))],
-        [KeyboardButton(text=get_bot_text('btn_lock', lang)), KeyboardButton(text="👨‍💻 Adminga murojaat")]
+        # Asosiy
+        [KeyboardButton(text=get_bot_text('btn_cabinet', lang)),
+         KeyboardButton(text=get_bot_text('btn_account', lang))],
+        # Test
+        [KeyboardButton(text=get_bot_text('btn_create_manual', lang)),
+         KeyboardButton(text=get_bot_text('btn_create_word', lang))],
+        [KeyboardButton(text=get_bot_text('btn_results', lang)),
+         KeyboardButton(text=get_bot_text('btn_search', lang))],
+        # O'rganish
+        [KeyboardButton(text=get_bot_text('btn_ai', lang)),
+         KeyboardButton(text="🃏 Flashcards")],
+        [KeyboardButton(text="📦 Savol Banki"),
+         KeyboardButton(text="📜 Sertifikatlarim")],
+        # Moliya
+        [KeyboardButton(text=get_bot_text('btn_wallet', lang)),
+         KeyboardButton(text=get_bot_text('btn_premium', lang))],
+        [KeyboardButton(text="🤝 Hamkor Dasturi"),
+         KeyboardButton(text=get_bot_text('btn_referral', lang))],
+        # Ijtimoiy
+        [KeyboardButton(text="👥 Guruhlarim"),
+         KeyboardButton(text=get_bot_text('btn_top', lang))],
+        [KeyboardButton(text="🔔 Bildirishnomalar"),
+         KeyboardButton(text="📚 Kutubxona")],
+        # Qo'shimcha
+        [KeyboardButton(text=get_bot_text('btn_add_bot', lang)),
+         KeyboardButton(text=get_bot_text('btn_lock', lang))],
+        [KeyboardButton(text="👨‍💻 Adminga murojaat"),
+         KeyboardButton(text="🤖 AI Test Yaratish")],
     ]
 
+    # ===================== ADMIN MENYUSI (faqat adminga ko'rinadi) =====================
     if is_superadmin or is_lower_admin:
-        kb.append([KeyboardButton(text="📣 Reklama Tarqatish"), KeyboardButton(text="📊 Mening reklamalarim")])
-    if is_superadmin:
-        kb.append([KeyboardButton(text="📈 Statistika"), KeyboardButton(text="📋 Kanallar ro'yxati")])
+        kb.append([
+            KeyboardButton(text="⚙️ ADMIN PANEL"),
+        ])
 
     start_text = get_bot_text('welcome', lang, name="")
     return start_text, ReplyKeyboardMarkup(kb, resize_keyboard=True, is_persistent=True)
+
+
+async def build_admin_menu(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Admin panel - barcha admin funksiyalari InlineKeyboard sifatida"""
+    return InlineKeyboardMarkup([
+        # Foydalanuvchilar
+        [InlineKeyboardButton("👥 Foydalanuvchilar", callback_data="admin_users"),
+         InlineKeyboardButton("📊 Global Statistika", callback_data="admin_stats")],
+        # Kanallar
+        [InlineKeyboardButton("📢 Kanallar Boshqaruvi", callback_data="admin_channels"),
+         InlineKeyboardButton("💬 Xabarlar (Support)", callback_data="admin_chats")],
+        # Content
+        [InlineKeyboardButton("🧩 Barcha Testlar", callback_data="admin_all_tests"),
+         InlineKeyboardButton("📣 Broadcast", callback_data="admin_broadcast")],
+        # Monetizatsiya
+        [InlineKeyboardButton("💰 To'lov So'rovlari", callback_data="admin_pendings"),
+         InlineKeyboardButton("📣 Reklamalar", callback_data="admin_ads")],
+        # Xavfsizlik
+        [InlineKeyboardButton("🔐 Xavfsizlik (IP)", callback_data="admin_security"),
+         InlineKeyboardButton("🤖 AI Chatlar", callback_data="admin_ai_chats")],
+        # Moliya
+        [InlineKeyboardButton("💎 Premium Berish", callback_data="admin_give_premium"),
+         InlineKeyboardButton("🏆 Top Affiliates", callback_data="admin_top_affiliates")],
+    ])
 
 # ==========================================
 # 📢 ADMIN - MAJBURIY KANALLARNI BOSHQARISH
@@ -2333,6 +2379,43 @@ async def cmd_mycerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n\n".join(lines), parse_mode=ParseMode.HTML,
                                      disable_web_page_preview=True)
 
+async def cmd_give_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/givepremium <user_id> <months> - Admin foydalanuvchiga premium beradi"""
+    user_id = update.effective_user.id
+    lang = get_user_lang(user_id)
+    if user_id not in SUPERADMINS:
+        await update.message.reply_text(get_bot_text('admin_only', lang))
+        return
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "❌ Format: /givepremium <user_id> <months>\n\nMisol: /givepremium 123456789 3",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    try:
+        target_id = int(context.args[0])
+        months = int(context.args[1])
+        if months < 1 or months > 60:
+            raise ValueError
+    except ValueError:
+        await update.message.reply_text("❌ User ID va oylar to'g'ri raqam bo'lishi kerak (1-60 oy).")
+        return
+    db.add_premium_months(target_id, months)
+    try:
+        await context.bot.send_message(
+            chat_id=target_id,
+            text=f"🎉 <b>Tabriklaymiz!</b>\n\nAdmin sizga <b>{months} oylik PREMIUM</b> maqomini taqdim etdi! 💎",
+            parse_mode=ParseMode.HTML
+        )
+    except Exception:
+        pass
+    await update.message.reply_text(
+        f"✅ <b>Muvaffaqiyatli!</b>\n\n"
+        f"👤 User ID: <code>{target_id}</code>\n"
+        f"💎 Premium: <b>{months} oy</b> berildi.",
+        parse_mode=ParseMode.HTML
+    )
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         try:
@@ -2656,6 +2739,211 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "cancel_delete_channel":
         await q.message.edit_text(get_bot_text('delete_channel_cancelled', lang))
         await q.answer(get_bot_text('delete_channel_cancelled', lang), show_alert=False)
+        return
+
+    # ==========================================
+    # ⚙️ ADMIN PANEL CALLBACK HANDLERLARI
+    # ==========================================
+    if data.startswith("admin_") and (user_id in SUPERADMINS or user_id in LOWER_ADMINS):
+        token = db.get_or_create_user_api_key(user_id)
+
+        if data == "admin_users":
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/users?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "👥 <b>Foydalanuvchilar paneli</b>",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("👥 Ochish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_stats":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Faqat superadmin!", show_alert=True)
+                return
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/stats?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "📊 <b>Global Statistika</b>",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("📊 Ochish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_channels":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Faqat superadmin!", show_alert=True)
+                return
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/channels?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "📢 <b>Kanallar Boshqaruvi</b>\n\nMajburiy obuna kanallarini boshqaring.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("📢 Kanallarni boshqarish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_chats":
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/chats?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "💬 <b>Support Xabarlari</b>",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("💬 Xabarlarni ochish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_all_tests":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Faqat superadmin!", show_alert=True)
+                return
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/tests?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "🧩 <b>Barcha Testlar</b>",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🧩 Testlarni ochish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_broadcast":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Faqat superadmin!", show_alert=True)
+                return
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/broadcast?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "📣 <b>Broadcast - Ommaviy Xabar</b>\n\nBarcha foydalanuvchilarga xabar yuboring.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📣 Web panel orqali", web_app=WebAppInfo(url=url))],
+                    [InlineKeyboardButton("✍️ Bot orqali yozish", callback_data="admin_broadcast_bot")]
+                ]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_broadcast_bot":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            context.user_data[K["mode"]] = "broadcast"
+            context.user_data[K["broadcast"]] = {"stage": "wait_content"}
+            await q.answer()
+            await q.message.reply_text(
+                "📣 Broadcast uchun xabar yozing (matn, rasm, video qabul qilinadi):",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_action")
+                ]])
+            )
+            return
+
+        elif data == "admin_pendings":
+            url = f"{WEB_BASE_URL.rstrip('/')}/pendings?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "💰 <b>To'lov So'rovlari</b>\n\nKutiladigan premium to'lovlarni ko'ring.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("💰 To'lovlarni ko'rish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_ads":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/ads?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "📣 <b>Reklamalar Boshqaruvi</b>",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("📣 Reklamalarni boshqarish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_security":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/security?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "🔐 <b>Xavfsizlik Boshqaruvi</b>\n\nIP whitelist va ban tarixi.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔐 Xavfsizlikni boshqarish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_ai_chats":
+            url = f"{WEB_BASE_URL.rstrip('/')}/admin/ai-chats?token={token}"
+            await q.answer()
+            await q.message.reply_text(
+                "🤖 <b>AI Chatlar</b>",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🤖 AI chatlarni ko'rish", web_app=WebAppInfo(url=url))
+                ]]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_give_premium":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            await q.answer()
+            await q.message.reply_text(
+                "💎 <b>Premium Berish</b>\n\n"
+                "Foydalanuvchiga premium berish uchun quyidagilardan birini yuboring:\n\n"
+                "<code>/givepremium USER_ID MONTHS</code>\n\n"
+                "Misol: <code>/givepremium 123456789 3</code>",
+                parse_mode=ParseMode.HTML
+            )
+            return
+
+        elif data == "admin_top_affiliates":
+            if user_id not in SUPERADMINS:
+                await q.answer("❌ Ruxsat yo'q!", show_alert=True)
+                return
+            await q.answer()
+            top = db.get_top_affiliates(limit=10)
+            lines = ["🏆 <b>Top Hamkorlar:</b>\n"]
+            for i, a in enumerate(top, 1):
+                a = dict(a)
+                name = h(a.get('first_name') or f"User{a['user_id']}")
+                lines.append(f"{i}. {name} — {a.get('total_referrals', 0)} referal · {float(a.get('total_earned', 0)):.2f} GWT")
+            await q.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+            return
+
+    # affiliate stats callback
+    if data == "affiliate_stats":
+        stats = db.get_affiliate_stats(user_id)
+        if not stats:
+            await q.answer("Statistika yo'q", show_alert=True)
+            return
+        await q.answer()
+        await q.message.reply_text(
+            f"📊 <b>Hamkorlik Statistikasi</b>\n\n"
+            f"👥 Jami refetallar: <b>{stats.get('referral_count', 0)}</b>\n"
+            f"💎 Premium refetallar: <b>{stats.get('premium_referrals', 0)}</b>\n"
+            f"💰 Jami topilgan: <b>{float(stats.get('total_earned', 0)):.2f} GWT</b>\n"
+            f"💳 Balans: <b>{float(stats.get('balance', 0)):.2f} GWT</b>",
+            parse_mode=ParseMode.HTML
+        )
         return
 
     is_superadmin = user_id in SUPERADMINS
@@ -3909,10 +4197,24 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     all_btns = []
-    for k in ["btn_cabinet", "btn_account", "btn_wallet", "btn_ai", "btn_search", "btn_premium", "btn_create_manual", "btn_create_word", "btn_results", "btn_check_chats", "btn_add_bot", "btn_lock", "btn_finish_test_session", "btn_referral", "btn_top"]:
+    for k in ["btn_cabinet", "btn_account", "btn_wallet", "btn_ai", "btn_search", "btn_premium",
+              "btn_create_manual", "btn_create_word", "btn_results", "btn_check_chats",
+              "btn_add_bot", "btn_lock", "btn_finish_test_session", "btn_referral", "btn_top"]:
         all_btns.extend(get_all_localized_buttons(k))
 
-    admin_btns = ["📣 Reklama Tarqatish", "📊 Mening reklamalarim", "📈 Statistika", "📋 Kanallar ro'yxati"]
+    # Yangi foydalanuvchi tugmalari
+    new_user_btns = [
+        "🃏 Flashcards", "📦 Savol Banki", "📜 Sertifikatlarim",
+        "🤝 Hamkor Dasturi", "👥 Guruhlarim", "🔔 Bildirishnomalar",
+        "📚 Kutubxona", "🤖 AI Test Yaratish",
+    ]
+    all_btns.extend(new_user_btns)
+
+    # Admin tugmalari
+    admin_btns = [
+        "📣 Reklama Tarqatish", "📊 Mening reklamalarim",
+        "📈 Statistika", "📋 Kanallar ro'yxati", "⚙️ ADMIN PANEL",
+    ]
     all_btns.extend(admin_btns)
     all_btns.extend(["👨‍💻 Adminga murojaat", "🚪 Chatdan chiqish"])
 
@@ -4125,6 +4427,118 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text in get_all_localized_buttons("btn_check_chats"):
         await show_user_chats(update, context)
         return
+
+    # ==========================================
+    # 🆕 YANGI FOYDALANUVCHI TUGMALARI
+    # ==========================================
+    elif text == "🃏 Flashcards":
+        token = db.get_or_create_user_api_key(user_id)
+        url = f"{WEB_BASE_URL.rstrip('/')}/flashcards?token={token}"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🃏 Flashcardlarni ochish", web_app=WebAppInfo(url=url))
+        ]])
+        await update.effective_chat.send_message(
+            "🃏 <b>Flashcards</b>\n\nKartlar yordamida bilimlaringizni mustahkamlang!\n\n"
+            "• O'z kartlaringizni yarating\n• Ommaviy kartlarni o'rganing\n• Progress kuzating",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    elif text == "📦 Savol Banki":
+        token = db.get_or_create_user_api_key(user_id)
+        url = f"{WEB_BASE_URL.rstrip('/')}/question-bank?token={token}"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("📦 Savol bankini ochish", web_app=WebAppInfo(url=url))
+        ]])
+        await update.effective_chat.send_message(
+            "📦 <b>Savol Banki</b>\n\nSavollarni saqlang va qayta ishlating!\n\n"
+            "• Testlardan savollarni import qiling\n• Saqlangan savollardan yangi test yarating",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    elif text == "📜 Sertifikatlarim":
+        await cmd_mycerts(update, context)
+        return
+
+    elif text == "🤝 Hamkor Dasturi":
+        token = db.get_or_create_user_api_key(user_id)
+        url = f"{WEB_BASE_URL.rstrip('/')}/affiliate?token={token}"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🤝 Hamkor panelingiz", web_app=WebAppInfo(url=url))],
+            [InlineKeyboardButton("📊 Statistika", callback_data="affiliate_stats")]
+        ])
+        aff = db.get_or_create_affiliate(user_id)
+        ref_link = f"https://t.me/{context.bot.username}?start=ref_{user_id}"
+        await update.effective_chat.send_message(
+            f"🤝 <b>Hamkor Dasturi</b>\n\n"
+            f"Do'stlaringizni taklif qiling va bonus oling!\n\n"
+            f"🔑 Referal kodingiz: <code>{aff['ref_code']}</code>\n"
+            f"🔗 Havolangiz:\n<code>{ref_link}</code>\n\n"
+            f"💡 Har 10 ta yangi do'st = 1 oylik Premium!",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    elif text == "👥 Guruhlarim":
+        await cmd_groups(update, context)
+        return
+
+    elif text == "🔔 Bildirishnomalar":
+        await cmd_notifications(update, context)
+        return
+
+    elif text == "📚 Kutubxona":
+        token = db.get_or_create_user_api_key(user_id)
+        url = f"{WEB_BASE_URL.rstrip('/')}/library?token={token}"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("📚 Kutubxonani ochish", web_app=WebAppInfo(url=url))
+        ]])
+        await update.effective_chat.send_message(
+            "📚 <b>Testlar Kutubxonasi</b>\n\nBarcha ommaviy testlar bir joyda!\n\n"
+            "🔍 Kategoriya bo'yicha filtrlash\n"
+            "⭐ Eng yuqori baholangan testlar\n"
+            "🔥 Eng ko'p yechilgan testlar",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    elif text == "🤖 AI Test Yaratish":
+        context.user_data[K["mode"]] = "ai_test_topic"
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_action")]])
+        await update.effective_chat.send_message(
+            "🤖 <b>AI Test Generatsiyasi</b>\n\n"
+            "Test mavzusini yozing va AI avtomatik 5 ta savol yaratib beradi!\n\n"
+            "📝 Misol: <i>O'zbekiston tarixi</i>, <i>Matematika trigonometriya</i>\n\n"
+            "Mavzuni yozing:",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # ⚙️ ADMIN PANEL
+    # ==========================================
+    elif text == "⚙️ ADMIN PANEL":
+        if user_id not in SUPERADMINS and user_id not in LOWER_ADMINS:
+            return
+        kb = await build_admin_menu(lang)
+        token = db.get_or_create_user_api_key(user_id)
+        global_stats = db.get_global_stats()
+        await update.effective_chat.send_message(
+            f"⚙️ <b>ADMIN PANEL</b>\n\n"
+            f"👥 Foydalanuvchilar: <b>{global_stats['total_users']}</b>\n"
+            f"🧩 Testlar: <b>{global_stats['total_tests']}</b>\n"
+            f"✅ Yechilgan: <b>{global_stats['total_sessions']}</b>\n"
+            f"💎 Premium: <b>{global_stats['premium_users']}</b>\n"
+            f"🆕 Bugun: <b>+{global_stats['new_users_today']}</b>\n\n"
+            f"Quyidagi tugmalardan keraklisini tanlang:",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
+        return
+
+    # ==========================================
+    # 🤖 AI TEST TOPIC - mode handler
+    # ==========================================
 
     elif text in get_all_localized_buttons("btn_referral"):
         ref_link = f"https://t.me/{context.bot.username}?start=ref_{user_id}"
@@ -4476,6 +4890,49 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         wait_msg = await update.effective_chat.send_message(get_bot_text('ai_thinking', lang), parse_mode=ParseMode.HTML)
         await process_ai_message(update, context, user_id, text, wait_msg)
+        return
+
+    # ==========================================
+    # 🤖 AI TEST YARATISH (mavzu kiritilganda)
+    # ==========================================
+    if mode == "ai_test_topic":
+        context.user_data.pop(K["mode"], None)
+        topic = text.strip()
+        if len(topic) < 3:
+            await update.effective_chat.send_message("❌ Mavzu juda qisqa! Kamida 3 ta harf kiriting.")
+            return
+        status = await update.effective_chat.send_message(
+            f"🤖 AI <b>{h(topic)}</b> mavzusida test tuzmoqda... ⏳",
+            parse_mode=ParseMode.HTML
+        )
+        questions, err = await asyncio.to_thread(ai_generate_questions, topic, 5)
+        if err or not questions:
+            await status.edit_text(f"❌ {err or 'Savollar yaratilmadi. Mavzuni aniqroq yozing.'}")
+            return
+        test_id = uuid.uuid4().hex[:10]
+        title = f"AI: {topic}"[:100]
+        try:
+            db.create_test(test_id=test_id, owner_user_id=user_id, chat_id=user_id,
+                           title=title, per_question_sec=60, created_at=now_ts())
+            for i, q in enumerate(questions):
+                db.add_question(test_id, i, q["question"], q["options"], int(q["correct_index"]))
+        except Exception as e:
+            logging.error(f"AI test saqlash xatosi: {e}")
+            await status.edit_text("❌ Testni saqlashda xato.")
+            return
+        token = db.get_or_create_user_api_key(user_id)
+        solve_url = f"{WEB_BASE_URL.rstrip('/')}/solve/{test_id}?token={token}"
+        manage_url = f"{WEB_BASE_URL.rstrip('/')}/test/{test_id}?token={token}"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("▶️ Testni yechish", web_app=WebAppInfo(url=solve_url))],
+            [InlineKeyboardButton("⚙️ Boshqarish", web_app=WebAppInfo(url=manage_url))]
+        ])
+        await status.edit_text(
+            f"✅ <b>Test tayyor!</b>\n\n"
+            f"📝 <b>{h(title)}</b>\n"
+            f"❓ Savollar: <b>{len(questions)}</b> ta",
+            reply_markup=kb, parse_mode=ParseMode.HTML
+        )
         return
 
     if mode == "search":
@@ -5529,6 +5986,9 @@ if __name__ == "__main__":
 
     # Sertifikat
     app.add_handler(CommandHandler(["mycerts", "sertifikatlarim"], cmd_mycerts))
+
+    # Admin - Premium berish
+    app.add_handler(CommandHandler("givepremium", cmd_give_premium))
 
     # 3. Tugmalar va Matnlar (Messages & Callbacks)
     app.add_handler(CallbackQueryHandler(on_callback))
