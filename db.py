@@ -1540,38 +1540,55 @@ class DB:
         with self._conn() as c:
             return c.execute("SELECT * FROM chats ORDER BY updated_at DESC").fetchall()
 
-    def create_ad(self, ad_id, creator_id, reply_text):
+    # --- Bot uchun oddiy reklama (main.py tomonidan ishlatiladi) ---
+    def create_bot_ad(self, ad_id, creator_id, reply_text):
+        """Bot inline-reklama yaratish (ads jadvali). Web admin paneli uchun create_ad() ishlatiladi."""
         with self._conn() as c:
-            c.execute("INSERT INTO ads (ad_id, creator_id, reply_text, created_at) VALUES (%s, %s, %s, %s)",
-                      (ad_id, creator_id, reply_text, int(time.time())))
+            try:
+                c.execute("INSERT INTO ads (ad_id, creator_id, reply_text, created_at) VALUES (%s, %s, %s, %s)",
+                          (ad_id, creator_id, reply_text, int(time.time())))
+            except Exception:
+                pass  # ads jadvali bo'lmasa o'tkazib yuborish
 
-    def get_ad(self, ad_id):
+    def get_bot_ad(self, ad_id):
+        """Bot inline-reklamani olish (ads jadvali)."""
         with self._conn() as c:
-            return c.execute("SELECT * FROM ads WHERE ad_id=%s", (ad_id,)).fetchone()
+            try:
+                return c.execute("SELECT * FROM ads WHERE ad_id=%s", (ad_id,)).fetchone()
+            except Exception:
+                return None
 
     def register_ad_click(self, ad_id, user_id):
+        """Bot reklama bosilishini qayd etish."""
         with self._conn() as c:
-            c.execute("INSERT IGNORE INTO ad_clicks (ad_id, user_id, clicked_at) VALUES (%s, %s, %s)",
-                      (ad_id, user_id, int(time.time())))
+            try:
+                c.execute("INSERT IGNORE INTO ad_clicks (ad_id, user_id, clicked_at) VALUES (%s, %s, %s)",
+                          (ad_id, user_id, int(time.time())))
+            except Exception:
+                pass
 
     def get_ad_stats(self, user_id, is_superadmin):
+        """Bot reklama statistikasi (ads jadvali)."""
         with self._conn() as c:
-            if is_superadmin:
-                return c.execute("""
-                    SELECT a.*, COUNT(c.user_id) as clicks, u.username, u.first_name
-                    FROM ads a
-                    LEFT JOIN ad_clicks c ON a.ad_id = c.ad_id
-                    LEFT JOIN users u ON a.creator_id = u.user_id
-                    GROUP BY a.ad_id ORDER BY a.created_at DESC
-                """).fetchall()
-            else:
-                return c.execute("""
-                    SELECT a.*, COUNT(c.user_id) as clicks
-                    FROM ads a
-                    LEFT JOIN ad_clicks c ON a.ad_id = c.ad_id
-                    WHERE a.creator_id=%s
-                    GROUP BY a.ad_id ORDER BY a.created_at DESC
-                """, (user_id,)).fetchall()
+            try:
+                if is_superadmin:
+                    return c.execute("""
+                        SELECT a.*, COUNT(c.user_id) as clicks, u.username, u.first_name
+                        FROM ads a
+                        LEFT JOIN ad_clicks c ON a.ad_id = c.ad_id
+                        LEFT JOIN users u ON a.creator_id = u.user_id
+                        GROUP BY a.ad_id ORDER BY a.created_at DESC
+                    """).fetchall()
+                else:
+                    return c.execute("""
+                        SELECT a.*, COUNT(c.user_id) as clicks
+                        FROM ads a
+                        LEFT JOIN ad_clicks c ON a.ad_id = c.ad_id
+                        WHERE a.creator_id=%s
+                        GROUP BY a.ad_id ORDER BY a.created_at DESC
+                    """, (user_id,)).fetchall()
+            except Exception:
+                return []
 
     # ================= 🆘 SUPPORT & MESSAGES =================
     def save_message(self, target_id, msg_id, sender_role, text, ts):
@@ -3163,34 +3180,62 @@ def to_dict_safe(row):
 
     # ================= 📊 GLOBAL STATISTIKA (KENGAYTIRILGAN) =================
     def get_extended_global_stats(self):
-        """Admin uchun kengaytirilgan statistika"""
+        """Admin uchun kengaytirilgan statistika — yo'q jadvallar xato bermasdan 0 qaytaradi"""
         with self._conn() as c:
             base = self.get_global_stats()
+
             # Bugungi aktiv foydalanuvchilar
             today = int(time.time()) - 86400
-            active_today = c.execute("""SELECT COUNT(DISTINCT user_id) as cnt
-                FROM sessions WHERE started_at >= %s""", (today,)).fetchone()
+            try:
+                active_today = c.execute("""SELECT COUNT(DISTINCT user_id) as cnt
+                    FROM sessions WHERE started_at >= %s""", (today,)).fetchone()
+                active_today_cnt = dict(active_today)['cnt'] if active_today else 0
+            except Exception:
+                active_today_cnt = 0
+
             # Jami token aylanmasi
-            circulation = c.execute("""SELECT SUM(balance) as total
-                FROM wallets WHERE user_id != 0""").fetchone()
-            # Staking statistikasi
-            staking_stats = c.execute("""SELECT COUNT(*) as cnt, SUM(amount) as total_staked
-                FROM staking WHERE is_active=1""").fetchone()
+            try:
+                circulation = c.execute("""SELECT SUM(balance) as total
+                    FROM wallets WHERE user_id != 0""").fetchone()
+                token_circulation = float(dict(circulation)['total'] or 0) if circulation else 0.0
+            except Exception:
+                token_circulation = 0.0
+
+            # Staking statistikasi — jadval olib tashlangan, 0 qaytaramiz
+            total_staked = 0.0
+            staking_count = 0
+
             # Kupon statistikasi
-            coupon_stats = c.execute("SELECT COUNT(*) as cnt, SUM(use_count) as uses FROM coupons").fetchone()
+            try:
+                coupon_stats = c.execute(
+                    "SELECT COUNT(*) as cnt, SUM(use_count) as uses FROM coupons"
+                ).fetchone()
+                coupon_count = dict(coupon_stats)['cnt'] if coupon_stats else 0
+                coupon_uses  = dict(coupon_stats)['uses'] if coupon_stats else 0
+            except Exception:
+                coupon_count = 0
+                coupon_uses  = 0
+
             # Challenge statistikasi
-            challenge_stats = c.execute("""SELECT COUNT(*) as cnt,
-                COUNT(CASE WHEN status='finished' THEN 1 END) as finished
-                FROM challenges""").fetchone()
+            try:
+                challenge_stats = c.execute("""SELECT COUNT(*) as cnt,
+                    COUNT(CASE WHEN status='finished' THEN 1 END) as finished
+                    FROM challenges""").fetchone()
+                challenge_count    = dict(challenge_stats)['cnt']      if challenge_stats else 0
+                challenge_finished = dict(challenge_stats)['finished'] if challenge_stats else 0
+            except Exception:
+                challenge_count    = 0
+                challenge_finished = 0
+
             base.update({
-                "active_today": dict(active_today)['cnt'] if active_today else 0,
-                "token_circulation": float(dict(circulation)['total'] or 0) if circulation else 0,
-                "total_staked": float(dict(staking_stats)['total_staked'] or 0) if staking_stats else 0,
-                "staking_count": dict(staking_stats)['cnt'] if staking_stats else 0,
-                "coupon_count": dict(coupon_stats)['cnt'] if coupon_stats else 0,
-                "coupon_uses": dict(coupon_stats)['uses'] if coupon_stats else 0,
-                "challenge_count": dict(challenge_stats)['cnt'] if challenge_stats else 0,
-                "challenge_finished": dict(challenge_stats)['finished'] if challenge_stats else 0,
+                "active_today":       active_today_cnt,
+                "token_circulation":  token_circulation,
+                "total_staked":       total_staked,
+                "staking_count":      staking_count,
+                "coupon_count":       coupon_count,
+                "coupon_uses":        coupon_uses,
+                "challenge_count":    challenge_count,
+                "challenge_finished": challenge_finished,
             })
             return base
 
