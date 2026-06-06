@@ -348,7 +348,7 @@
       let previewHtml = '';
       let delBtnDisplay = 'none';
       if (qPhotoId) {
-         previewHtml = `<img src="/tg-image?token={{ token }}&path=${encodeURIComponent(qPhotoId)}" style="max-height: 120px; border-radius: 8px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1);">`;
+         previewHtml = `<img src="/q-image/${encodeURIComponent(qPhotoId)}?token={{ token }}" style="max-height: 120px; border-radius: 8px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1);">`;
          delBtnDisplay = 'block';
       }
 

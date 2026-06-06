@@ -1497,23 +1497,62 @@ def tg_image():
     except Exception as e:
         return f"SERVER XATOSI: {str(e)}", 500
 
-@app.route("/q-image/<photo_id>")
+@app.route("/q-image/<path:photo_id>")
 def q_image(photo_id):
+    """Savol rasmi — WEB_ (lokal), http(s) (to'g'ridan URL), yoki Telegram file_id"""
     token = request.args.get("token")
     user = validate_token(token)
     if not user: return abort(401)
 
     try:
+        # 1. Lokal yuklangan rasm: WEB_filename.jpg
+        if photo_id.startswith("WEB_"):
+            filename = photo_id[4:]          # "WEB_" ni olib tashlash
+            upload_dir = os.path.join(app.root_path, "static", "uploads")
+            filepath = os.path.join(upload_dir, filename)
+            if os.path.exists(filepath):
+                return send_from_directory(upload_dir, filename)
+            # Fayl yo'q — 404
+            logging.warning(f"q_image: lokal fayl topilmadi: {filepath}")
+            return abort(404)
+
+        # 2. To'g'ridan URL (http/https)
+        if photo_id.startswith("http://") or photo_id.startswith("https://"):
+            return redirect(photo_id)
+
+        # 3. Telegram file_id (BOT_ prefiksi yoki oddiy file_id)
+        actual_file_id = photo_id
+        if photo_id.startswith("BOT_"):
+            parts = photo_id.split("_", 2)
+            actual_file_id = parts[2] if len(parts) >= 3 else photo_id
+
         clean_token = BOT_TOKENS[0] if BOT_TOKENS else os.getenv("BOT_TOKEN", "").strip()
-        if not clean_token: return abort(404)
-        get_file_url = f"https://api.telegram.org/bot{clean_token}/getFile?file_id={photo_id}"
-        res = requests.get(get_file_url, timeout=5).json()
+        if not clean_token:
+            logging.error("q_image: bot token topilmadi")
+            return abort(404)
+
+        res = requests.get(
+            f"https://api.telegram.org/bot{clean_token}/getFile?file_id={actual_file_id}",
+            timeout=8
+        ).json()
+
         if res.get("ok"):
             file_path = res["result"]["file_path"]
             img_url = f"https://api.telegram.org/file/bot{clean_token}/{file_path}"
-            return redirect(img_url)
+            # Rasmni to'g'ridan serverdan brauzerga yetkazamiz (redirect o'rniga proxy)
+            img_res = requests.get(img_url, timeout=10)
+            if img_res.status_code == 200:
+                content_type = img_res.headers.get("Content-Type", "image/jpeg")
+                return img_res.content, 200, {
+                    "Content-Type": content_type,
+                    "Cache-Control": "public, max-age=86400"
+                }
+        else:
+            logging.warning(f"q_image Telegram xato: {res.get('description')} | file_id={actual_file_id}")
+
     except Exception as e:
-        logging.error(f"Telegram rasmini tortishda xatolik: {e}")
+        logging.error(f"q_image xatolik: {e} | photo_id={photo_id}")
+
     return abort(404)
 
 @app.route("/animations.js")
