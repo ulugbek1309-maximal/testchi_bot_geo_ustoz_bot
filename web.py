@@ -182,7 +182,22 @@ LANGUAGES = {
         "ai_limit_reached": "Bugungi AI limitingiz (10 ta) tugadi. Premium sotib oling!",
         "correct_ans": "ta to'g'ri",
         "time_min": "daqiqa",
-        "time_sec": "soniya"
+        "time_sec": "soniya",
+        "btn_account": "Hisob",
+        "btn_guide": "Yo'riqnoma",
+        "btn_search": "Qidiruv",
+        "btn_premium": "Premium",
+        "btn_ai": "AI Yordamchi",
+        "btn_market": "Bozor",
+        "back_to_dashboard": "Dashboard'ga qaytish",
+        "already_solved_title": "✅ Siz bu testni allaqachon yechgansiz!",
+        "already_solved_sub": "Bu testni qayta ishlash limiti tugagan.",
+        "time_spent": "Sarflangan vaqt",
+        "seconds": "soniya",
+        "view_results": "Umumiy natijalarni ko'rish",
+        "stars_payment_info": "Stars orqali to'lov botdan amalga oshiriladi",
+        "test_not_for_stars": "Bu test Stars orqali sotilmaydi",
+        "own_test": "O'zingizning testingiz!"
     }
 }
 
@@ -1202,6 +1217,35 @@ def buy_test_gwt(test_id):
     else:
         return redirect(f"/market?token={token}&msg=❌ Xatolik: {err_msg}")
 
+@app.route("/buy-test/stars/<test_id>", methods=["POST"])
+def buy_test_stars(test_id):
+    """Telegram Stars orqali test sotib olish (Tez kunda to'liq ulanganda ishga tushadi)"""
+    token = request.form.get("token")
+    user = validate_token(token)
+    if not user: return abort(401)
+    lang = session.get("lang", "uz")
+
+    test = to_dict(db.get_test(test_id))
+    if not test:
+        return redirect(f"/market?token={token}&msg=❌ Test topilmadi.")
+
+    price_stars = int(test.get("price_stars") or 0)
+    if price_stars <= 0:
+        return redirect(f"/market?token={token}&msg=❌ Bu test Stars orqali sotilmaydi.")
+
+    user_id = int(user["user_id"])
+    if int(test["owner_user_id"]) == user_id:
+        return redirect(f"/market?token={token}&msg=❌ O'zingizning testingiz!")
+
+    # Telegram Stars to'lov oqimi hali to'liq ulanmagan —
+    # Botdagi /wallet bo'limidan to'lov amalga oshiriladi
+    bot_username = get_bot_username()
+    msg = (
+        f"⭐️ Stars orqali to'lov qilish uchun botga o'ting va "
+        f"'Hamyon' bo'limidan {price_stars} Stars to'lang."
+    )
+    return redirect(f"/market?token={token}&msg={msg}")
+
 @app.route("/buy-premium", methods=["GET", "POST"])
 def buy_premium():
     token = request.args.get("token") or request.form.get("token")
@@ -1473,7 +1517,15 @@ def q_image(photo_id):
 
 @app.route("/guide")
 def guide_page():
-    return render_template("guide.html")
+    token = request.args.get("token", "")
+    user = validate_token(token) if token else None
+    lang = session.get("lang", "uz")
+    if user:
+        db_lang = user.get("lang")
+        if db_lang and db_lang in ["uz", "ru", "uz_cyrl"]:
+            lang = db_lang
+    current_user_bg = user.get("custom_bg") if user else None
+    return render_template("guide.html", token=token, lang=lang, current_user_bg=current_user_bg, get_text=get_text)
 
 @app.route("/api/support/history")
 def support_history():
