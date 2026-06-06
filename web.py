@@ -628,7 +628,7 @@ def force_sub_page():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Majburiy Obuna</title>
-        <script src="/animations.js"></script>
+        
         <style>
             body { background: #0f172a; color: white; font-family: sans-serif; text-align: center; padding: 50px 20px; }
             .box { background: #1e293b; padding: 30px 20px; border-radius: 16px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -681,7 +681,7 @@ def force_sub_page():
                 });
             }
         </script>
-    <script src="/animations.js"></script>
+    
 </body>
     </html>
     """, channel_buttons=channel_buttons_html, token=token)
@@ -1109,7 +1109,7 @@ def marketplace():
     <!DOCTYPE html>
     <html lang="uz">
     <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Testlar Bozori</title>
-    <script src="/animations.js"></script>
+    
     <style>
         body { background: #0f172a; color: white; font-family: sans-serif; padding: 20px; }
         .card { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); }
