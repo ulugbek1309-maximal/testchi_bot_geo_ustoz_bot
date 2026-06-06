@@ -4387,17 +4387,7 @@ def edit_test(test_id):
         except Exception as e:
             return jsonify({"success": False, "error": f"Server xatosi: {str(e)}"}), 500
 
-@app.route("/api/cheat-warning", methods=["POST"])
-def cheat_warning():
-    data = request.json
-    token = data.get("token")
-    test_id = data.get("test_id")
 
-    user = validate_token(token)
-    if not user: return jsonify({"error": "Unauthorized"}), 401
-
-    db.log_cheat_attempt(user["user_id"], test_id, int(time.time()))
-    return jsonify({"success": True})
 
 @app.route("/api/leaderboard")
 def api_leaderboard():
@@ -5877,37 +5867,10 @@ Savollar matni: {questions_text}"""
         logging.error(f"Moderatsiya xatosi: {e}")
         return True, "Tekshiruv o'tkazib yuborildi"
 
-# ==========================================
-# 🎨 THEME TOGGLE API (index.html dan fetch qilinadi)
-# ==========================================
-@app.route("/api/theme/toggle", methods=["POST"])
-def api_theme_toggle():
-    """Foydalanuvchining qorang'i/yorug' temasi holatini sessiyaga saqlash."""
-    data = request.json or {}
-    token = data.get("token")
-    theme = data.get("theme", "dark")
-    user = validate_token(token)
-    if user:
-        session[f"theme_{token}"] = theme
-    return jsonify({"success": True, "theme": theme})
 
 
-# ==========================================
-# 🛡️ ANTI-CHEAT WARNING API (solve_test.html dan fetch qilinadi)
-# ==========================================
-@app.route("/api/cheat-warning", methods=["POST"])
-def api_cheat_warning():
-    """Test yechish paytida oynadan chiqilganda cheat logga yozish."""
-    data = request.json or {}
-    token = data.get("token")
-    test_id = data.get("test_id", "")
-    user = validate_token(token)
-    if user and test_id:
-        try:
-            db.log_cheat_attempt(int(user["user_id"]), test_id, int(time.time()), action="tab_switched")
-        except Exception as e:
-            logging.error(f"Cheat log xato: {e}")
-    return jsonify({"success": True})
+
+
 
 
 if __name__ == "__main__":
