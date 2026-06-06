@@ -3600,7 +3600,7 @@ def create_visual_test():
     if request.method == "GET":
         chats = db.chats_for_user(user_id)
         eligible_chats = [c for c in chats if c.get('bot_is_admin', 0) == 1]
-        return render_template("create_test.html", token=token, user_id=user_id, chats=eligible_chats, base_url=WEB_BASE_URL, current_user_bg=user.get("custom_bg"), current_lock_bg=user.get("custom_lock_bg"), lang=lang, get_text=get_text)
+        return render_template("create_test.html", token=token, user_id=user_id, chats=eligible_chats, base_url=WEB_BASE_URL, current_user_bg=user.get("custom_bg"), current_lock_bg=user.get("custom_lock_bg"), lang=lang, get_text=get_text, is_edit=False, test=None, questions=[])
 
     title = data.get("title", "").strip()
     chat_id_raw = data.get("chat_id", "")
@@ -5876,6 +5876,39 @@ Savollar matni: {questions_text}"""
     except Exception as e:
         logging.error(f"Moderatsiya xatosi: {e}")
         return True, "Tekshiruv o'tkazib yuborildi"
+
+# ==========================================
+# 🎨 THEME TOGGLE API (index.html dan fetch qilinadi)
+# ==========================================
+@app.route("/api/theme/toggle", methods=["POST"])
+def api_theme_toggle():
+    """Foydalanuvchining qorang'i/yorug' temasi holatini sessiyaga saqlash."""
+    data = request.json or {}
+    token = data.get("token")
+    theme = data.get("theme", "dark")
+    user = validate_token(token)
+    if user:
+        session[f"theme_{token}"] = theme
+    return jsonify({"success": True, "theme": theme})
+
+
+# ==========================================
+# 🛡️ ANTI-CHEAT WARNING API (solve_test.html dan fetch qilinadi)
+# ==========================================
+@app.route("/api/cheat-warning", methods=["POST"])
+def api_cheat_warning():
+    """Test yechish paytida oynadan chiqilganda cheat logga yozish."""
+    data = request.json or {}
+    token = data.get("token")
+    test_id = data.get("test_id", "")
+    user = validate_token(token)
+    if user and test_id:
+        try:
+            db.log_cheat_attempt(int(user["user_id"]), test_id, int(time.time()), action="tab_switched")
+        except Exception as e:
+            logging.error(f"Cheat log xato: {e}")
+    return jsonify({"success": True})
+
 
 if __name__ == "__main__":
     print("🚀 Web server ishga tushmoqda...")

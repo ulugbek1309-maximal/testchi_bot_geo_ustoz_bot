@@ -2001,6 +2001,24 @@ class DB:
             c.execute("DELETE FROM group_members WHERE group_id=%s AND user_id=%s", (group_id, user_id))
             return True
 
+    def get_study_group(self, group_id):
+        """Guruh ma'lumotlarini olish"""
+        with self._conn() as c:
+            return c.execute("SELECT * FROM study_groups WHERE group_id=%s", (group_id,)).fetchone()
+
+    def get_group_by_code(self, join_code):
+        """Qo'shilish kodi orqali guruhni topish"""
+        with self._conn() as c:
+            return c.execute("SELECT * FROM study_groups WHERE join_code=%s", (join_code,)).fetchone()
+
+    def join_group(self, group_id, user_id, role="student"):
+        """Foydalanuvchini guruhga qo'shish"""
+        with self._conn() as c:
+            c.execute("""
+                INSERT IGNORE INTO group_members (group_id, user_id, role, joined_at)
+                VALUES (%s, %s, %s, %s)
+            """, (group_id, user_id, role, int(time.time())))
+
     def get_user_groups(self, user_id):
         """Foydalanuvchi a'zo bo'lgan guruhlar"""
         with self._conn() as c:
@@ -2011,6 +2029,22 @@ class DB:
                 WHERE gm.user_id=%s
                 ORDER BY g.created_at DESC
             """, (user_id,)).fetchall()
+
+    def get_user_activity_heatmap(self, user_id):
+        """Foydalanuvchining soatlik faollik ma'lumotlari (0-23 soatlar bo'yicha)"""
+        with self._conn() as c:
+            rows = c.execute("""
+                SELECT HOUR(FROM_UNIXTIME(started_at)) as hour_val, COUNT(*) as cnt
+                FROM sessions
+                WHERE user_id=%s AND state='finished'
+                GROUP BY hour_val
+            """, (user_id,)).fetchall()
+        result = {}
+        for row in rows:
+            h = row['hour_val'] if isinstance(row, dict) else row[0]
+            cnt = row['cnt'] if isinstance(row, dict) else row[1]
+            result[int(h)] = int(cnt)
+        return result
 
     def get_group_members(self, group_id):
         with self._conn() as c:
@@ -3304,6 +3338,12 @@ def _ensure_stubs(cls):
         'bulk_give_premium':        lambda self, user_ids, months, admin_id: 0,
         'bulk_ban_users':           lambda self, user_ids, admin_id, reason="Bulk ban": 0,
         'bulk_archive_tests':       lambda self, test_ids, user_id: 0,
+
+        # Guruh metodlari (eski versiyalar uchun)
+        'get_study_group':          lambda self, group_id: None,
+        'get_group_by_code':        lambda self, join_code: None,
+        'join_group':               lambda self, group_id, user_id, role="student": None,
+        'get_user_activity_heatmap': lambda self, user_id: {},
 
         # Adaptive
         'get_adaptive_level':       lambda self, user_id, q_bank_id: 1,
