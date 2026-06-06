@@ -1,5 +1,4 @@
 import os
-import threading
 import uuid
 import time
 import json
@@ -37,6 +36,13 @@ class CursorWrapper:
 
     @property
     def description(self): return self.cursor.description
+
+
+def to_dict_safe(row):
+    """PyMySQL Row yoki None ni xavfsiz dict ga aylantiradi"""
+    if row is None:
+        return None
+    return dict(row)
 
 
 # ==============================================================
@@ -2001,24 +2007,6 @@ class DB:
             c.execute("DELETE FROM group_members WHERE group_id=%s AND user_id=%s", (group_id, user_id))
             return True
 
-    def get_study_group(self, group_id):
-        """Guruh ma'lumotlarini olish"""
-        with self._conn() as c:
-            return c.execute("SELECT * FROM study_groups WHERE group_id=%s", (group_id,)).fetchone()
-
-    def get_group_by_code(self, join_code):
-        """Qo'shilish kodi orqali guruhni topish"""
-        with self._conn() as c:
-            return c.execute("SELECT * FROM study_groups WHERE join_code=%s", (join_code,)).fetchone()
-
-    def join_group(self, group_id, user_id, role="student"):
-        """Foydalanuvchini guruhga qo'shish"""
-        with self._conn() as c:
-            c.execute("""
-                INSERT IGNORE INTO group_members (group_id, user_id, role, joined_at)
-                VALUES (%s, %s, %s, %s)
-            """, (group_id, user_id, role, int(time.time())))
-
     def get_user_groups(self, user_id):
         """Foydalanuvchi a'zo bo'lgan guruhlar"""
         with self._conn() as c:
@@ -2029,22 +2017,6 @@ class DB:
                 WHERE gm.user_id=%s
                 ORDER BY g.created_at DESC
             """, (user_id,)).fetchall()
-
-    def get_user_activity_heatmap(self, user_id):
-        """Foydalanuvchining soatlik faollik ma'lumotlari (0-23 soatlar bo'yicha)"""
-        with self._conn() as c:
-            rows = c.execute("""
-                SELECT HOUR(FROM_UNIXTIME(started_at)) as hour_val, COUNT(*) as cnt
-                FROM sessions
-                WHERE user_id=%s AND state='finished'
-                GROUP BY hour_val
-            """, (user_id,)).fetchall()
-        result = {}
-        for row in rows:
-            h = row['hour_val'] if isinstance(row, dict) else row[0]
-            cnt = row['cnt'] if isinstance(row, dict) else row[1]
-            result[int(h)] = int(cnt)
-        return result
 
     def get_group_members(self, group_id):
         with self._conn() as c:
@@ -2706,12 +2678,6 @@ class DB:
             return result
 
     # ================= 🔧 YORDAMCHI =================
-
-def to_dict_safe(row):
-    """PyMySQL Row yoki None ni xavfsiz dict ga aylantiradi"""
-    if row is None: return None
-    return dict(row)
-
 
     # ================= 📄 PAGINATION =================
     def get_tests_paginated(self, owner_id, page=1, limit=10):

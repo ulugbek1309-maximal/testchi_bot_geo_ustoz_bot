@@ -1,0 +1,38 @@
+# ============================================================
+# Geo Ustoz Bot — Python bog'liqliklari (dependencies)
+# O'rnatish: pip install -r requirements.txt
+# ============================================================
+
+# Telegram bot (Web App, ChatMember, To'lov, JobQueue qo'llab-quvvatlash bilan)
+python-telegram-bot[job-queue]==21.6
+
+# Web (backend)
+Flask==3.0.3
+
+# Ma'lumotlar bazasi (MySQL) va ulanishlar puli
+PyMySQL==1.1.1
+DBUtils==3.1.0
+
+# HTTP so'rovlar
+requests==2.32.3
+
+# Kriptografiya (hamyon yaratish, imzolash)
+cryptography==43.0.1
+
+# Excel hisobotlar
+openpyxl==3.1.5
+
+# Rasmlar bilan ishlash
+Pillow==10.4.0
+
+# Word (.docx) hujjatlardan savol import qilish
+python-docx==1.1.2
+
+# AI integratsiyalari
+groq==0.11.0
+
+# Internet qidiruv (AI uchun)
+duckduckgo-search==6.2.13
+
+# Email yuborish (hisobotlar, parolni tiklash)
+resend==2.4.0

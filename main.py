@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional
 from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
 from PIL import Image
 import io
 import docx
@@ -874,7 +873,7 @@ DIQQAT: JSON atrofida ``` (backtick) belgilarini UMUMAN ishlatma, faqat toza va 
         except requests.exceptions.RequestException as req_err:
             err_text = req_err.response.text if req_err.response else str(req_err)
             logging.error(f"Groq API XATOSI: {err_text}")
-            return f"⚠️ Serverda xatolik yuz berdi. Iltimos biroz kuting."
+            return "⚠️ Serverda xatolik yuz berdi. Iltimos biroz kuting."
 
     try:
         reply = await asyncio.to_thread(fetch_groq)
@@ -1997,72 +1996,6 @@ async def cmd_ai_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await status.edit_text(done, reply_markup=kb, parse_mode=ParseMode.HTML)
 
 # ==========================================
-# 📢 BROADCAST (OMMAVIY XABAR)
-# ==========================================
-async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin barcha foydalanuvchilarga xabar yuboradi: /broadcast <xabar>"""
-    user_id = update.effective_user.id
-    lang = get_user_lang(user_id)
-    if user_id not in SUPERADMINS:
-        await update.message.reply_text(get_bot_text('admin_only', lang))
-        return
-    if not context.args:
-        txt = {"ru": "📢 Foydalanish:\n/broadcast Xabar matni\n\nYoki /broadcastphoto rasm bilan",
-               "uz_cyrl": "📢 Фойдаланиш:\n/broadcast Хабар матни"}.get(
-               lang, "📢 Foydalanish:\n/broadcast Xabar matni\n\n/broadcastall - barchaga\n/broadcastpremium - faqat premium")
-        await update.message.reply_text(txt)
-        return
-
-    text = " ".join(context.args)
-    # Target aniqlash
-    cmd = update.message.text.split()[0].lower()
-    if "premium" in cmd:
-        target = "premium"
-        user_ids = db.get_all_user_ids(status_filter="premium")
-    else:
-        target = "all"
-        user_ids = db.get_all_user_ids()
-
-    broadcast_id = db.create_broadcast(user_id, text, target=target)
-
-    wait = await update.message.reply_text(
-        f"⏳ Yuborilmoqda... Jami: <b>{len(user_ids)}</b> ta foydalanuvchi",
-        parse_mode=ParseMode.HTML
-    )
-
-    sent = fail = 0
-    BATCH = 25
-    for i, uid in enumerate(user_ids):
-        try:
-            await context.bot.send_message(
-                chat_id=uid, text=text, parse_mode=ParseMode.HTML
-            )
-            sent += 1
-        except Exception:
-            fail += 1
-        # Har 25 ta xabarda progress yangilash
-        if (i + 1) % BATCH == 0:
-            try:
-                await wait.edit_text(
-                    f"⏳ Yuborilmoqda... {i+1}/{len(user_ids)}\n✅ {sent} | ❌ {fail}",
-                    parse_mode=ParseMode.HTML
-                )
-            except Exception:
-                pass
-        # Telegram rate limit: 25/soniya
-        if (i + 1) % 25 == 0:
-            await asyncio.sleep(1)
-
-    db.update_broadcast_stats(broadcast_id, sent=sent, fail=fail, status='done')
-    await wait.edit_text(
-        f"✅ <b>Broadcast yakunlandi!</b>\n\n"
-        f"👥 Jami: <b>{len(user_ids)}</b>\n"
-        f"✅ Yuborildi: <b>{sent}</b>\n"
-        f"❌ Xato: <b>{fail}</b>",
-        parse_mode=ParseMode.HTML
-    )
-
-# ==========================================
 # 📋 TEST NUSXALASH
 # ==========================================
 async def cmd_copy_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2188,12 +2121,21 @@ async def cmd_add_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ To'plam ID raqam bo'lishi kerak.")
         return
 
+    # Xavfsizlik: faqat to'plam egasi (yoki admin) karta qo'sha oladi
+    fset = db.get_flashcard_set(set_id)
+    if not fset:
+        await update.message.reply_text("❌ Bunday to'plam topilmadi.")
+        return
+    if int(fset.get("owner_id", 0)) != user_id and user_id not in SUPERADMINS:
+        await update.message.reply_text("❌ Siz faqat o'zingizning to'plamingizga karta qo'sha olasiz!")
+        return
+
     rest = " ".join(context.args[1:])
     if "|" not in rest:
         await update.message.reply_text("❌ Savol va javobni | bilan ajrating.\nMisol: /addcard 5 Savol | Javob")
         return
     front, back = rest.split("|", 1)
-    card_id = db.add_flashcard(set_id, front.strip(), back.strip())
+    db.add_flashcard(set_id, front.strip(), back.strip())
     await update.message.reply_text(
         f"✅ Karta qo'shildi!\n🃏 <b>{h(front.strip())}</b> → <i>{h(back.strip())}</i>",
         parse_mode=ParseMode.HTML
@@ -3072,7 +3014,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if referrer_id and ref_count > 0 and ref_count % 10 == 0:
                     db.add_premium_months(referrer_id, 1)
                     try:
-                        await context.bot.send_message(chat_id=referrer_id, text=f"🎉 <b>Tabriklaymiz!</b>\n\nSiz 10 ta do'stingizni taklif qildingiz va <b>1 Oylik Premium</b> yutib oldingiz! 💎", parse_mode=ParseMode.HTML)
+                        await context.bot.send_message(chat_id=referrer_id, text="🎉 <b>Tabriklaymiz!</b>\n\nSiz 10 ta do'stingizni taklif qildingiz va <b>1 Oylik Premium</b> yutib oldingiz! 💎", parse_mode=ParseMode.HTML)
                     except Exception: pass
         except Exception as e:
             logging.error(f"Foydalanuvchini ro'yxatdan o'tkazishda xato: {e}")
@@ -3848,7 +3790,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("ad:"):
         ad_id = data.split(":")[1]
         try:
-            ad = db.get_ad(ad_id)
+            ad = db.get_bot_ad(ad_id)
         except Exception:
             ad = None
 
@@ -5511,7 +5453,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text_msg += "\n━━━━━━━━━━━━━━━━━━━━━━\n"
 
         if user_info:
-            text_msg += f"🎯 <b>Sizning natijangiz:</b>\n"
+            text_msg += "🎯 <b>Sizning natijangiz:</b>\n"
             text_msg += f"📊 To'plagan ballingiz: <b>{user_info['score']}</b>\n"
             text_msg += f"📍 Umumiy o'rningiz: <b>{user_info['rank']}-o'rin</b>\n\n"
             text_msg += "<i>Izoh: Reytingga o'zingiz tuzgan testlarning ballari kirmaydi! Oy oxirida yuqori o'rin egalariga GWT beriladi.</i>"
@@ -5799,7 +5741,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             targets = {int(r["chat_id"]): r["title"] for r in rows}
             b["targets"] = targets
-            b["selected"] = {cid: True for cid in targets.keys()}
+            b["selected"] = {cid: True for cid in targets}
 
             await show_channel_selection(update.effective_chat.id, context)
             return
@@ -6332,7 +6274,7 @@ async def ask_private_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton(get_bot_text('btn_yes', lang), callback_data="confirm_publish"), InlineKeyboardButton(get_bot_text('btn_cancel', lang), callback_data="cancel_action")]
     ])
-    await update.effective_chat.send_message(f"✅ Tayyor.\nChatga yuboraymi?", reply_markup=kb)
+    await update.effective_chat.send_message("✅ Tayyor.\nChatga yuboraymi?", reply_markup=kb)
 
 async def publish_to_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     create = context.user_data.get(K["create"])
@@ -6817,7 +6759,7 @@ async def verify_all_chats_on_startup(app: Application):
             if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
                 db.set_bot_admin(chat_id, 0, now_ts())
                 removed_count += 1
-        except Exception as e:
+        except Exception:
             db.set_bot_admin(chat_id, 0, now_ts())
             removed_count += 1
         await asyncio.sleep(0.05)
@@ -6888,16 +6830,22 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
     async def post_init(app: Application):
-        try:
-            with db._conn() as c:
-                c.execute("ALTER TABLE users ADD COLUMN pin_code VARCHAR(255) DEFAULT NULL;")
-                c.execute("ALTER TABLE users ADD COLUMN custom_bg VARCHAR(255) DEFAULT NULL;")
-                c.execute("ALTER TABLE users ADD COLUMN custom_lock_bg VARCHAR(255) DEFAULT NULL;")
-                c.execute("ALTER TABLE users ADD COLUMN lang VARCHAR(10) DEFAULT 'uz';")
-                c.execute("ALTER TABLE users MODIFY COLUMN is_verified TINYINT DEFAULT 1;")
-                c.execute("UPDATE users SET is_verified = 1 WHERE is_verified = 0 OR is_verified IS NULL;")
-        except Exception as e:
-            pass
+        # Migratsiyalar: har bir ustun alohida try ichida bo'lishi shart,
+        # aks holda birinchisi xato bersa qolganlari bajarilmaydi.
+        migrations = [
+            "ALTER TABLE users ADD COLUMN pin_code VARCHAR(255) DEFAULT NULL;",
+            "ALTER TABLE users ADD COLUMN custom_bg VARCHAR(255) DEFAULT NULL;",
+            "ALTER TABLE users ADD COLUMN custom_lock_bg VARCHAR(255) DEFAULT NULL;",
+            "ALTER TABLE users ADD COLUMN lang VARCHAR(10) DEFAULT 'uz';",
+            "ALTER TABLE users MODIFY COLUMN is_verified TINYINT DEFAULT 1;",
+        ]
+        for stmt in migrations:
+            try:
+                with db._conn() as c:
+                    c.execute(stmt)
+            except Exception:
+                # Ustun allaqachon mavjud bo'lsa — normal holat, e'tiborsiz qoldiramiz
+                pass
         await restore_deadlines(app)
         await verify_all_chats_on_startup(app)
         # Vazifa eslatmalarini har 6 soatda tekshirish
@@ -6995,9 +6943,6 @@ if __name__ == "__main__":
 
     # Email hisobot
     app.add_handler(CommandHandler("emailreport", cmd_emailreport))
-
-    # Broadcast (async, parallel)
-    app.add_handler(CommandHandler(["broadcast", "broadcastall", "broadcastpremium"], cmd_broadcast))
 
     # Inline mode
     from telegram.ext import InlineQueryHandler

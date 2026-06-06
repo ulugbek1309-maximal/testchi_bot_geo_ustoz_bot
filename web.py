@@ -15,7 +15,7 @@ import io
 import resend
 from groq import Groq
 from openpyxl import Workbook
-from datetime import datetime, timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, request, render_template, render_template_string, abort, jsonify, redirect, send_from_directory, session, Response, stream_with_context
 from concurrent.futures import ThreadPoolExecutor
@@ -23,7 +23,6 @@ from concurrent.futures import ThreadPoolExecutor
 # Kriptografiya kutubxonalari
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives import serialization
 
 from db import DB
 
@@ -769,6 +768,7 @@ def pin_manager():
                 try:
                     c.execute("UPDATE users SET pin_code=%s, email=%s, secret_word=%s WHERE user_id=%s", (hashed_pin, email, secret_word, user["user_id"]))
                 except Exception as e:
+                    logging.error(f"PIN/email saqlashda xato: {e}")
                     return jsonify({"success": False, "error": "Bazaga saqlashda xato."})
             c.execute("COMMIT")
             session[f"pin_unlocked_{token}"] = True
@@ -895,6 +895,7 @@ def update_bg():
             file.save(os.path.join(app.root_path, "static", "uploads", filename))
             custom_bg = f"/static/uploads/{filename}"
         except Exception as e:
+            logging.error(f"Fon rasm yuklashda xato: {e}")
             return redirect(f"/account?token={token}&msg=❌ Rasm yuklashda server xatosi.")
 
     if custom_bg is not None:
@@ -1076,6 +1077,7 @@ def create_word_test():
 
         return redirect(f"/?token={token}&msg={get_text('test_created', lang)}")
     except Exception as e:
+        logging.error(f"Test yaratishda xato: {e}")
         return redirect(f"/?token={token}&msg={get_text('internal_error', lang)}")
 
 @app.route("/market")
@@ -2829,7 +2831,7 @@ def temp_link_redirect(token_val):
     lang = session.get("lang", "uz")
     link = db.get_temp_link(token_val)
     if not link:
-        return f"""<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0f172a;color:#fff">
+        return """<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0f172a;color:#fff">
             <h2>❌ Havola yaroqsiz yoki muddati tugagan</h2>
             <p style="color:#888;margin-top:10px">Bu vaqtinchalik havola endi ishlamaydi.</p></body></html>""", 404
     link = dict(link)
@@ -3684,6 +3686,7 @@ def create_visual_test():
 
         return jsonify({"success": True, "message": get_text('test_created', lang), "redirect_url": f"/?token={token}"})
     except Exception as e:
+        logging.error(f"Test yaratish (API) xatosi: {e}")
         return jsonify({"success": False, "error": get_text('internal_error', lang)}), 500
 
 @app.route("/update-limit/<test_id>", methods=["POST"])
@@ -3804,6 +3807,7 @@ def bulk_delete_tests():
                 db.delete_test(test_id, user_id)
         return jsonify({"success": True})
     except Exception as e:
+        logging.error(f"O'chirishda xato: {e}")
         return jsonify({"success": False, "error": "O'chirishda xatolik yuz berdi"}), 500
 
 @app.route("/share-test/<test_id>", methods=["POST"])
@@ -4052,6 +4056,7 @@ def solve_test(test_id):
             })
 
     except Exception as e:
+        logging.error(f"Test yechish sahifasi xatosi: {e}")
         if request.method == "POST": return jsonify({"success": False, "error": get_text('server_error', session.get("lang", "uz"))}), 500
         return abort(500, get_text('server_error', session.get("lang", "uz")))
     return jsonify({"success": False, "error": "Bad Request"}), 400
@@ -4398,6 +4403,7 @@ def api_leaderboard():
         top_100, user_info = db.get_current_month_leaderboard(user["user_id"])
         return jsonify({"success": True, "top": top_100, "user": user_info})
     except Exception as e:
+        logging.error(f"Leaderboard API xatosi: {e}")
         return jsonify({"success": False, "error": "Server xatosi"}), 500
 
 # ==========================================
@@ -4439,6 +4445,7 @@ def api_public_tests():
             "page": page, "has_more": (page * limit) < total
         })
     except Exception as e:
+        logging.error(f"api_public_tests xato: {e}")
         return jsonify({"success": False, "error": "Server xatosi"}), 500
 
 # ==========================================
