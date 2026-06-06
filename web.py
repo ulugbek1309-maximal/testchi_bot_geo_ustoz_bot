@@ -668,24 +668,6 @@ def force_sub_page():
         </script>
     </body>
     </html>
-    """, channel_buttons=channel_buttons_html, token=token)anallarga qo\'shilmadingiz!';
-                        if(d.error === 'not_admin') errMsg = '⚠️ XATOLIK: Bot kanalda Admin emas yoki kanal noto\'g\'ri! Sabab: ' + (d.tg_error || '');
-                        if(d.error === 'api_error') errMsg = '❌ Server xatosi: ' + (d.tg_error || '');
-                        document.getElementById('err-msg').innerText = errMsg;
-                        document.getElementById('err-msg').style.display = 'block';
-                        btn.innerText = '✅ Tasdiqlash';
-                        btn.disabled = false;
-                    }
-                }).catch(e => {
-                    document.getElementById('err-msg').innerText = 'Tarmoq xatosi!';
-                    document.getElementById('err-msg').style.display = 'block';
-                    btn.innerText = '✅ Tasdiqlash';
-                    btn.disabled = false;
-                });
-            }
-        </script>
-    </body>
-    </html>
     """, channel_buttons=channel_buttons_html, token=token)
 
 @app.route("/api/verify-sub", methods=["POST"])
