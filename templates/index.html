@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ 'Testchi | Kabinet' if lang == 'uz' else ('Тестчи | Кабинет' if lang == 'uz_cyrl' else 'Testchi | Кабинет') }}</title>
+  <script src="/static/animations.js"></script>
   <style>
     :root {
       --bg: #090c14;
@@ -345,6 +346,11 @@
         <button id="theme-btn" onclick="toggleTheme()" title="Tema"
           style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--text);padding:6px 10px;border-radius:999px;cursor:pointer;font-size:14px;flex-shrink:0">
           🌙
+        </button>
+        <!-- Animatsiya toggle -->
+        <button onclick="toggleAnimations()" title="Animatsiyalarni yoqish/o'chirish" class="no-lift"
+          style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--text);padding:6px 10px;border-radius:999px;cursor:pointer;font-size:14px;flex-shrink:0">
+          ✨
         </button>
 
         {# ADMIN — Katta ekranda ko'rinadi, mobilda yashiriladi #}

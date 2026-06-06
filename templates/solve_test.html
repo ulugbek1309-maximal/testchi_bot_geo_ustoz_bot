@@ -6,6 +6,7 @@
   <title>
     {% if lang == 'uz' %}Test Yechish{% elif lang == 'uz_cyrl' %}Тест Ечиш{% else %}Прохождение теста{% endif %}: {{ test.get('title', '') }}
   </title>
+  <script src="/static/animations.js"></script>
   <style>
     :root {
       --bg: #090c14;
@@ -278,8 +279,8 @@
               if (timeLeft <= 0) {
                   clearInterval(timerInterval);
                   document.getElementById('timeDisplay').innerText = "00:00";
-                  alert("⏳ Vaqt tugadi! Test avtomatik yakunlanmoqda.");
-                  finishTest(true); // Avto-finish
+                  showToast("⏳ Vaqt tugadi! Test yakunlanmoqda...", "warning", 3000);
+                  setTimeout(() => finishTest(true), 500);
               }
           } else {
               // Agar vaqt chegarasi bo'lmasa, shunchaki oldinga sanaydi
@@ -366,17 +367,21 @@
 
       function nextQuestion() {
         if (currentIdx < questions.length - 1) {
-          currentIdx++;
-          renderQuestion();
-          window.scrollTo(0, 0);
+          animateQuestionSlide('next', () => {
+            currentIdx++;
+            renderQuestion();
+          });
+          window.scrollTo({top: 0, behavior: 'smooth'});
         }
       }
 
       function prevQuestion() {
         if (currentIdx > 0) {
-          currentIdx--;
-          renderQuestion();
-          window.scrollTo(0, 0);
+          animateQuestionSlide('prev', () => {
+            currentIdx--;
+            renderQuestion();
+          });
+          window.scrollTo({top: 0, behavior: 'smooth'});
         }
       }
 
@@ -414,8 +419,10 @@
             document.querySelector('.top-bar').style.display = 'none';
             document.getElementById('quizMain').style.display = 'none';
             document.getElementById('navControls').style.display = 'none';
-            
-            document.getElementById('finalScore').innerText = result.score;
+
+            // Count-up animatsiyasi bilan natijani ko'rsatish
+            const scoreEl = document.getElementById('finalScore');
+            animateCountUp(scoreEl, result.score, 900);
             document.getElementById('resCorrect').innerText = result.correct_answers;
             document.getElementById('finalTime').innerText = result.duration;
             
