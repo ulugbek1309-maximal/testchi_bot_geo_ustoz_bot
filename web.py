@@ -548,76 +548,7 @@ def verify_telegram_webapp_data(init_data: str):
 
 @app.route("/telegram-login")
 def telegram_login_page():
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Testchi</title>
-        <script src="https://telegram.org/js/telegram-web-app.js?v=8"></script>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body { background-color: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; text-align: center; margin: 0;}
-            .loader { border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #38d39f; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        </style>
-    </head>
-    <body>
-        <div>
-            <div class="loader" id="spinner"></div>
-            <h2 id="msg" style="font-size: 18px; font-weight: 500;">Loading...</h2>
-            <p id="debug" style="color: gray; font-size: 13px; margin-top: 10px;"></p>
-        </div>
-        <script>
-            function initWebApp() {
-                try {
-                    const tg = window.Telegram.WebApp;
-                    tg.ready();
-                    tg.expand();
-                    let initData = tg.initData;
-                    if (!initData && window.location.hash) {
-                        initData = new URLSearchParams(window.location.hash.slice(1)).get('tgWebAppData');
-                    }
-                    if (!initData) {
-                        document.getElementById('spinner').style.display = 'none';
-                        document.getElementById('msg').innerHTML = "❌ WebApp Error!";
-                        document.getElementById('debug').innerHTML = "Bot orqali kiring.";
-                        return;
-                    }
-                    fetch('/api/auth/webapp', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ initData: initData })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.needs_captcha) {
-                            window.location.replace('/captcha');
-                        } else if (data.needs_sub) {
-                            window.location.replace('/force-sub?token=' + data.token);
-                        } else if (data.token) {
-                            window.location.replace('/pin-lock?token=' + data.token);
-                        } else {
-                            document.getElementById('spinner').style.display = 'none';
-                            document.getElementById('msg').innerHTML = "Access Denied 🛑";
-                            document.getElementById('debug').innerHTML = data.error || "No permission.";
-                        }
-                    })
-                    .catch(err => {
-                        document.getElementById('spinner').style.display = 'none';
-                        document.getElementById('msg').innerHTML = "Server Error! ❌";
-                        document.getElementById('debug').innerHTML = "Check connection.";
-                    });
-                } catch (e) {
-                    document.getElementById('spinner').style.display = 'none';
-                    document.getElementById('msg').innerHTML = "Error ❌";
-                    document.getElementById('debug').innerHTML = e.message;
-                }
-            }
-            setTimeout(initWebApp, 300);
-        </script>
-    </body>
-    </html>
-    """
+    return render_template("telegram_login.html")
 
 @app.route("/api/auth/webapp", methods=["POST"])
 def auth_webapp():
@@ -682,6 +613,7 @@ def force_sub_page():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Majburiy Obuna</title>
+        <script src="/static/animations.js"></script>
         <style>
             body { background: #0f172a; color: white; font-family: sans-serif; text-align: center; padding: 50px 20px; }
             .box { background: #1e293b; padding: 30px 20px; border-radius: 16px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -719,6 +651,24 @@ def force_sub_page():
                     }
                     else {
                         let errMsg = '❌ Hali barcha kanallarga qo\'shilmadingiz!';
+                        if(d.error === 'not_admin') errMsg = '⚠️ XATOLIK: Bot kanalda Admin emas yoki kanal noto\'g\'ri! Sabab: ' + (d.tg_error || '');
+                        if(d.error === 'api_error') errMsg = '❌ Server xatosi: ' + (d.tg_error || '');
+                        document.getElementById('err-msg').innerText = errMsg;
+                        document.getElementById('err-msg').style.display = 'block';
+                        btn.innerText = '✅ Tasdiqlash';
+                        btn.disabled = false;
+                    }
+                }).catch(e => {
+                    document.getElementById('err-msg').innerText = 'Tarmoq xatosi!';
+                    document.getElementById('err-msg').style.display = 'block';
+                    btn.innerText = '✅ Tasdiqlash';
+                    btn.disabled = false;
+                });
+            }
+        </script>
+    </body>
+    </html>
+    """, channel_buttons=channel_buttons_html, token=token)anallarga qo\'shilmadingiz!';
                         if(d.error === 'not_admin') errMsg = '⚠️ XATOLIK: Bot kanalda Admin emas yoki kanal noto\'g\'ri! Sabab: ' + (d.tg_error || '');
                         if(d.error === 'api_error') errMsg = '❌ Server xatosi: ' + (d.tg_error || '');
                         document.getElementById('err-msg').innerText = errMsg;
@@ -1160,7 +1110,8 @@ def marketplace():
     html_content = """
     <!DOCTYPE html>
     <html lang="uz">
-    <head><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Testlar Bozori</title>
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Testlar Bozori</title>
+    <script src="/static/animations.js"></script>
     <style>
         body { background: #0f172a; color: white; font-family: sans-serif; padding: 20px; }
         .card { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); }
@@ -1172,7 +1123,7 @@ def marketplace():
         <a href="/?token={{ token }}" style="color:#38d39f; text-decoration:none;">⬅️ Orqaga</a>
         <br><br>
         {% if request.args.get('msg') %}
-            <div style="padding:10px; background:rgba(255,255,255,0.1); margin-bottom:15px; color:#38d39f;">{{ request.args.get('msg') }}</div>
+            <div style="padding:10px; background:rgba(255,255,255,0.1); margin-bottom:15px; color:#38d39f; border-radius:8px;">{{ request.args.get('msg') }}</div>
         {% endif %}
         {% for t in tests %}
         <div class="card">
@@ -1182,7 +1133,7 @@ def marketplace():
                 <p style="color:#38d39f;">✅ Sizda bu test bor.</p>
                 <a href="/solve/{{ t.test_id }}?token={{ token }}" class="btn">Testni ishlash</a>
             {% else %}
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     {% if t.price_gwt > 0 %}
                     <form action="/buy-test/gwt/{{ t.test_id }}" method="POST" style="margin:0;">
                         <input type="hidden" name="token" value="{{ token }}">
@@ -1199,7 +1150,7 @@ def marketplace():
             {% endif %}
         </div>
         {% else %}
-        <p>Hozircha bozorda pullik testlar yo'q.</p>
+        <p style="text-align:center; color:#64748b; padding: 40px 0;">🛒 Hozircha bozorda pullik testlar yo'q.</p>
         {% endfor %}
     </body></html>
     """
