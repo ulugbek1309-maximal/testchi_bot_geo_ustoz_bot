@@ -516,7 +516,7 @@
             {% elif lang == 'uz_cyrl' %}Тестни ўчириш
             {% else %}Удалить тест{% endif %}
           </h3>
-          <form action="/delete-test/{{ test.get('test_id', '') }}" method="post" onsubmit="return confirm('{% if lang == 'uz' %}Rostdan o\'chirmoqchimisiz?{% elif lang == 'uz_cyrl' %}Ростдан ўчирмоқчимисиз?{% else %}Вы действительно хотите удалить?{% endif %}');">
+          <form action="/delete-test/{{ test.get('test_id', '') }}" method="post" onsubmit="return confirmDelete();">
             <input type="hidden" name="token" value="{{ token }}" />
 
             {% if test.get('manage_password') %}
@@ -638,6 +638,12 @@
 
   <script>
     const TOKEN = new URLSearchParams(window.location.search).get("token") || "{{ token }}";
+
+    // ✅ Confirm xavfsiz — tilda to'g'ri matn, apostrophe muammosi yo'q
+    function confirmDelete() {
+      const msg = "{{ 'Rostdan ham bu testni butunlay ochirmoqchimisiz?' if lang == 'uz' else ('Rostdan ham bu testni butunlay ochirmoqchimisiz?' if lang == 'uz_cyrl' else 'Vy deystvitelno hotite udalit etot test?') }}";
+      return window.confirm(msg);
+    }
 
     // ⚔️ Test boshqaruv sahifasidan challenge yuborish
     async function sendTestChallenge(testId) {

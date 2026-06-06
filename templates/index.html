@@ -952,68 +952,12 @@
     }
 
     async function openLeaderboard() {
-        document.getElementById('leaderboardModal').style.display = 'flex';
-        const list = document.getElementById('leaderboardList');
-        const myRank = document.getElementById('myRankContainer');
-
-        let t_loading = lang === 'uz' ? "Yuklanmoqda..." : (lang === 'uz_cyrl' ? "Юкланмоқда..." : "Загрузка...");
-        let t_my_rank = lang === 'uz' ? "Sizning o'rningiz" : (lang === 'uz_cyrl' ? "Сизнинг ўрнингиз" : "Ваше место");
-        let t_score = lang === 'uz' ? "Umumiy ball" : (lang === 'uz_cyrl' ? "Умумий балл" : "Общий балл");
-        let t_empty = lang === 'uz' ? "Hali hech kim test yechmadi" : (lang === 'uz_cyrl' ? "Ҳали ҳеч ким тест ечмади" : "Еще никто не решил тест");
-        let t_err = lang === 'uz' ? "Xatolik yuz berdi" : (lang === 'uz_cyrl' ? "Хатолик юз берди" : "Произошла ошибка");
-
-        list.innerHTML = `<p style="text-align: center; color: var(--muted);">⏳ ${t_loading}</p>`;
-        myRank.style.display = 'none';
-
-        try {
-            const res = await fetch(`/api/leaderboard?token=${token}`);
-            const data = await res.json();
-
-            if (data.success) {
-                if (data.user) {
-                    myRank.innerHTML = `
-                        <h3 style="margin: 0 0 5px; color: var(--accent);">${t_my_rank}: ${data.user.rank}</h3>
-                        <p style="margin: 0; color: var(--text); font-size: 14px;">${t_score}: <b>${data.user.score}</b></p>
-                    `;
-                    myRank.style.display = 'block';
-                }
-
-                if (data.top && data.top.length > 0) {
-                    let html = '';
-                    data.top.forEach(u => {
-                        let medal = u.rank;
-                        if (u.rank === 1) medal = '🥇';
-                        if (u.rank === 2) medal = '🥈';
-                        if (u.rank === 3) medal = '🥉';
-
-                        let isMe = (data.user && data.user.rank === u.rank) ? 'me' : '';
-                        let displayName = escapeHtml(u.name);
-                        if (u.username) displayName += ` <span style="color:var(--muted); font-size:12px;">(@${escapeHtml(u.username)})</span>`;
-
-                        html += `
-                            <div class="rank-item ${isMe}">
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span class="medal-icon">${medal}</span>
-                                    <span style="font-weight: 500; font-size: 14px;">${displayName}</span>
-                                </div>
-                                <div style="font-weight: bold; color: var(--accent2);">${u.score}</div>
-                            </div>
-                        `;
-                    });
-                    list.innerHTML = html;
-                } else {
-                    list.innerHTML = `<p style="text-align: center; color: var(--muted);">${t_empty}</p>`;
-                }
-            } else {
-                list.innerHTML = `<p style="text-align: center; color: var(--danger);">❌ ${t_err}</p>`;
-            }
-        } catch (err) {
-            list.innerHTML = `<p style="text-align: center; color: var(--danger);">❌ Internet muammosi</p>`;
-        }
+        // leaderboardModal bu sahifada yo'q — /leaderboard sahifasiga yo'naltiramiz
+        window.location.href = '/leaderboard?token=' + token;
     }
 
     function closeLeaderboard() {
-        document.getElementById('leaderboardModal').style.display = 'none';
+        // Eski modal chaqiruvlari uchun — hech narsa qilmaydi
     }
 
   </script>

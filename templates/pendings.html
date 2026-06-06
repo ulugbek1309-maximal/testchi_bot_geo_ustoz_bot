@@ -244,7 +244,7 @@
                 </button>
               </form>
 
-              <form action="/process-req/{{r.id}}" method="post" style="flex: 1; display: flex;" onsubmit="return confirm('Rostdan ham bu to\'lovni rad etmoqchimisiz?');">
+              <form action="/process-req/{{r.id}}" method="post" style="flex: 1; display: flex;" onsubmit="return confirmReject();">
                 <input type="hidden" name="token" value="{{token}}">
                 <input type="hidden" name="action" value="reject">
                 <button type="submit" class="btn btn-reject" style="width: 100%;">❌ Rad etish</button>
@@ -264,6 +264,16 @@
   <footer>
     <span>© Testchi - Super Admin Paneli</span>
   </footer>
+<script>
+  // Rad etishni tasdiqlash — apostrofli string xatosini oldini oladi
+  function confirmReject() {
+    var lang = "{{ lang }}";
+    var msg = lang === 'uz' ? "Rostdan ham bu to'lovni rad etmoqchimisiz?" :
+              lang === 'uz_cyrl' ? "Rostdan ham bu to'lovni rad etmoqchimisiz?" :
+              "Вы действительно хотите отклонить этот платёж?";
+    return window.confirm(msg);
+  }
+</script>
 <script>
 /**
  * ============================================================

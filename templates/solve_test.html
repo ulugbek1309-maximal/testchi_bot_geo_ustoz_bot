@@ -539,7 +539,7 @@
 
         // test_id sahifa URL'idan olish
         const testId = window.location.pathname.split('/solve/')[1]?.split('?')[0] || '';
-        const token = new URLSearchParams(window.location.search).get('token') || '';
+        // token tashqi scope dan olinadi (qayta e'lon qilinmaydi)
 
         msgEl.style.display = 'block';
         msgEl.style.color = '#a0aec0';

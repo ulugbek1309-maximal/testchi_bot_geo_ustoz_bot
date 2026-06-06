@@ -435,11 +435,79 @@
     function handleEnter(e) { 
       if (e.key === 'Enter' && !e.shiftKey) { 
         e.preventDefault(); 
-        e.stopPropagation(); // Eventni takrorlanishdan uzadi
+        e.stopPropagation();
         sendMessage(); 
       } 
     }
     function scrollToBottom() { const b = document.getElementById('chatBox'); b.scrollTop = b.scrollHeight; }
+
+    // ✏️ Xabarni tahrirlash
+    async function editMsg(msgId, oldText) {
+      const newText = prompt(t.edit_prompt, oldText);
+      if (!newText || newText.trim() === '' || newText.trim() === oldText) return;
+
+      const res = await fetch('/api/ai-chat/edit', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          token: "{{ token }}",
+          session_id: currentSessionId,
+          message_id: msgId,
+          action: 'edit',
+          new_text: newText.trim()
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Tahrirlangan xabarni yangilaymiz
+        const msgEl = document.querySelector(`#msg_${msgId} .msg-user`);
+        if (msgEl) msgEl.innerHTML = newText.replace(/\n/g,'<br>');
+        // Bot javobini ham yangilaymiz
+        if (data.reply) {
+          // Eski bot javobini topib o'chirish
+          const allMessages = document.querySelectorAll('.message-wrapper.wrap-bot');
+          allMessages.forEach(el => {
+            const siblingUser = el.previousElementSibling;
+            if (siblingUser && siblingUser.id === `msg_${msgId}`) el.remove();
+          });
+          addMessageUI(data.id, data.reply, false, true);
+          loadSessions();
+        }
+      } else {
+        showToast('❌ ' + (data.error || 'Tahrirlashda xatolik'), 'error');
+      }
+    }
+
+    // 🗑️ Xabarni o'chirish
+    async function deleteMsg(msgId) {
+      const confirmText = lang === 'uz' ? "Bu xabarni o'chirishni tasdiqlaysizmi?" :
+                         (lang === 'uz_cyrl' ? "Бу хабарни ўчиришни тасдиқлайсизми?" :
+                          "Удалить это сообщение?");
+      if (!confirm(confirmText)) return;
+
+      const res = await fetch('/api/ai-chat/edit', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          token: "{{ token }}",
+          session_id: currentSessionId,
+          message_id: msgId,
+          action: 'delete'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const msgEl = document.getElementById(`msg_${msgId}`);
+        if (msgEl) {
+          msgEl.style.opacity = '0';
+          msgEl.style.transform = 'translateX(30px)';
+          msgEl.style.transition = '0.3s ease';
+          setTimeout(() => msgEl.remove(), 300);
+        }
+      } else {
+        showToast('❌ ' + (data.error || "O'chirishda xatolik"), 'error');
+      }
+    }
   </script>
 <script>
 /**
