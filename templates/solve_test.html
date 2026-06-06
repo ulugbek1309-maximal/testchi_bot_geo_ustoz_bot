@@ -402,20 +402,25 @@
 
       function nextQuestion() {
         if (currentIdx < questions.length - 1) {
-          animateQuestionSlide('next', () => {
-            currentIdx++;
-            renderQuestion();
-          });
+          const doNext = () => { currentIdx++; renderQuestion(); };
+          // animateQuestionSlide animations.js dan keladi — mavjud bo'lsa ishlatamiz
+          if (typeof window.animateQuestionSlide === 'function') {
+            animateQuestionSlide('next', doNext);
+          } else {
+            doNext();
+          }
           window.scrollTo({top: 0, behavior: 'smooth'});
         }
       }
 
       function prevQuestion() {
         if (currentIdx > 0) {
-          animateQuestionSlide('prev', () => {
-            currentIdx--;
-            renderQuestion();
-          });
+          const doPrev = () => { currentIdx--; renderQuestion(); };
+          if (typeof window.animateQuestionSlide === 'function') {
+            animateQuestionSlide('prev', doPrev);
+          } else {
+            doPrev();
+          }
           window.scrollTo({top: 0, behavior: 'smooth'});
         }
       }
@@ -457,7 +462,11 @@
 
             // Count-up animatsiyasi bilan natijani ko'rsatish
             const scoreEl = document.getElementById('finalScore');
-            animateCountUp(scoreEl, result.score, 900);
+            if (typeof window.animateCountUp === 'function') {
+              animateCountUp(scoreEl, result.score, 900);
+            } else {
+              scoreEl.textContent = result.score;
+            }
             document.getElementById('resCorrect').innerText = result.correct_answers;
             document.getElementById('finalTime').innerText = result.duration;
             
