@@ -305,10 +305,46 @@
         .replace(/\*(.+?)\*/g,         '<i>$1</i>')
         .replace(/_(.+?)_/g,           '<i>$1</i>')
         .replace(/`([^`]+)`/g,         '<code>$1</code>');
+      // Chizilgan matn ~~matn~~
+      t = t.replace(/~~(.+?)~~/g, '<s style="opacity:0.6;">$1</s>');
+      // Havola [matn](url)
+      t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener" style="color:#7ba3ff;text-decoration:underline;text-underline-offset:3px;">$1</a>');
+      // Rasm ![alt](url)
+      t = t.replace(/!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g,
+        '<img src="$2" alt="$1" style="max-width:100%;border-radius:8px;margin:6px 0;display:block;">');
+      // Gorizontal chiziq --- yoki ***
+      t = t.replace(/^(---|\*\*\*|___)\s*$/gm,
+        '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.15);margin:12px 0;">');
+      // Jadval  | A | B |  (parse qilish)
+      t = t.replace(/((?:^\|.+\|\n?)+)/gm, (tableBlock) => {
+        const rows = tableBlock.trim().split('\n').filter(r => r.trim());
+        if (rows.length < 2) return tableBlock;
+        let html = '<div style="overflow-x:auto;margin:10px 0;"><table style="border-collapse:collapse;width:100%;font-size:13.5px;">';
+        rows.forEach((row, i) => {
+          // separator qatorini o'tkazib yuborish (|---|---|)
+          if (/^\|[\s\-:|]+\|/.test(row)) return;
+          const cells = row.split('|').filter((_, ci) => ci > 0 && ci < row.split('|').length - 1);
+          const tag = i === 0 ? 'th' : 'td';
+          const bg  = i === 0
+            ? 'background:rgba(123,163,255,0.15);color:#7ba3ff;font-weight:700;'
+            : (i % 2 === 0 ? 'background:rgba(255,255,255,0.03);' : '');
+          html += '<tr>' + cells.map(c =>
+            `<${tag} style="padding:8px 12px;border:1px solid rgba(255,255,255,0.1);${bg}text-align:left;">${c.trim()}</${tag}>`
+          ).join('') + '</tr>';
+        });
+        html += '</table></div>';
+        return html;
+      });
+      // Blockquote > matn
+      t = t.replace(/^&gt;\s+(.+)$/gm,
+        '<blockquote style="border-left:3px solid #7ba3ff;margin:8px 0;padding:6px 14px;background:rgba(123,163,255,0.07);border-radius:0 8px 8px 0;color:#ccc;font-style:italic;">$1</blockquote>');
       // Ro'yxat (- yoki * bilan boshlanadigan qatorlar)
-      t = t.replace(/^[-*]\s+(.+)$/gm, '<li style="margin:2px 0;margin-left:18px;list-style:disc;">$1</li>');
+      t = t.replace(/^[-*]\s+(.+)$/gm,
+        '<li style="margin:2px 0;margin-left:18px;list-style:disc;">$1</li>');
       // Raqamli ro'yxat
-      t = t.replace(/^\d+\.\s+(.+)$/gm, '<li style="margin:2px 0;margin-left:18px;list-style:decimal;">$1</li>');
+      t = t.replace(/^\d+\.\s+(.+)$/gm,
+        '<li style="margin:2px 0;margin-left:18px;list-style:decimal;">$1</li>');
       // Yangi qator
       t = t.replace(/\n/g, '<br>');
       return t;
