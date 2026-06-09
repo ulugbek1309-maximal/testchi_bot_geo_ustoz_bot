@@ -1,6 +1,7 @@
 import os
 import uuid
 import re
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -405,25 +406,25 @@ def parse_word_to_test(text):
         line = line.strip()
         if not line: continue
 
-        m_theme = theme_re.match(line)
+        m_theme = themere.match(line)
         if m_theme and theme == "Word Test":
             theme = m_theme.group(1).strip()
             continue
 
-        m_q = q_re.match(line)
+        m_q = qre.match(line)
         if m_q:
             if current_q: questions.append(current_q)
             clean_q = q_re.sub("", line).strip()
             current_q = {"question": clean_q, "options": [], "correct_index": -1}
             continue
 
-        m_opt = opt_re.match(line)
+        m_opt = optre.match(line)
         if m_opt and current_q:
             clean_opt = opt_re.sub("", line).strip()
             current_q["options"].append(clean_opt)
             continue
 
-        m_true = true_re.match(line)
+        m_true = truere.match(line)
         if m_true and current_q:
             correct_letter = m_true.group(1).strip().lower()
             current_q["correct_index"] = ord(correct_letter) - ord('a')
@@ -4232,19 +4233,7 @@ def api_ai_edit():
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  🌐  AGENTIC WEB BROWSER  (Playwright — haqiqiy brauzer)
-#  Qo'llab-quvvatlanadi:
-#    • <a href>  linklar
-#    • <button>  JS tugmalar
-#    • <input>   matn kiritish
-#    • <select>  dropdown tanlash
-#    • scroll    pastga siljish
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-import asyncio
-import re as _re
-
-# Playwright bir marta ishga tushuriladi (process darajasida)
-_pw_lock = asyncio.Lock() if False else None   # placeholder — har safar yangi loop
 
 
 def _run_async(coro):
@@ -4351,7 +4340,7 @@ def _parse_page(html: str, base_url: str = "") -> tuple[str, list[dict]]:
     for tag in soup(["nav", "footer", "header", "aside", "ads"]):
         tag.decompose()
     text = soup.get_text(separator="\n", strip=True)
-    text = _re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
 
     return text[:14000], elements[:40]   # max 14k belgi, 40 element
 
@@ -4542,7 +4531,7 @@ def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
              "Qaysi raqam? Faqat raqam:"}
     ], ai_headers, model, max_tokens=4)
 
-    num = _re.search(r'\d', choice_raw)
+    num = re.search(r'\d', choice_raw)
     idx = (int(num.group()) - 1) if num else 0
     idx = max(0, min(idx, len(search_links) - 1))
 
@@ -4645,7 +4634,7 @@ def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
 
         elif decision.upper().startswith("CLICK:"):
             raw_idx = decision[len("CLICK:"):].strip().split()[0]
-            num = _re.search(r'\d+', raw_idx)
+            num = re.search(r'\d+', raw_idx)
             if num:
                 el_idx = int(num.group())
                 el = next((e for e in cur_elements if e["idx"] == el_idx), None)
@@ -4667,7 +4656,7 @@ def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
 
         elif decision.upper().startswith("FILL_ENTER:"):
             rest = decision[len("FILL_ENTER:"):].strip()
-            m = _re.match(r'(\d+)\s*=\s*(.*)', rest, _re.DOTALL)
+            m = re.match(r'(\d+)\s*=\s*(.*)', rest, re.DOTALL)
             if m:
                 el_idx, fill_val = int(m.group(1)), m.group(2).strip().strip('"')
                 el = next((e for e in cur_elements if e["idx"] == el_idx), None)
@@ -4682,7 +4671,7 @@ def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
 
         elif decision.upper().startswith("FILL:"):
             rest = decision[len("FILL:"):].strip()
-            m = _re.match(r'(\d+)\s*=\s*(.*)', rest, _re.DOTALL)
+            m = re.match(r'(\d+)\s*=\s*(.*)', rest, re.DOTALL)
             if m:
                 el_idx, fill_val = int(m.group(1)), m.group(2).strip().strip('"')
                 el = next((e for e in cur_elements if e["idx"] == el_idx), None)
@@ -4694,7 +4683,7 @@ def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
 
         elif decision.upper().startswith("SELECT:"):
             rest = decision[len("SELECT:"):].strip()
-            m = _re.match(r'(\d+)\s*=\s*(.*)', rest)
+            m = re.match(r'(\d+)\s*=\s*(.*)', rest)
             if m:
                 el_idx, opt_val = int(m.group(1)), m.group(2).strip()
                 el = next((e for e in cur_elements if e["idx"] == el_idx), None)
