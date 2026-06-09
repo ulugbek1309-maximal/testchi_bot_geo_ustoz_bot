@@ -1289,6 +1289,114 @@ def buy_premium():
 
     return render_template("buy_premium.html", token=token, base_url=WEB_BASE_URL, admin_card=ADMIN_CARD, current_user_bg=user.get("custom_bg"), current_lock_bg=user.get("custom_lock_bg"), lang=lang, get_text=get_text)
 
+
+# ══════════════════════════════════════════════════════════════
+# ⭐  TELEGRAM STARS — PREMIUM SOTIB OLISH (SAYT ORQALI)
+# ══════════════════════════════════════════════════════════════
+
+# Narxlar jadvali: oylar → stars miqdori (botdagi bilan bir xil)
+PREMIUM_STARS_PRICES = {1: 80, 3: 220, 6: 440, 12: 800}
+
+
+@app.route("/api/create-stars-invoice", methods=["POST"])
+def api_create_stars_invoice():
+    """
+    Bot orqali Telegram Stars invoice link yaratadi va uni saytga qaytaradi.
+    Frontend Telegram.WebApp.openInvoice(link) bilan ochadi.
+    """
+    data = request.json or {}
+    token = data.get("token")
+    user = validate_token(token)
+    if not user:
+        return jsonify({"ok": False, "error": "Tizimga kiring"}), 401
+
+    months = int(data.get("months", 1))
+    if months not in PREMIUM_STARS_PRICES:
+        return jsonify({"ok": False, "error": "Noto'g'ri ta'rif"}), 400
+
+    stars = PREMIUM_STARS_PRICES[months]
+    lang  = session.get("lang", "uz")
+
+    titles = {
+        "uz":      f"💎 Premium — {months} oylik",
+        "uz_cyrl": f"💎 Премиум — {months} ойлик",
+        "ru":      f"💎 Premium — {months} мес.",
+    }
+    descs = {
+        "uz":      f"Geo Ustoz testchi platformasida {months} oylik Premium maqomini xarid qiling.",
+        "uz_cyrl": f"Geo Ustoz testchi platformasida {months} ойлик Премиум мақомини харид қилинг.",
+        "ru":      f"Купите {months}-месячный Premium статус на платформе Geo Ustoz.",
+    }
+
+    title       = titles.get(lang, titles["uz"])
+    description = descs.get(lang, descs["uz"])
+    payload     = f"premium_{months}"
+
+    if not BOT_TOKEN_MAIN:
+        return jsonify({"ok": False, "error": "Bot token sozlanmagan"}), 500
+
+    # Telegram Bot API → createInvoiceLink
+    url = f"https://api.telegram.org/bot{BOT_TOKEN_MAIN}/createInvoiceLink"
+    body = {
+        "title":          title,
+        "description":    description,
+        "payload":        payload,
+        "provider_token": "",          # Stars uchun bo'sh
+        "currency":       "XTR",
+        "prices":         [{"label": title, "amount": stars}],
+    }
+    try:
+        resp = requests.post(url, json=body, timeout=10).json()
+    except Exception as e:
+        logging.error(f"createInvoiceLink xato: {e}")
+        return jsonify({"ok": False, "error": "Telegram API bilan aloqa xatosi"}), 502
+
+    if not resp.get("ok"):
+        err = resp.get("description", "Noma'lum xato")
+        logging.error(f"createInvoiceLink: {err}")
+        return jsonify({"ok": False, "error": err}), 502
+
+    invoice_link = resp["result"]
+    return jsonify({"ok": True, "invoice_link": invoice_link, "stars": stars, "months": months})
+
+
+@app.route("/api/stars-premium-verify", methods=["POST"])
+def api_stars_premium_verify():
+    """
+    WebApp to'lov muvaffaqiyatli bo'lgandan so'ng (invoiceClosed status='paid')
+    chaqiriladi. Bot already handles successful_payment va premium qo'shadi,
+    bu endpoint faqat real-time UI update uchun premium statusni tekshiradi.
+    """
+    data = request.json or {}
+    token = data.get("token")
+    user = validate_token(token)
+    if not user:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    user_id = user["user_id"]
+    # DB dan yangilangan statusni o'qiymiz
+    with db._conn() as c:
+        c.execute("SELECT status, premium_expire_at FROM users WHERE user_id=%s", (user_id,))
+        row = to_dict(c.fetchone())
+
+    if not row:
+        return jsonify({"ok": False, "error": "Foydalanuvchi topilmadi"}), 404
+
+    is_premium      = row.get("status") == "premium"
+    expire_at       = row.get("premium_expire_at")
+    expire_readable = ""
+    if expire_at:
+        from datetime import datetime
+        expire_readable = datetime.fromtimestamp(expire_at, tz=TZ).strftime("%d.%m.%Y")
+
+    return jsonify({
+        "ok":             True,
+        "is_premium":     is_premium,
+        "expire_at":      expire_at,
+        "expire_readable": expire_readable,
+    })
+
+
 @app.route("/admin/users")
 def admin_users():
     token = request.args.get("token")
