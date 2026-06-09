@@ -285,14 +285,33 @@
 
     // Inline markdown (bold, italic, inline code)
     function renderInlineMarkdown(text) {
-      return text
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      // HTML escape
+      let t = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      // Sarlavhalar (# → <h1> ... ###### → <h6>)
+      t = t
+        .replace(/^######\s+(.+)$/gm, '<h6 style="margin:6px 0 2px;font-size:12px;color:#aaa;font-weight:600;">$1</h6>')
+        .replace(/^#####\s+(.+)$/gm,  '<h5 style="margin:8px 0 3px;font-size:13px;color:#ccc;font-weight:600;">$1</h5>')
+        .replace(/^####\s+(.+)$/gm,   '<h4 style="margin:10px 0 4px;font-size:14px;color:#ddd;font-weight:700;">$1</h4>')
+        .replace(/^###\s+(.+)$/gm,    '<h3 style="margin:12px 0 5px;font-size:15px;color:#fff;font-weight:700;padding-bottom:3px;border-bottom:1px solid rgba(255,255,255,0.1);">$1</h3>')
+        .replace(/^##\s+(.+)$/gm,     '<h2 style="margin:14px 0 6px;font-size:17px;color:#fff;font-weight:700;">$1</h2>')
+        .replace(/^#\s+(.+)$/gm,      '<h1 style="margin:16px 0 8px;font-size:19px;color:#fff;font-weight:800;">$1</h1>');
+      // Bold, italic, inline code
+      t = t
         .replace(/\*\*\*(.+?)\*\*\*/g, '<b><i>$1</i></b>')
-        .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-        .replace(/\*(.+?)\*/g, '<i>$1</i>')
-        .replace(/_(.+?)_/g, '<i>$1</i>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\n/g, '<br>');
+        .replace(/\*\*(.+?)\*\*/g,     '<b>$1</b>')
+        .replace(/\*(.+?)\*/g,         '<i>$1</i>')
+        .replace(/_(.+?)_/g,           '<i>$1</i>')
+        .replace(/`([^`]+)`/g,         '<code>$1</code>');
+      // Ro'yxat (- yoki * bilan boshlanadigan qatorlar)
+      t = t.replace(/^[-*]\s+(.+)$/gm, '<li style="margin:2px 0;margin-left:18px;list-style:disc;">$1</li>');
+      // Raqamli ro'yxat
+      t = t.replace(/^\d+\.\s+(.+)$/gm, '<li style="margin:2px 0;margin-left:18px;list-style:decimal;">$1</li>');
+      // Yangi qator
+      t = t.replace(/\n/g, '<br>');
+      return t;
     }
 
     // Matni kod bloki va oddiy qismlarga ajratish
