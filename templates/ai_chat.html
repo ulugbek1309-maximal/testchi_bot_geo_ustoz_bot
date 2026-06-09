@@ -285,11 +285,18 @@
 
     // Inline markdown (bold, italic, inline code)
     function renderInlineMarkdown(text) {
-      // HTML escape
-      let t = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+      // Faqat xavfli teglarni escape qilamiz,
+      // AI yozgan <b> <i> <br> <s> <u> kabi oddiy teglarni saqlaymiz
+      const SAFE_TAGS = /^\/?(b|i|u|s|em|strong|br|hr|li|ul|ol|code|sup|sub)(\s|\/?>|>)/;
+      let t = text.replace(/&(?![a-zA-Z0-9#]+;)/g, '&amp;');
+      // < va > : faqat xavfli script/xss teglarini escape, qolganlarni qoldirish
+      t = t.replace(/<(\/?\w+)([^>]*)>/g, (match, tag, attrs) => {
+        if (SAFE_TAGS.test(tag + (attrs || '') + '>')) return match; // ruxsat etilgan
+        if (/^(script|iframe|object|embed|form|input|style|link|meta)/i.test(tag)) {
+          return '&lt;' + tag + (attrs || '') + '&gt;'; // xavflilarni escape
+        }
+        return match; // boshqa teglar ham qabul
+      });
       // Sarlavhalar (# → <h1> ... ###### → <h6>)
       t = t
         .replace(/^######\s+(.+)$/gm, '<h6 style="margin:6px 0 2px;font-size:12px;color:#aaa;font-weight:600;">$1</h6>')
