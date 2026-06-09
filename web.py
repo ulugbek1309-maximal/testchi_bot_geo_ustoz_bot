@@ -50,7 +50,7 @@ def load_required_channels_from_db():
 REQUIRED_CHANNELS = []  # Boshida bo'sh, keyin yuklaydi
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-MODEL_NAME = "nvidia/nemotron-3-super-120b-a12b:free"
+MODEL_NAME = "google/gemini-2.5-flash:free"
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY", "")
