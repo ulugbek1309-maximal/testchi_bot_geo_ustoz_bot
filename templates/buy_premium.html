@@ -6,7 +6,7 @@
   <title>
     {% if lang == 'uz' %}Premium Sotib Olish
     {% elif lang == 'uz_cyrl' %}Premium Сотиб Олиш
-    {% else %}Покупка Premium{% endif %} | Test Tuzgich
+    {% else %}Покупка Premium{% endif %} | Testchi
   </title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -19,77 +19,153 @@
       --blue-accent: #3b82f6;
       --blue-hover: #2563eb;
       --stars-accent: #facc15;
+      --green-accent: #38d39f;
     }
+    * { box-sizing: border-box; }
     body {
-      margin: 0; padding: 0;
+      margin: 0; padding: 16px 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       min-height: 100vh;
     }
+    /* ── Container ── */
     .container {
       background-color: rgba(31, 41, 55, 0.85);
       backdrop-filter: blur(15px);
       width: 100%;
-      max-width: 450px;
-      border-radius: 12px;
-      padding: 25px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-      box-sizing: border-box;
-      margin: 20px;
+      max-width: 460px;
+      border-radius: 16px;
+      padding: 26px 22px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.55);
+      margin: 0 14px;
       border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
     }
+    /* ── Title ── */
     h2.title {
       text-align: center;
-      margin: 0 0 20px 0;
+      margin: 0 0 20px;
       font-size: 22px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
     }
+    /* ── Tabs ── */
     .tabs {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 8px;
+      margin-bottom: 22px;
     }
     .tab {
       flex: 1;
-      padding: 10px;
+      padding: 11px 8px;
       text-align: center;
       background: rgba(0,0,0,0.3);
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
       font-size: 14px;
-      border: 1px solid rgba(255,255,255,0.1);
-      transition: 0.2s;
+      font-weight: 600;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      transition: background .18s, border-color .18s, transform .18s;
+      user-select: none;
     }
+    .tab:hover:not(.active) { transform: translateY(-2px); }
     .tab.active {
       background: var(--blue-accent);
       border-color: var(--blue-accent);
     }
+    .tab.active.stars-tab {
+      background: #d97706;
+      border-color: #d97706;
+    }
+    /* ── Sections ── */
     .payment-section { display: none; }
-    .payment-section.active { display: block; }
+    .payment-section.active { display: block; animation: sectionIn .3s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes sectionIn { from { opacity:0; transform:translateX(10px); } to { opacity:1; transform:translateX(0); } }
 
+    /* ── Card info box ── */
     .payment-info {
-      background-color: rgba(55, 65, 81, 0.8);
+      background: rgba(55,65,81,.8);
       padding: 15px;
-      border-radius: 10px;
+      border-radius: 12px;
       text-align: center;
       margin-bottom: 20px;
-      border: 1px dashed rgba(255,255,255,0.2);
+      border: 1px dashed rgba(108,178,255,.35);
     }
+    .payment-info p { margin: 4px 0; font-size: 13px; color: var(--text-muted); }
     .card-number {
       color: #6cb2ff;
       font-size: 22px;
       font-weight: bold;
-      margin: 5px 0;
-      letter-spacing: 1px;
+      margin: 6px 0;
+      letter-spacing: 1.5px;
     }
+    .receiver { font-size: 13px; color: var(--text-muted); }
 
+    /* ── Form ── */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+    select, input[type="file"] {
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      color: var(--text-main);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+    }
+    select:focus { border-color: rgba(108,178,255,.6); box-shadow: 0 0 10px rgba(108,178,255,.15); }
+    input[type="file"]:hover { border-color: rgba(108,178,255,.45); }
+
+    /* ── Submit btns ── */
+    .submit-btn {
+      width: 100%;
+      background: var(--blue-accent);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex; justify-content: center; align-items: center; gap: 8px;
+      transition: transform .18s, box-shadow .18s;
+      position: relative; overflow: hidden;
+    }
+    .submit-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 24px rgba(59,130,246,.4); }
+    .submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .submit-btn::after {
+      content: '';
+      position: absolute; top:-50%; left:-75%;
+      width:50%; height:200%;
+      background: linear-gradient(105deg, transparent, rgba(255,255,255,.25), transparent);
+      transform: skewX(-20deg);
+      animation: btnShine 3s ease-in-out infinite;
+    }
+    @keyframes btnShine { 0%,70%,100%{left:-75%} 40%{left:125%} }
+
+    /* ── Stars section specific ── */
+    .stars-info-banner {
+      background: linear-gradient(135deg, rgba(250,204,21,.12), rgba(245,158,11,.08));
+      border: 1px solid rgba(250,204,21,.3);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .stars-info-banner .icon { font-size: 26px; flex-shrink: 0; margin-top: 2px; }
+    .stars-info-banner .text { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+    .stars-info-banner .text b { color: var(--stars-accent); }
+
+    /* ── Stars grid ── */
     .stars-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -97,397 +173,653 @@
       margin-bottom: 20px;
     }
     .star-option {
-      background: rgba(250, 204, 21, 0.1);
-      border: 1px solid rgba(250, 204, 21, 0.3);
-      padding: 15px;
-      border-radius: 10px;
+      background: rgba(250,204,21,.08);
+      border: 2px solid rgba(250,204,21,.25);
+      padding: 16px 10px;
+      border-radius: 12px;
       text-align: center;
       cursor: pointer;
-      transition: 0.2s;
+      transition: background .18s, border-color .18s, transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .18s;
+      position: relative;
+      user-select: none;
     }
-    .star-option:hover { background: rgba(250, 204, 21, 0.2); }
-    .star-option .price { font-size: 18px; font-weight: bold; color: var(--stars-accent); }
-    .star-option .label { font-size: 13px; display: block; color: var(--text-muted); }
-
-    .form-group { margin-bottom: 15px; }
-    .form-group label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
-    
-    select, input[type="file"] {
-      width: 100%;
-      background-color: rgba(0,0,0,0.4);
+    .star-option:hover {
+      background: rgba(250,204,21,.18);
+      border-color: rgba(250,204,21,.65);
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 8px 24px rgba(250,204,21,.2);
+    }
+    .star-option.selected {
+      background: rgba(250,204,21,.2);
+      border-color: var(--stars-accent);
+      box-shadow: 0 0 0 3px rgba(250,204,21,.2), 0 8px 24px rgba(250,204,21,.25);
+      transform: translateY(-3px) scale(1.03);
+    }
+    .star-option.selected::after {
+      content: '✓';
+      position: absolute; top:6px; right:9px;
+      font-size: 12px; font-weight: 800;
+      color: var(--stars-accent);
+    }
+    .star-option .price {
+      font-size: 20px; font-weight: 800;
+      color: var(--stars-accent);
+      display: block; margin-bottom: 4px;
+    }
+    .star-option .duration {
+      font-size: 13px; font-weight: 600;
       color: var(--text-main);
-      border: 1px solid rgba(255,255,255,0.2);
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      outline: none;
-      box-sizing: border-box;
+      display: block; margin-bottom: 3px;
     }
+    .star-option .save-badge {
+      display: inline-block;
+      background: rgba(56,211,159,.18);
+      border: 1px solid rgba(56,211,159,.4);
+      color: #38d39f;
+      border-radius: 20px;
+      font-size: 10px; font-weight: 700;
+      padding: 2px 7px;
+      margin-top: 4px;
+    }
+    /* stagger-in */
+    .stars-grid .star-option:nth-child(1){ animation: starIn .35s .05s cubic-bezier(.22,1,.36,1) both; }
+    .stars-grid .star-option:nth-child(2){ animation: starIn .35s .12s cubic-bezier(.22,1,.36,1) both; }
+    .stars-grid .star-option:nth-child(3){ animation: starIn .35s .19s cubic-bezier(.22,1,.36,1) both; }
+    .stars-grid .star-option:nth-child(4){ animation: starIn .35s .26s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes starIn { from{opacity:0;transform:translateY(18px) scale(.93)} to{opacity:1;transform:translateY(0) scale(1)} }
 
-    .submit-btn {
-      width: 100%;
-      background-color: var(--blue-accent);
-      color: white;
+    .stars-buy-btn {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
       border: none;
-      padding: 14px;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex; justify-content: center; align-items: center; gap: 8px;
-      transition: 0.2s;
     }
-    .stars-btn { background-color: #f59e0b; }
-    .stars-btn:hover { background-color: #d97706; }
+    .stars-buy-btn:hover:not(:disabled) {
+      box-shadow: 0 8px 28px rgba(245,158,11,.5) !important;
+    }
+    .stars-buy-btn:disabled { background: linear-gradient(135deg,#6b7280,#4b5563); }
 
-    .back-link {
-      display: block; text-align: center; margin-top: 15px;
-      color: #6cb2ff; text-decoration: none; font-size: 14px;
+    /* ── Status screens ── */
+    .status-screen {
+      display: none;
+      text-align: center;
+      padding: 20px 10px;
+      animation: fadeIn .35s ease both;
     }
-    .error-msg { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-size: 13px; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    .status-icon { font-size: 52px; margin-bottom: 14px; display: block; }
+    .status-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    .status-desc { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
+
+    .spinner {
+      width: 38px; height: 38px;
+      border: 3px solid rgba(250,204,21,.25);
+      border-top-color: var(--stars-accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* ── Errors ── */
+    .error-msg {
+      background: rgba(239,68,68,.18);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      animation: errorShake .4s ease both;
+    }
+    @keyframes errorShake {
+      0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)}
+      40%{transform:translateX(8px)}   60%{transform:translateX(-5px)}
+      80%{transform:translateX(5px)}
+    }
+    .inline-error {
+      background: rgba(239,68,68,.12);
+      border: 1px solid rgba(239,68,68,.4);
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    /* ── Back link ── */
+    .back-link {
+      display: block; text-align: center; margin-top: 18px;
+      color: #6cb2ff; text-decoration: none; font-size: 14px;
+      transition: color .18s, text-shadow .18s;
+    }
+    .back-link:hover { text-shadow: 0 0 10px rgba(108,178,255,.6); }
+
+    /* ── Shimmer border animation ── */
+    .container::before {
+      content: '';
+      position: absolute; inset: -1px;
+      border-radius: 17px;
+      background: linear-gradient(45deg, rgba(56,211,159,.3), rgba(108,178,255,.3), rgba(183,148,244,.3), rgba(251,191,36,.2));
+      background-size: 300% 300%;
+      z-index: -1;
+      animation: borderFlow 5s ease infinite;
+      opacity: .5;
+    }
+    @keyframes borderFlow {
+      0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+    }
+
+    /* ── Title shimmer ── */
+    h2.title {
+      background: linear-gradient(90deg,#fff 0%,#fbbf24 25%,#f59e0b 50%,#fbbf24 75%,#fff 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: titleShimmer 3s linear infinite;
+    }
+    @keyframes titleShimmer { 0%{background-position:0% center} 100%{background-position:200% center} }
+    html.no-anim h2.title { background:none!important; -webkit-text-fill-color:var(--text-main)!important; }
+
+    /* ── Payment info pulse border ── */
+    .payment-info { animation: infoPulse 3s ease-in-out infinite; }
+    @keyframes infoPulse {
+      0%,100%{border-color:rgba(108,178,255,.3)} 50%{border-color:rgba(108,178,255,.7)}
+    }
+    .card-number { animation: cardGlow 2.5s ease-in-out infinite; }
+    @keyframes cardGlow {
+      0%,100%{text-shadow:0 0 0 rgba(108,178,255,0)} 50%{text-shadow:0 0 18px rgba(108,178,255,.6),0 0 35px rgba(108,178,255,.2)}
+    }
+
+    /* ── Tab bounce ── */
+    .tab { transition: background .2s, border-color .2s, transform .2s cubic-bezier(.34,1.56,.64,1)!important; }
+    .tab.active { animation: tabBounce .3s cubic-bezier(.34,1.56,.64,1); }
+    @keyframes tabBounce { 0%{transform:scale(.94)} 60%{transform:scale(1.04)} 100%{transform:scale(1)} }
+
+    /* ── Body enter ── */
+    body { animation: bodyIn .4s ease both; }
+    @keyframes bodyIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .container { animation: containerIn .5s .08s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes containerIn {
+      from{opacity:0;transform:scale(.95) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)}
+    }
+
+    /* ── Stars section — instant badge ── */
+    .instant-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(56,211,159,.15);
+      border: 1px solid rgba(56,211,159,.4);
+      color: #38d39f;
+      border-radius: 20px;
+      font-size: 12px; font-weight: 700;
+      padding: 4px 12px;
+      margin: 0 auto 18px;
+      animation: badgePulse 2.5s ease-in-out infinite;
+    }
+    @keyframes badgePulse {
+      0%,100%{box-shadow:0 0 0 rgba(56,211,159,0)} 50%{box-shadow:0 0 14px rgba(56,211,159,.4)}
+    }
+
+    /* ── Selected highlight for price-float ── */
+    .star-option .price { animation: priceFloat 3s ease-in-out infinite; }
+    .stars-grid .star-option:nth-child(1) .price{animation-delay:0s}
+    .stars-grid .star-option:nth-child(2) .price{animation-delay:.2s}
+    .stars-grid .star-option:nth-child(3) .price{animation-delay:.4s}
+    .stars-grid .star-option:nth-child(4) .price{animation-delay:.6s}
+    @keyframes priceFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
   </style>
 </head>
-<body style="{% if current_user_bg %}background: linear-gradient(rgba(17, 24, 39, 0.8), rgba(17, 24, 39, 0.95)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
+<body style="{% if current_user_bg %}background: linear-gradient(rgba(17,24,39,.85),rgba(17,24,39,.97)), url('{{ current_user_bg }}') no-repeat center center fixed; background-size: cover;{% endif %}">
 
-  <div class="container">
-    <h2 class="title">💎 Premium</h2>
+<div class="container">
+  <h2 class="title">💎 Premium</h2>
 
-    <div class="tabs">
-      <div class="tab active" onclick="switchTab('card')">💳 
-        {% if lang == 'uz' %}Karta
-        {% elif lang == 'uz_cyrl' %}Карта
-        {% else %}Карта{% endif %}
-      </div>
-      <div class="tab" onclick="switchTab('stars')">⭐️ Telegram Stars</div>
+  <!-- ═══ TABS ═══ -->
+  <div class="tabs">
+    <div class="tab active" id="tab-card" onclick="switchTab('card')">💳
+      {% if lang == 'uz' %}Karta
+      {% elif lang == 'uz_cyrl' %}Карта
+      {% else %}Карта{% endif %}
     </div>
+    <div class="tab stars-tab" id="tab-stars" onclick="switchTab('stars')">⭐️ Stars</div>
+  </div>
 
-    {% if request.args.get('error') %}
-      <div class="error-msg">{{ request.args.get('error') }}</div>
-    {% endif %}
+  {% if request.args.get('error') %}
+    <div class="error-msg">{{ request.args.get('error') }}</div>
+  {% endif %}
 
-    <div id="card-section" class="payment-section active">
-      <div class="payment-info">
-        <p>
-          {% if lang == 'uz' %}To'lov uchun karta raqami:
-          {% elif lang == 'uz_cyrl' %}Тўлов учун карта рақами:
-          {% else %}Номер карты для оплаты:{% endif %}
-        </p>
-        <div class="card-number">
-          {% if '(' in admin_card %} {{ admin_card.split('(')[0].strip() }} {% else %} {{ admin_card }} {% endif %}
-        </div>
-        <p class="receiver">
-          {% if lang == 'uz' %}Qabul qiluvchi:
-          {% elif lang == 'uz_cyrl' %}Қабул қилувчи:
-          {% else %}Получатель:{% endif %}
-          <strong>{% if '(' in admin_card %} {{ admin_card.split('(')[1].replace(')', '').strip() }} {% else %} Admin {% endif %}</strong>
-        </p>
-      </div>
-
-      <form action="/buy-premium" method="post" enctype="multipart/form-data">
-        <input type="hidden" name="token" value="{{ token }}">
-        <div class="form-group">
-          <label>
-            {% if lang == 'uz' %}O'zingizga qulay tarifni tanlang:
-            {% elif lang == 'uz_cyrl' %}Ўзингизга қулай тарифни танланг:
-            {% else %}Выберите удобный тариф:{% endif %}
-          </label>
-          <select name="months" required>
-            <option value="1">1 {% if lang == 'uz' %}Oylik{% elif lang == 'uz_cyrl' %}Ойлик{% else %}Месяц{% endif %} - 20,000 UZS</option>
-            <option value="3">3 {% if lang == 'uz' %}Oylik{% elif lang == 'uz_cyrl' %}Ойлик{% else %}Месяца{% endif %} - 55,000 UZS</option>
-            <option value="6">6 {% if lang == 'uz' %}Oylik{% elif lang == 'uz_cyrl' %}Ойлик{% else %}Месяцев{% endif %} - 110,000 UZS</option>
-            <option value="12">1 {% if lang == 'uz' %}Yillik{% elif lang == 'uz_cyrl' %}Йиллик{% else %}Год{% endif %} - 200,000 UZS</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>
-            {% if lang == 'uz' %}To'lov chekini yuklang (Rasm):
-            {% elif lang == 'uz_cyrl' %}Тўлов чекини юкланг (Расм):
-            {% else %}Загрузите чек об оплате (Фото):{% endif %}
-          </label>
-          <input type="file" name="receipt" accept="image/*" required>
-        </div>
-        <button type="submit" class="submit-btn">🚀 
-          {% if lang == 'uz' %}Tasdiqlashga yuborish
-          {% elif lang == 'uz_cyrl' %}Тасдиқлашга юбориш
-          {% else %}Отправить на подтверждение{% endif %}
-        </button>
-      </form>
-    </div>
-
-    <div id="stars-section" class="payment-section">
-      <p style="text-align: center; font-size: 14px; color: var(--text-muted); margin-bottom: 15px;">
-        {% if lang == 'uz' %}Telegram Stars orqali to'lov bir zumda tasdiqlanadi!
-        {% elif lang == 'uz_cyrl' %}Telegram Stars орқали тўлов бир зумда тасдиқланади!
-        {% else %}Оплата через Telegram Stars подтверждается мгновенно!{% endif %}
+  <!-- ═══════════════════════════════════════
+       💳  KARTA BO'LIMI (o'zgarishsiz)
+  ═══════════════════════════════════════ -->
+  <div id="card-section" class="payment-section active">
+    <div class="payment-info">
+      <p>
+        {% if lang == 'uz' %}To'lov uchun karta raqami:
+        {% elif lang == 'uz_cyrl' %}Тўлов учун карта рақами:
+        {% else %}Номер карты для оплаты:{% endif %}
       </p>
-      
-      <div class="stars-grid">
-        <div class="star-option" onclick="payWithStars(1, 150)">
-          <span class="price">150 ⭐️</span>
-          <span class="label">1 {% if lang == 'uz' %}Oy{% elif lang == 'uz_cyrl' %}Ой{% else %}Месяц{% endif %}</span>
-        </div>
-        <div class="star-option" onclick="payWithStars(3, 400)">
-          <span class="price">400 ⭐️</span>
-          <span class="label">3 {% if lang == 'uz' %}Oy{% elif lang == 'uz_cyrl' %}Ой{% else %}Месяца{% endif %}</span>
-        </div>
-        <div class="star-option" onclick="payWithStars(6, 750)">
-          <span class="price">750 ⭐️</span>
-          <span class="label">6 {% if lang == 'uz' %}Oy{% elif lang == 'uz_cyrl' %}Ой{% else %}Месяцев{% endif %}</span>
-        </div>
-        <div class="star-option" onclick="payWithStars(12, 1400)">
-          <span class="price">1400 ⭐️</span>
-          <span class="label">1 {% if lang == 'uz' %}Yil{% elif lang == 'uz_cyrl' %}Йил{% else %}Год{% endif %}</span>
+      <div class="card-number">
+        {% if '(' in admin_card %}{{ admin_card.split('(')[0].strip() }}{% else %}{{ admin_card }}{% endif %}
+      </div>
+      <p class="receiver">
+        {% if lang == 'uz' %}Qabul qiluvchi:
+        {% elif lang == 'uz_cyrl' %}Қабул қилувчи:
+        {% else %}Получатель:{% endif %}
+        <strong>{% if '(' in admin_card %}{{ admin_card.split('(')[1].replace(')', '').strip() }}{% else %}Admin{% endif %}</strong>
+      </p>
+    </div>
+
+    <form action="/buy-premium" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="token" value="{{ token }}">
+      <div class="form-group">
+        <label>
+          {% if lang == 'uz' %}O'zingizga qulay tarifni tanlang:
+          {% elif lang == 'uz_cyrl' %}Ўзингизга қулай тарифни танланг:
+          {% else %}Выберите удобный тариф:{% endif %}
+        </label>
+        <select name="months" required>
+          <option value="1">1 {% if lang=='uz'%}Oylik{% elif lang=='uz_cyrl'%}Ойлик{% else %}Месяц{% endif %} — 20,000 UZS</option>
+          <option value="3">3 {% if lang=='uz'%}Oylik{% elif lang=='uz_cyrl'%}Ойлик{% else %}Месяца{% endif %} — 55,000 UZS</option>
+          <option value="6">6 {% if lang=='uz'%}Oylik{% elif lang=='uz_cyrl'%}Ойлик{% else %}Месяцев{% endif %} — 110,000 UZS</option>
+          <option value="12">1 {% if lang=='uz'%}Yillik{% elif lang=='uz_cyrl'%}Йиллик{% else %}Год{% endif %} — 200,000 UZS</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>
+          {% if lang == 'uz' %}To'lov chekini yuklang (Rasm):
+          {% elif lang == 'uz_cyrl' %}Тўлов чекини юкланг (Расм):
+          {% else %}Загрузите чек об оплате (Фото):{% endif %}
+        </label>
+        <input type="file" name="receipt" accept="image/*" required>
+      </div>
+      <button type="submit" class="submit-btn">
+        🚀 {% if lang=='uz'%}Tasdiqlashga yuborish{% elif lang=='uz_cyrl'%}Тасдиқлашга юбориш{% else %}Отправить на подтверждение{% endif %}
+      </button>
+    </form>
+  </div><!-- /card-section -->
+
+
+  <!-- ═══════════════════════════════════════
+       ⭐️  TELEGRAM STARS BO'LIMI
+  ═══════════════════════════════════════ -->
+  <div id="stars-section" class="payment-section">
+
+    <!-- 1️⃣ ASOSIY HOLAT — tarif tanlash -->
+    <div id="stars-main">
+      <!-- Info banner -->
+      <div class="stars-info-banner">
+        <span class="icon">⚡️</span>
+        <div class="text">
+          {% if lang == 'uz' %}
+            <b>Avtomatik va bir zumda!</b> Telegram Stars orqali to'lov qilsangiz, Premium maqomi <b>darhol</b> faollashadi. Hech qanday kutish yo'q!
+          {% elif lang == 'uz_cyrl' %}
+            <b>Автоматик ва бир зумда!</b> Telegram Stars орқали тўлов қилсангиз, Premium мақоми <b>дарҳол</b> фаоллашади. Ҳеч қандай кутиш йўқ!
+          {% else %}
+            <b>Автоматически и мгновенно!</b> При оплате через Telegram Stars Premium активируется <b>сразу</b>. Никаких ожиданий!
+          {% endif %}
         </div>
       </div>
 
-      <button class="submit-btn stars-btn" onclick="alert('Tez kunda...')">
-        ⭐️ {% if lang == 'uz' %}Stars orqali sotib olish{% elif lang == 'uz_cyrl' %}Stars орқали сотиб олиш{% else %}Купить через Stars{% endif %}
+      <!-- Instant badge -->
+      <div style="text-align:center">
+        <span class="instant-badge">
+          ✅ {% if lang=='uz'%}Darhol beriladi{% elif lang=='uz_cyrl'%}Дарҳол берилади{% else %}Выдаётся мгновенно{% endif %}
+        </span>
+      </div>
+
+      <!-- Tarif kartochkalari -->
+      <div class="stars-grid" id="stars-grid">
+        <div class="star-option" data-months="1" data-stars="80" onclick="selectStarPlan(this)">
+          <span class="price">80 ⭐️</span>
+          <span class="duration">1 {% if lang=='uz'%}Oy{% elif lang=='uz_cyrl'%}Ой{% else %}Месяц{% endif %}</span>
+        </div>
+        <div class="star-option" data-months="3" data-stars="220" onclick="selectStarPlan(this)">
+          <span class="price">220 ⭐️</span>
+          <span class="duration">3 {% if lang=='uz'%}Oy{% elif lang=='uz_cyrl'%}Ой{% else %}Месяца{% endif %}</span>
+          <span class="save-badge">{% if lang=='uz'%}8% tejash{% elif lang=='uz_cyrl'%}8% тежаш{% else %}Скидка 8%{% endif %}</span>
+        </div>
+        <div class="star-option" data-months="6" data-stars="440" onclick="selectStarPlan(this)">
+          <span class="price">440 ⭐️</span>
+          <span class="duration">6 {% if lang=='uz'%}Oy{% elif lang=='uz_cyrl'%}Ой{% else %}Месяцев{% endif %}</span>
+          <span class="save-badge">{% if lang=='uz'%}8% tejash{% elif lang=='uz_cyrl'%}8% тежаш{% else %}Скидка 8%{% endif %}</span>
+        </div>
+        <div class="star-option" data-months="12" data-stars="800" onclick="selectStarPlan(this)">
+          <span class="price">800 ⭐️</span>
+          <span class="duration">1 {% if lang=='uz'%}Yil{% elif lang=='uz_cyrl'%}Йил{% else %}Год{% endif %}</span>
+          <span class="save-badge">{% if lang=='uz'%}17% tejash{% elif lang=='uz_cyrl'%}17% тежаш{% else %}Скидка 17%{% endif %}</span>
+        </div>
+      </div>
+
+      <!-- Xarid tugmasi -->
+      <button class="submit-btn stars-buy-btn" id="stars-buy-btn"
+              onclick="startStarsPurchase()" disabled>
+        ⭐️ {% if lang=='uz'%}Tarifni tanlang{% elif lang=='uz_cyrl'%}Тарифни танланг{% else %}Выберите тариф{% endif %}
+      </button>
+
+      <!-- Inline xato xabari -->
+      <div class="inline-error" id="stars-inline-error"></div>
+    </div><!-- /stars-main -->
+
+
+    <!-- 2️⃣ YUKLASH HOLATI -->
+    <div class="status-screen" id="stars-loading">
+      <div class="spinner"></div>
+      <div class="status-title">
+        {% if lang=='uz'%}Invoice yaratilmoqda...{% elif lang=='uz_cyrl'%}Инвойс яратилмоқда...{% else %}Создание счёта...{% endif %}
+      </div>
+      <div class="status-desc">
+        {% if lang=='uz'%}Iltimos kuting, Telegram to'lov oynasi ochiladi.{% elif lang=='uz_cyrl'%}Илтимос кутинг, Telegram тўлов ойнаси очилади.{% else %}Пожалуйста, подождите. Откроется окно оплаты Telegram.{% endif %}
+      </div>
+    </div>
+
+    <!-- 3️⃣ TO'LOV KUTILMOQDA (invoice ochildi, natija kutilmoqda) -->
+    <div class="status-screen" id="stars-pending">
+      <span class="status-icon">⏳</span>
+      <div class="status-title">
+        {% if lang=='uz'%}To'lov kutilmoqda{% elif lang=='uz_cyrl'%}Тўлов кутилмоқда{% else %}Ожидание оплаты{% endif %}
+      </div>
+      <div class="status-desc">
+        {% if lang=='uz'%}
+          Telegram to'lov oynasida <b>to'lovni tasdiqlang</b>. Tasdiqlangach, Premium darhol faollashadi.
+        {% elif lang=='uz_cyrl'%}
+          Telegram тўлов ойнасида <b>тўловни тасдиқланг</b>. Тасдиқлангач, Premium дарҳол фаоллашади.
+        {% else %}
+          <b>Подтвердите оплату</b> в окне Telegram. После подтверждения Premium активируется мгновенно.
+        {% endif %}
+      </div>
+      <button class="submit-btn" style="background:rgba(255,255,255,.1); margin-top:4px;" onclick="showStarsMain()">
+        ← {% if lang=='uz'%}Orqaga{% elif lang=='uz_cyrl'%}Орқага{% else %}Назад{% endif %}
       </button>
     </div>
 
-    <a href="/account?token={{ token }}" class="back-link">⬅️ 
-      {% if lang == 'uz' %}Profilga qaytish
-      {% elif lang == 'uz_cyrl' %}Профилга қайтиш
-      {% else %}Вернуться в профиль{% endif %}
-    </a>
-  </div>
+    <!-- 4️⃣ MUVAFFAQIYAT -->
+    <div class="status-screen" id="stars-success">
+      <span class="status-icon" style="animation: successPop .6s cubic-bezier(.34,1.56,.64,1) both">🎉</span>
+      <div class="status-title" style="color:#38d39f">
+        {% if lang=='uz'%}Premium faollashdi!{% elif lang=='uz_cyrl'%}Premium фаоллашди!{% else %}Premium активирован!{% endif %}
+      </div>
+      <div class="status-desc" id="success-desc">
+        {% if lang=='uz'%}
+          Tabriklaymiz! Sizga Premium maqomi berildi. Barcha imkoniyatlar ochildi 💎
+        {% elif lang=='uz_cyrl'%}
+          Табрикlaymiz! Sizga Premium maqomi berildi. Barcha imkoniyatlar ochildi 💎
+        {% else %}
+          Поздравляем! Вам присвоен Premium статус. Все возможности открыты 💎
+        {% endif %}
+      </div>
+      <a href="/account?token={{ token }}" class="submit-btn" style="text-decoration:none; background: linear-gradient(135deg,#38d39f,#2db888);">
+        💎 {% if lang=='uz'%}Profilga o'tish{% elif lang=='uz_cyrl'%}Профилга ўтиш{% else %}Перейти в профиль{% endif %}
+      </a>
+    </div>
+    <style>
+      @keyframes successPop { from{transform:scale(0) rotate(-15deg);opacity:0} to{transform:scale(1) rotate(0);opacity:1} }
+    </style>
 
-  <script>
-    function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.payment-section').forEach(s => s.classList.remove('active'));
-      
-      if(tab === 'card') {
-        document.getElementById('card-section').classList.add('active');
-        document.querySelector('.tab:nth-child(1)').classList.add('active');
-      } else {
-        document.getElementById('stars-section').classList.add('active');
-        document.querySelector('.tab:nth-child(2)').classList.add('active');
-      }
-    }
+    <!-- 5️⃣ XATO -->
+    <div class="status-screen" id="stars-error">
+      <span class="status-icon">❌</span>
+      <div class="status-title" style="color:#f87171">
+        {% if lang=='uz'%}Xatolik yuz berdi{% elif lang=='uz_cyrl'%}Хатолик юз берди{% else %}Произошла ошибка{% endif %}
+      </div>
+      <div class="status-desc" id="error-desc">
+        {% if lang=='uz'%}To'lov amalga oshmadi. Qaytadan urinib ko'ring.{% elif lang=='uz_cyrl'%}Тўлов амалга ошмади. Қайтадан уриниб кўринг.{% else %}Оплата не прошла. Попробуйте ещё раз.{% endif %}
+      </div>
+      <button class="submit-btn" onclick="showStarsMain()" style="margin-bottom:8px">
+        🔄 {% if lang=='uz'%}Qaytadan urinish{% elif lang=='uz_cyrl'%}Қайтадан уриниш{% else %}Попробовать снова{% endif %}
+      </button>
+      <button class="submit-btn" style="background:rgba(255,255,255,.1)" onclick="switchTab('card')">
+        💳 {% if lang=='uz'%}Karta orqali to'lash{% elif lang=='uz_cyrl'%}Карта орқали тўлаш{% else %}Оплатить картой{% endif %}
+      </button>
+    </div>
 
-    function payWithStars(months, amount) {
-      const tg = window.Telegram.WebApp;
-      tg.HapticFeedback.impactOccurred('medium');
-      let msg = "";
-      if("{{lang}}" === "uz") msg = months + " oy uchun " + amount + " stars to'lovi tez orada ishga tushadi.";
-      else if("{{lang}}" === "uz_cyrl") msg = months + " ой учун " + amount + " stars тўлови тез орада ишга тушади.";
-      else msg = "Оплата " + amount + " stars за " + months + " мес. скоро будет доступна.";
-      alert(msg);
-    }
-  </script>
+  </div><!-- /stars-section -->
 
+  <a href="/account?token={{ token }}" class="back-link" id="back-link">⬅️
+    {% if lang=='uz'%}Profilga qaytish{% elif lang=='uz_cyrl'%}Профилга қайтиш{% else %}Вернуться в профиль{% endif %}
+  </a>
+</div><!-- /container -->
+
+
+<!-- ══════════════════════════════════════════════════
+     JAVASCRIPT — Stars to'lov logikasi
+══════════════════════════════════════════════════ -->
 <script>
-/* TESTCHI ANIMATIONS v2.0 */
-(function(){
-'use strict';
+  const TOKEN   = "{{ token }}";
+  const LANG    = "{{ lang }}";
+  const tg      = window.Telegram?.WebApp || null;
 
-/* ── 1. PERFORMANCE DETECTION ── */
-var PERF_KEY='testchi_perf';
-var animEnabled=true;
+  // Telegram WebApp ni sozlash
+  if (tg) {
+    tg.ready();
+    tg.expand();
+  }
 
-function detectPerformance(){
-  var saved=localStorage.getItem(PERF_KEY);
-  if(saved!==null){animEnabled=(saved==='1');applyPerfMode();return;}
-  var cores=navigator.hardwareConcurrency||2;
-  var mem=navigator.deviceMemory||4;
-  if(cores<=2||mem<=2){animEnabled=false;localStorage.setItem(PERF_KEY,'0');applyPerfMode();return;}
-  var frames=0,start=performance.now();
-  function count(){frames++;
-    if(performance.now()-start<300){requestAnimationFrame(count);}
-    else{var fps=Math.round(frames/0.3);animEnabled=fps>=30;
-      localStorage.setItem(PERF_KEY,animEnabled?'1':'0');applyPerfMode();}}
-  requestAnimationFrame(count);
-  applyPerfMode();
-}
-function applyPerfMode(){
-  if(!animEnabled)document.documentElement.classList.add('no-anim');
-  else document.documentElement.classList.remove('no-anim');
-}
+  /* ─── i18n xabarlar ─── */
+  const T = {
+    selectPlan: {
+      uz: "Tarifni tanlang",
+      uz_cyrl: "Тарифни танланг",
+      ru: "Выберите тариф"
+    },
+    buyBtn: {
+      uz:      (m, s) => `⭐️ ${s} Stars — ${m} oylik Premium`,
+      uz_cyrl: (m, s) => `⭐️ ${s} Stars — ${m} ойлик Premium`,
+      ru:      (m, s) => `⭐️ ${s} Stars — Premium на ${m} мес.`
+    },
+    invoiceError: {
+      uz: "Invoice yaratishda xatolik. Qayta urinib ko'ring.",
+      uz_cyrl: "Инвойс яратишда хатолик. Қайта уриниб кўринг.",
+      ru: "Ошибка создания счёта. Попробуйте ещё раз."
+    },
+    networkError: {
+      uz: "Tarmoq xatosi. Internetni tekshiring.",
+      uz_cyrl: "Тармоқ хатоси. Интернетни текширинг.",
+      ru: "Ошибка сети. Проверьте подключение."
+    },
+    notWebApp: {
+      uz: "Bu funksiya faqat Telegram WebApp ichida ishlaydi. Botdagi tugma orqali kiring.",
+      uz_cyrl: "Бу функция фақат Telegram WebApp ичида ишлайди. Ботдаги тугма орқали киринг.",
+      ru: "Эта функция работает только внутри Telegram WebApp. Войдите через кнопку в боте."
+    },
+    cancelled: {
+      uz: "To'lov bekor qilindi.",
+      uz_cyrl: "Тўлов бекор қилинди.",
+      ru: "Оплата отменена."
+    },
+    successDesc: {
+      uz:      (exp) => `Tabriklaymiz! Premium maqomingiz faollashdi. Muddati: ${exp} 💎`,
+      uz_cyrl: (exp) => `Табрикlaymiz! Premium мақомингиз фаоллашди. Муддати: ${exp} 💎`,
+      ru:      (exp) => `Поздравляем! Ваш Premium активирован. Действует до: ${exp} 💎`
+    }
+  };
+  function t(key, ...args) {
+    const val = T[key]?.[LANG] || T[key]?.uz || key;
+    return typeof val === 'function' ? val(...args) : val;
+  }
 
-/* ── 2. INLINE CSS ── */
-function injectStyles(){
-  if(document.getElementById('_anim_css'))return;
-  var s=document.createElement('style');s.id='_anim_css';
-  s.textContent=[
-    'html.no-anim *,html.no-anim *::before,html.no-anim *::after{animation-duration:.001ms!important;transition-duration:.001ms!important}',
-    'body{animation:_bodyIn .35s ease both}',
-    '@keyframes _bodyIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}',
-    '#_pg_overlay{position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at center,#0d1528,#050810);display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .28s cubic-bezier(.4,0,.2,1)}',
-    '#_pg_overlay.on{opacity:1;pointer-events:all}',
-    '#_pg_overlay span{font-size:36px;animation:_spin .6s ease-in-out infinite alternate}',
-    '@keyframes _spin{0%{transform:scale(.8) rotate(-8deg);opacity:.6}100%{transform:scale(1.2) rotate(8deg);opacity:1}}',
-    '.ripple-host{position:relative;overflow:hidden}',
-    '._rwave{position:absolute;border-radius:50%;background:rgba(255,255,255,.22);transform:scale(0);pointer-events:none;animation:_rAnim .55s ease-out forwards}',
-    '@keyframes _rAnim{to{transform:scale(4);opacity:0}}',
-    'nav a,.btn,.test-card,.card,button:not(.no-lift){transition:transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .18s ease,background .18s ease,border-color .18s ease!important}',
-    'nav a:hover{transform:translateY(-2px) scale(1.03)!important}',
-    '.test-card:hover{transform:translateY(-5px) scale(1.025)!important;box-shadow:0 18px 50px rgba(0,0,0,.45)!important}',
-    '.btn:hover:not(:disabled){transform:translateY(-2px) scale(1.02)!important;box-shadow:0 8px 24px rgba(0,0,0,.3)!important}',
-    'button:not(.no-lift):hover:not(:disabled){transform:translateY(-1px)!important}',
-    '#_toast_box{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99990;display:flex;flex-direction:column-reverse;align-items:center;gap:10px;pointer-events:none}',
-    '._toast{background:rgba(22,32,56,.96);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.13);color:#f3f6ff;border-radius:16px;padding:13px 22px;font-size:14px;font-weight:500;box-shadow:0 12px 36px rgba(0,0,0,.45);display:flex;align-items:center;gap:10px;animation:_tIn .35s cubic-bezier(.22,1,.36,1) forwards;max-width:90vw;pointer-events:all;white-space:pre-wrap}',
-    '._toast.hide{animation:_tOut .3s ease forwards}',
-    '._toast.success{border-left:3px solid #38d39f}._toast.error{border-left:3px solid #ff6b6b}._toast.info{border-left:3px solid #6cb2ff}._toast.warning{border-left:3px solid #fbbf24}',
-    '@keyframes _tIn{from{opacity:0;transform:translateY(20px) scale(.93)}to{opacity:1;transform:translateY(0) scale(1)}}',
-    '@keyframes _tOut{to{opacity:0;transform:translateY(14px) scale(.9)}}',
-    '.anim-card{opacity:0;transform:translateY(22px) scale(.97);transition:opacity .42s cubic-bezier(.22,1,.36,1),transform .42s cubic-bezier(.22,1,.36,1)}',
-    '.anim-card.visible{opacity:1;transform:translateY(0) scale(1)}',
-    '.modal[style*="flex"],.modal[style*="block"]{animation:_mIn .28s cubic-bezier(.22,1,.36,1)}',
-    '@keyframes _mIn{from{opacity:0}to{opacity:1}}',
-    '.modal-content{animation:_mSlide .3s cubic-bezier(.22,1,.36,1) both}',
-    '@keyframes _mSlide{from{transform:scale(.92) translateY(18px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}',
-    'nav.nav-hidden{transform:translateY(-100%)!important;transition:transform .3s ease!important}',
-    'nav{transition:transform .3s ease!important}',
-    '.session-item{transition:background .18s ease,color .18s ease,transform .18s cubic-bezier(.34,1.56,.64,1)!important}',
-    '.session-item:hover{transform:translateX(4px)!important}',
-    '.option-label{transition:background .18s ease,border-color .18s ease,transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .18s ease!important}',
-    '.option-label:hover{transform:translateX(4px)!important}',
-    '.option-label.selected{transform:translateX(4px) scale(1.01)!important}',
-    '.progress-bar-fill{transition:width .5s cubic-bezier(.22,1,.36,1)!important}',
-    '#questionCard.slide-in{animation:_qIn .3s cubic-bezier(.22,1,.36,1) both}',
-    '#questionCard.slide-out{animation:_qOut .2s ease-in both}',
-    '@keyframes _qIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}',
-    '@keyframes _qOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-30px)}}',
-    '.score-circle{animation:_scIn .7s cubic-bezier(.22,1,.36,1) both}',
-    '@keyframes _scIn{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}',
-    '.dot.filled{animation:_dotP .25s cubic-bezier(.34,1.56,.64,1)!important}',
-    '@keyframes _dotP{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1.1)}}',
-    '.key:active{transform:scale(.88)!important;transition-duration:.08s!important}',
-    '.hero h2,main>h2,.hero>h2{animation:_heroT .5s cubic-bezier(.22,1,.36,1) both;animation-delay:.05s}',
-    '@keyframes _heroT{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}',
-  ].join('');
-  document.head.appendChild(s);
-}
+  /* ─── State ─── */
+  let selectedMonths = null;
+  let selectedStars  = null;
 
-/* ── 3. PAGE TRANSITION ── */
-function setupPageTransition(){
-  if(!animEnabled)return;
-  var ov=document.getElementById('_pg_overlay');
-  if(!ov){ov=document.createElement('div');ov.id='_pg_overlay';
-    ov.innerHTML='<span>🎓</span>';document.body.appendChild(ov);}
-  document.addEventListener('click',function(e){
-    var a=e.target.closest('a');if(!a)return;
-    var h=a.getAttribute('href');if(!h)return;
-    if(h.startsWith('http')||h.startsWith('#')||h.startsWith('javascript')||
-       h.startsWith('mailto')||a.target==='_blank'||e.ctrlKey||e.metaKey||e.shiftKey)return;
-    if(a.closest('form'))return;
-    e.preventDefault();ov.classList.add('on');
-    setTimeout(function(){window.location.href=h;},280);
-  });
-}
+  /* ─── Tarif tanlash ─── */
+  function selectStarPlan(el) {
+    if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
 
-/* ── 4. RIPPLE ── */
-function setupRipple(){
-  var SEL='a,button,.btn,.test-card,.key,.option-label,.star-option,.tab,.session-item,.list>li,.user-card,.new-chat-btn';
-  document.addEventListener('pointerdown',function(e){
-    var el=e.target.closest(SEL);if(!el||!animEnabled)return;
-    el.classList.add('ripple-host');
-    var r=el.getBoundingClientRect(),sz=Math.max(r.width,r.height)*2;
-    var w=document.createElement('span');w.className='_rwave';
-    w.style.cssText='width:'+sz+'px;height:'+sz+'px;left:'+(e.clientX-r.left-sz/2)+'px;top:'+(e.clientY-r.top-sz/2)+'px';
-    el.appendChild(w);w.addEventListener('animationend',function(){w.remove();},{once:true});
-  });
-}
+    document.querySelectorAll('.star-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
 
-/* ── 5. TOAST ── */
-window.showToast=function(msg,type,dur){
-  type=type||'info';dur=dur||3500;
-  var box=document.getElementById('_toast_box');
-  if(!box){box=document.createElement('div');box.id='_toast_box';document.body.appendChild(box);}
-  var icons={success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
-  var t=document.createElement('div');t.className='_toast '+type;
-  t.innerHTML='<span>'+(icons[type]||'ℹ️')+'</span><span>'+msg+'</span>';
-  box.appendChild(t);
-  setTimeout(function(){t.classList.add('hide');t.addEventListener('animationend',function(){t.remove();},{once:true});},dur);
-};
-var _na=window.alert.bind(window);
-window.alert=function(msg){
-  if(typeof msg!=='string')msg=String(msg);
-  var l=msg.toLowerCase();
-  var type='info';
-  if(l.includes('✅')||l.includes('muvaffaqiyat')||l.includes('успешно')||l.includes('saqlandi'))type='success';
-  else if(l.includes('❌')||l.includes('xato')||l.includes('ошибка')||l.includes('error'))type='error';
-  else if(l.includes('⚠️')||l.includes('ogohlantirish')||l.includes('внимание')||l.includes('warning'))type='warning';
-  showToast(msg,type);
-};
+    selectedMonths = parseInt(el.dataset.months);
+    selectedStars  = parseInt(el.dataset.stars);
 
-/* ── 6. CARD APPEAR ── */
-function setupCardAppear(){
-  if(!animEnabled)return;
-  var sel='.card,.test-card,.user-card,.payment-item,.test-item,.question-block,.session-item,.bubble,.rank-item';
-  var obs=new IntersectionObserver(function(entries){
-    entries.forEach(function(en,i){
-      if(en.isIntersecting){
-        setTimeout(function(){en.target.classList.add('visible');},Math.min(i*55,400));
-        obs.unobserve(en.target);
+    const btn = document.getElementById('stars-buy-btn');
+    btn.disabled = false;
+    btn.textContent = t('buyBtn', selectedMonths, selectedStars);
+
+    // Inline xatoni yashir
+    document.getElementById('stars-inline-error').style.display = 'none';
+  }
+
+  /* ─── Sections ko'rsatish/yashirish ─── */
+  function showScreen(id) {
+    ['stars-main','stars-loading','stars-pending','stars-success','stars-error']
+      .forEach(s => document.getElementById(s).style.display = 'none');
+    document.getElementById(id).style.display = 'block';
+    // Back link — success va error ekranlarida yashirish
+    document.getElementById('back-link').style.display =
+      (id === 'stars-success') ? 'none' : 'block';
+  }
+
+  function showStarsMain() { showScreen('stars-main'); }
+
+  /* ─── Tab switching ─── */
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.payment-section').forEach(s => s.classList.remove('active'));
+
+    if (tab === 'card') {
+      document.getElementById('card-section').classList.add('active');
+      document.getElementById('tab-card').classList.add('active');
+    } else {
+      document.getElementById('stars-section').classList.add('active');
+      document.getElementById('tab-stars').classList.add('active');
+      showStarsMain(); // har safar Stars tabga o'tganda asosiy ekranni ko'rsat
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     ⭐️  ASOSIY FUNKSIYA: Stars orqali xarid
+  ═══════════════════════════════════════════ */
+  async function startStarsPurchase() {
+    if (!selectedMonths) {
+      showInlineError(t('invoiceError'));
+      return;
+    }
+
+    // WebApp tekshiruvi
+    if (!tg || !tg.openInvoice) {
+      showInlineError(t('notWebApp'));
+      return;
+    }
+
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+    // ─ Loading ekrani ─
+    showScreen('stars-loading');
+
+    // ─ Invoice link so'rash ─
+    let invoiceLink;
+    try {
+      const res = await fetch('/api/create-stars-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: TOKEN, months: selectedMonths })
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        showError(data.error || t('invoiceError'));
+        return;
+      }
+      invoiceLink = data.invoice_link;
+    } catch (e) {
+      showError(t('networkError'));
+      return;
+    }
+
+    // ─ Pending ekrani ─
+    showScreen('stars-pending');
+
+    // ─ Telegram invoice ochish ─
+    tg.openInvoice(invoiceLink, async (status) => {
+      if (status === 'paid') {
+        // To'lov muvaffaqiyatli — premium verify
+        await verifyAndShowSuccess();
+      } else if (status === 'cancelled' || status === 'failed') {
+        // Bekor qilindi yoki xato
+        const isCancel = status === 'cancelled';
+        if (isCancel) {
+          // Tarif tanlov ekraniga qayt, xato ko'rsatma
+          showStarsMain();
+          if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+        } else {
+          showError(t('invoiceError'));
+          if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+        }
+      } else if (status === 'pending') {
+        // pending qolsa — kutish ekrani (allaqachon ko'rsatilgan)
+        showScreen('stars-pending');
       }
     });
-  },{threshold:.08,rootMargin:'0px 0px -30px 0px'});
-  document.querySelectorAll(sel).forEach(function(el){el.classList.add('anim-card');obs.observe(el);});
-}
-
-/* ── 7. NAVBAR SCROLL HIDE ── */
-function setupNavScroll(){
-  var nav=document.querySelector('nav');if(!nav||!animEnabled)return;
-  var lastY=window.scrollY,ticking=false;
-  window.addEventListener('scroll',function(){
-    if(!ticking){requestAnimationFrame(function(){
-      var cy=window.scrollY;
-      if(cy>lastY&&cy>80)nav.classList.add('nav-hidden');
-      else nav.classList.remove('nav-hidden');
-      lastY=cy;ticking=false;
-    });ticking=true;}
-  },{passive:true});
-}
-
-/* ── 8. SOLVE_TEST: SLIDE ── */
-window.animateQuestionSlide=function(dir,cb){
-  if(!animEnabled){cb();return;}
-  var card=document.getElementById('questionCard');if(!card){cb();return;}
-  card.classList.add('slide-out');
-  setTimeout(function(){
-    card.classList.remove('slide-out');cb();
-    card.classList.add('slide-in');
-    setTimeout(function(){card.classList.remove('slide-in');},320);
-  },210);
-};
-
-/* ── 9. COUNTUP ── */
-window.animateCountUp=function(el,target,dur){
-  dur=dur||900;if(!animEnabled||!el){if(el)el.textContent=target;return;}
-  var st=null;
-  function step(ts){
-    if(!st)st=ts;
-    var p=Math.min((ts-st)/dur,1);
-    el.textContent=Math.round(p*target);
-    if(p<1)requestAnimationFrame(step);
   }
-  requestAnimationFrame(step);
-};
 
-/* ── 10. TOGGLE ── */
-window.toggleAnimations=function(){
-  animEnabled=!animEnabled;
-  localStorage.setItem(PERF_KEY,animEnabled?'1':'0');
-  applyPerfMode();
-  showToast(animEnabled?'✨ Animatsiyalar yoqildi':'⚡ Animatsiyalar o\'chirildi',animEnabled?'success':'info');
-};
+  /* ─── Premium verify va success screen ─── */
+  async function verifyAndShowSuccess() {
+    // Bot successful_payment handler orqali premium beriladi.
+    // Biz DB dan statusni tekshiramiz (bir necha marta urinamiz).
+    let attempts = 0;
+    const MAX_ATTEMPTS = 8;
+    const INTERVAL_MS  = 1500;
 
-/* ── INIT ── */
-function init(){
-  injectStyles();
-  detectPerformance();
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',function(){
-      setupPageTransition();setupRipple();setupCardAppear();setupNavScroll();
-    });
-  } else {
-    setupPageTransition();setupRipple();setupCardAppear();setupNavScroll();
+    const check = async () => {
+      attempts++;
+      try {
+        const res  = await fetch('/api/stars-premium-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: TOKEN })
+        });
+        const data = await res.json();
+
+        if (data.ok && data.is_premium) {
+          // Premium faollashdi!
+          if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+          document.getElementById('success-desc').textContent =
+            t('successDesc', data.expire_readable || '');
+          showScreen('stars-success');
+
+          // Konfetti 🎉
+          if (typeof launchConfetti === 'function') {
+            setTimeout(() => launchConfetti(4000), 300);
+          }
+          return;
+        }
+      } catch (_) {}
+
+      if (attempts < MAX_ATTEMPTS) {
+        setTimeout(check, INTERVAL_MS);
+      } else {
+        // Bot hali bajarmadi — success ko'rsat, lekin umumiy xabar bilan
+        showScreen('stars-success');
+        if (typeof launchConfetti === 'function') {
+          setTimeout(() => launchConfetti(4000), 300);
+        }
+      }
+    };
+
+    // Birinchi tekshirishdan 1 soniya kutamiz (bot handle qilsin)
+    setTimeout(check, 1000);
   }
-}
-init();
-})();
+
+  /* ─── Yordamchi funksiyalar ─── */
+  function showError(msg) {
+    document.getElementById('error-desc').textContent = msg;
+    showScreen('stars-error');
+  }
+
+  function showInlineError(msg) {
+    const el = document.getElementById('stars-inline-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ─── Boshlang'ich holat: URL'da ?tab=stars bo'lsa ochiq ko'rsat ─── */
+  (function initPage() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'stars') switchTab('stars');
+  })();
 </script>
+
+<script src="/static/animations.js"></script>
 </body>
 </html>

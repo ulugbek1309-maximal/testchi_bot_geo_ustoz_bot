@@ -31,8 +31,10 @@ python-docx==1.1.2
 # AI integratsiyalari
 groq==0.11.0
 
-# Internet qidiruv (AI uchun)
-duckduckgo-search==6.2.13
+# Internet qidiruv va web browsing (AI uchun)
+ddgs>=2.0.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
 
 # Email yuborish (hisobotlar, parolni tiklash)
 resend==2.4.0

@@ -50,7 +50,7 @@ def load_required_channels_from_db():
 REQUIRED_CHANNELS = []  # Boshida bo'sh, keyin yuklaydi
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-MODEL_NAME = "nvidia/nemotron-3-super-120b-a12b:free"
+MODEL_NAME = "google/gemini-2.5-flash::free"
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY", "")
@@ -405,25 +405,25 @@ def parse_word_to_test(text):
         line = line.strip()
         if not line: continue
 
-        m_theme = theme_re.match(line)
+        m_theme = themere.match(line)
         if m_theme and theme == "Word Test":
             theme = m_theme.group(1).strip()
             continue
 
-        m_q = q_re.match(line)
+        m_q = qre.match(line)
         if m_q:
             if current_q: questions.append(current_q)
             clean_q = q_re.sub("", line).strip()
             current_q = {"question": clean_q, "options": [], "correct_index": -1}
             continue
 
-        m_opt = opt_re.match(line)
+        m_opt = optre.match(line)
         if m_opt and current_q:
             clean_opt = opt_re.sub("", line).strip()
             current_q["options"].append(clean_opt)
             continue
 
-        m_true = true_re.match(line)
+        m_true = truere.match(line)
         if m_true and current_q:
             correct_letter = m_true.group(1).strip().lower()
             current_q["correct_index"] = ord(correct_letter) - ord('a')
@@ -972,7 +972,8 @@ def index():
         current_user_bg=user.get("custom_bg"),
         current_lock_bg=user.get("custom_lock_bg"),
         lang=lang,
-        get_text=get_text
+        get_text=get_text,
+        user_status=user.get("status", "free"),
     )
 
 @app.route("/account")
@@ -1288,6 +1289,114 @@ def buy_premium():
             return redirect(f"/account?token={token}&msg={get_text('receipt_sent', lang)}")
 
     return render_template("buy_premium.html", token=token, base_url=WEB_BASE_URL, admin_card=ADMIN_CARD, current_user_bg=user.get("custom_bg"), current_lock_bg=user.get("custom_lock_bg"), lang=lang, get_text=get_text)
+
+
+# ══════════════════════════════════════════════════════════════
+# ⭐  TELEGRAM STARS — PREMIUM SOTIB OLISH (SAYT ORQALI)
+# ══════════════════════════════════════════════════════════════
+
+# Narxlar jadvali: oylar → stars miqdori (botdagi bilan bir xil)
+PREMIUM_STARS_PRICES = {1: 80, 3: 220, 6: 440, 12: 800}
+
+
+@app.route("/api/create-stars-invoice", methods=["POST"])
+def api_create_stars_invoice():
+    """
+    Bot orqali Telegram Stars invoice link yaratadi va uni saytga qaytaradi.
+    Frontend Telegram.WebApp.openInvoice(link) bilan ochadi.
+    """
+    data = request.json or {}
+    token = data.get("token")
+    user = validate_token(token)
+    if not user:
+        return jsonify({"ok": False, "error": "Tizimga kiring"}), 401
+
+    months = int(data.get("months", 1))
+    if months not in PREMIUM_STARS_PRICES:
+        return jsonify({"ok": False, "error": "Noto'g'ri ta'rif"}), 400
+
+    stars = PREMIUM_STARS_PRICES[months]
+    lang  = session.get("lang", "uz")
+
+    titles = {
+        "uz":      f"💎 Premium — {months} oylik",
+        "uz_cyrl": f"💎 Премиум — {months} ойлик",
+        "ru":      f"💎 Premium — {months} мес.",
+    }
+    descs = {
+        "uz":      f"Geo Ustoz testchi platformasida {months} oylik Premium maqomini xarid qiling.",
+        "uz_cyrl": f"Geo Ustoz testchi platformasida {months} ойлик Премиум мақомини харид қилинг.",
+        "ru":      f"Купите {months}-месячный Premium статус на платформе Geo Ustoz.",
+    }
+
+    title       = titles.get(lang, titles["uz"])
+    description = descs.get(lang, descs["uz"])
+    payload     = f"premium_{months}"
+
+    if not BOT_TOKEN_MAIN:
+        return jsonify({"ok": False, "error": "Bot token sozlanmagan"}), 500
+
+    # Telegram Bot API → createInvoiceLink
+    url = f"https://api.telegram.org/bot{BOT_TOKEN_MAIN}/createInvoiceLink"
+    body = {
+        "title":          title,
+        "description":    description,
+        "payload":        payload,
+        "provider_token": "",          # Stars uchun bo'sh
+        "currency":       "XTR",
+        "prices":         [{"label": title, "amount": stars}],
+    }
+    try:
+        resp = requests.post(url, json=body, timeout=10).json()
+    except Exception as e:
+        logging.error(f"createInvoiceLink xato: {e}")
+        return jsonify({"ok": False, "error": "Telegram API bilan aloqa xatosi"}), 502
+
+    if not resp.get("ok"):
+        err = resp.get("description", "Noma'lum xato")
+        logging.error(f"createInvoiceLink: {err}")
+        return jsonify({"ok": False, "error": err}), 502
+
+    invoice_link = resp["result"]
+    return jsonify({"ok": True, "invoice_link": invoice_link, "stars": stars, "months": months})
+
+
+@app.route("/api/stars-premium-verify", methods=["POST"])
+def api_stars_premium_verify():
+    """
+    WebApp to'lov muvaffaqiyatli bo'lgandan so'ng (invoiceClosed status='paid')
+    chaqiriladi. Bot already handles successful_payment va premium qo'shadi,
+    bu endpoint faqat real-time UI update uchun premium statusni tekshiradi.
+    """
+    data = request.json or {}
+    token = data.get("token")
+    user = validate_token(token)
+    if not user:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    user_id = user["user_id"]
+    # DB dan yangilangan statusni o'qiymiz
+    with db._conn() as c:
+        c.execute("SELECT status, premium_expire_at FROM users WHERE user_id=%s", (user_id,))
+        row = to_dict(c.fetchone())
+
+    if not row:
+        return jsonify({"ok": False, "error": "Foydalanuvchi topilmadi"}), 404
+
+    is_premium      = row.get("status") == "premium"
+    expire_at       = row.get("premium_expire_at")
+    expire_readable = ""
+    if expire_at:
+        from datetime import datetime
+        expire_readable = datetime.fromtimestamp(expire_at, tz=TZ).strftime("%d.%m.%Y")
+
+    return jsonify({
+        "ok":             True,
+        "is_premium":     is_premium,
+        "expire_at":      expire_at,
+        "expire_readable": expire_readable,
+    })
+
 
 @app.route("/admin/users")
 def admin_users():
@@ -4117,6 +4226,351 @@ def api_ai_edit():
         c.execute("COMMIT")
     return jsonify({"success": True})
 
+# ══════════════════════════════════════════════════════════════════════
+#  🌐  AGENTIC WEB BROWSER  — AI brauzer kabi internetda yuradi
+# ══════════════════════════════════════════════════════════════════════
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  🌐  AGENTIC WEB BROWSER  (requests + BeautifulSoup)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+
+# ── HTML → toza matn + linklar ro'yxati ─────────────────────────────
+def _parse_page(html_text: str, base_url: str = "") -> tuple[str, list[dict]]:
+    """
+    HTML → toza matn + interaktiv elementlar (linklar + ko'zga ko'ringan tugmalar).
+    Qaytaradi: (text[:14000], elements[:40])
+    """
+    from bs4 import BeautifulSoup
+    import urllib.parse
+
+    soup = BeautifulSoup(html_text, "lxml")
+
+    for tag in soup(["script", "style", "noscript", "svg",
+                     "iframe", "head", "meta", "link"]):
+        tag.decompose()
+
+    elements = []
+    idx = 1
+
+    # Linklar
+    seen_hrefs = set()
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        if not href or href.startswith("javascript") or href in ("#", ""):
+            continue
+        if not href.startswith("http"):
+            href = urllib.parse.urljoin(base_url, href)
+        if href in seen_hrefs:
+            continue
+        seen_hrefs.add(href)
+        label = a.get_text(" ", strip=True)[:100] or href[:60]
+        elements.append({"idx": idx, "type": "link",
+                          "label": label, "href": href})
+        idx += 1
+
+    # Ko'zga ko'ringan tugmalar (matnli)
+    for btn in soup.find_all("button"):
+        label = btn.get_text(" ", strip=True)[:80]
+        if not label:
+            label = btn.get("aria-label", btn.get("title", ""))[:80]
+        if label:
+            elements.append({"idx": idx, "type": "button",
+                              "label": label, "href": None})
+            idx += 1
+
+    # Toza matn
+    for tag in soup(["nav", "footer", "header", "aside"]):
+        tag.decompose()
+    text = soup.get_text(separator="\n", strip=True)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text[:14000], elements[:40]
+
+
+# ── HTTP sahifani yuklab olish ────────────────────────────────────────
+def _fetch_page(url: str, timeout: int = 10) -> tuple[str, list[dict], str]:
+    """requests bilan sahifani yuklab, toza matn + elementlar qaytaradi."""
+    try:
+        hdrs = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "uz,en;q=0.9,ru;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+        }
+        resp = requests.get(url, headers=hdrs, timeout=timeout,
+                            allow_redirects=True)
+        resp.encoding = resp.apparent_encoding or "utf-8"
+        text, elements = _parse_page(resp.text, base_url=resp.url)
+        return text, elements, resp.url
+    except Exception as e:
+        return f"[Sahifa yuklanmadi: {e}]", [], url
+
+
+# ── Elementlar ro'yxatini AI uchun matn formatida ────────────────────
+def _elements_to_text(elements: list[dict]) -> str:
+    if not elements:
+        return ""
+    lines = ["\n\n📌 Sahifadagi havolalar va tugmalar:"]
+    for el in elements:
+        icon = {"link": "🔗", "button": "🔘"}.get(el["type"], "•")
+        line = f"  [{el['idx']}] {icon} {el['label']}"
+        if el.get("href"):
+            line += f"\n       → {el['href'][:80]}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+# ── OpenRouter sinxron chaqiruv ──────────────────────────────────────
+def _ai_call(messages: list, ai_headers: dict, model: str,
+             max_tokens: int = 600, temperature: float = 0.0) -> str:
+    try:
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=ai_headers,
+            json={"model": model, "messages": messages,
+                  "temperature": temperature, "max_tokens": max_tokens},
+            timeout=25
+        ).json()
+        return resp["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        return f"[AI xatosi: {e}]"
+
+
+# ── ASOSIY AGENT LOOP ────────────────────────────────────────────────
+def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
+    """
+    requests + BeautifulSoup asosidagi agentic browsing.
+    AI buyruqlari:
+      TOPILDI: <javob>     → tayyor, chiqish
+      CLICK: <idx>         → [idx] linkni ochish
+      LINK: <url>          → yangi URLga o'tish
+      SCROLL               → (hozircha keyingi sahifaga o'tish kabi)
+      KEYINGISI            → bu sahifada hech narsa yo'q
+    Qaytaradi: (answer: str | None, log: list)
+    """
+    from ddgs import DDGS
+
+    MAX_STEPS = 8
+    visited   = set()
+    log       = []
+    cur_url   = None
+    cur_elements = []
+
+    # ── 1. DuckDuckGo qidiruv ──
+    emit_fn({"status": f"🔍 DuckDuckGo: \"{query[:50]}\" qidirilmoqda..."})
+    try:
+        with DDGS() as d:
+            raw = list(d.text(query, region="wt-wt",
+                              safesearch="moderate", max_results=7))
+    except Exception as e:
+        emit_fn({"status": f"⚠️ Qidiruv xatosi: {e}"})
+        return None, []
+
+    if not raw:
+        emit_fn({"status": "⚠️ Qidiruv natijasi yo'q."})
+        return None, []
+
+    search_links = [(r["title"][:80], r["href"])
+                    for r in raw if r.get("href")]
+    emit_fn({"status": f"📋 {len(search_links)} ta havola topildi, AI tanlayapti..."})
+
+    # ── 2. AI eng mos linkni tanlaydi ──
+    links_txt = "\n".join(
+        f"{i+1}. {t} → {u}" for i, (t, u) in enumerate(search_links)
+    )
+    choice_raw = _ai_call([
+        {"role": "system", "content":
+             "Veb-brauzer agentisan. So'rovga eng mos linkni tanla. "
+             "FAQAT bitta raqam yoz (1-7). Izohsiz."},
+        {"role": "user", "content":
+             f"So'rov: \"{query}\"\n\nHavolalar:\n{links_txt}\n\n"
+             "Qaysi raqam? Faqat raqam:"}
+    ], ai_headers, model, max_tokens=4)
+
+    num = re.search(r'\d', choice_raw)
+    idx = (int(num.group()) - 1) if num else 0
+    idx = max(0, min(idx, len(search_links) - 1))
+
+    # Navbat: tanlangan birinchi, qolganlari zaxira
+    queue = ([search_links[idx][1]]
+             + [u for i, (_, u) in enumerate(search_links) if i != idx])
+
+    # ── 3. Agent loop ──
+    step = 0
+
+    while step < MAX_STEPS and queue:
+        url = queue.pop(0)
+        if url in visited:
+            continue
+        visited.add(url)
+        cur_url = url
+        step += 1
+
+        short = url[:65] + ("..." if len(url) > 65 else "")
+        emit_fn({"status": f"🌐 {step}-qadam: sahifaga kirilmoqda..."})
+        emit_fn({"status": f"   → {short}"})
+
+        # ── Sahifani yukla ──
+        page_text, cur_elements, cur_url = _fetch_page(url)
+        chars = len(page_text)
+        emit_fn({"status": f"📖 Sahifa o'qildi ({chars:,} belgi, "
+                            f"{len(cur_elements)} element)..."})
+        log.append({"url": cur_url, "chars": chars,
+                    "elements": len(cur_elements)})
+
+        # ── AI: nima qilsin? ──
+        emit_fn({"status": "🤔 AI qaror qilmoqda..."})
+
+        elements_txt = _elements_to_text(cur_elements)
+
+        decision = _ai_call([
+            {"role": "system", "content": (
+                "Sen veb-brauzer agentisan. Sahifa matnini o'qib, "
+                "foydalanuvchi so'roviga javob topishga harakat qilasan.\n\n"
+                "Buyruqlar (FAQAT bittasini yoz):\n"
+                "  TOPILDI: <to'liq javob matni>\n"
+                "  CLICK: <raqam>   → o'sha havolani ochish\n"
+                "  LINK: <to'liq URL>\n"
+                "  KEYINGISI        → bu sahifada hech narsa yo'q\n\n"
+                "MUHIM: Sahifada so'rovga oid ma'lumot bo'lsa — "
+                "TOPILDI deb to'liq javob yoz."
+            )},
+            {"role": "user", "content": (
+                f"So'rov: \"{query}\"\n"
+                f"Joriy URL: {cur_url}\n\n"
+                f"Sahifa matni:\n{page_text[:11000]}"
+                f"{elements_txt}"
+            )}
+        ], ai_headers, model, max_tokens=1800, temperature=0.1)
+
+        # ── Qarorni parse qilish ──
+        if decision.upper().startswith("TOPILDI:"):
+            answer = decision[len("TOPILDI:"):].strip()
+            emit_fn({"status": f"✅ Javob topildi! "
+                               f"({step} qadam, {chars:,} belgi o'qildi)"})
+            return answer, log
+
+        elif decision.upper().startswith("CLICK:"):
+            raw_idx = decision[len("CLICK:"):].strip().split()[0]
+            m = re.search(r'\d+', raw_idx)
+            if m:
+                el_idx = int(m.group())
+                el = next((e for e in cur_elements if e["idx"] == el_idx), None)
+                if el and el.get("href") and el["href"] not in visited:
+                    emit_fn({"status": f"🔗 AI link tanladi: \"{el['label'][:50]}\"..."})
+                    queue.insert(0, el["href"])
+                else:
+                    emit_fn({"status": f"⚠️ [{el_idx}] element topilmadi yoki avval ko'rilgan..."})
+
+        elif decision.upper().startswith("LINK:"):
+            next_url = decision[len("LINK:"):].strip().split()[0]
+            if next_url not in visited:
+                emit_fn({"status": f"🔗 Yangi URL → {next_url[:55]}..."})
+                queue.insert(0, next_url)
+            else:
+                emit_fn({"status": "↩️ Bu URL avval ko'rilgan, keyingisi..."})
+
+        else:  # KEYINGISI yoki noaniq
+            emit_fn({"status": f"➡️ Bu sahifada ma'lumot yo'q "
+                               f"({step}/{MAX_STEPS}), keyingisi..."})
+
+    emit_fn({"status": f"⚠️ {step} qadam bajarildi — aniq javob topilmadi. "
+                       "AI o'z bilimidan javob beradi..."})
+    return None, log
+    """
+    HTML dan:
+      • toza matn  (script/style/nav olib tashlanadi)
+      • interaktiv elementlar ro'yxati qaytaradi:
+          [{"idx": 1, "type": "link"|"button"|"input"|"select",
+            "label": "...", "href": "..."|None, "selector": "..."}]
+    """
+    from bs4 import BeautifulSoup
+    import urllib.parse
+
+    soup = BeautifulSoup(html, "lxml")
+
+    # Keraksiz taglarni o'chirish
+    for tag in soup(["script", "style", "noscript", "svg",
+                     "iframe", "head", "meta", "link"]):
+        tag.decompose()
+
+    elements = []
+    idx = 1
+
+    # 1. <a href> — linklar
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        if not href or href.startswith("javascript") or href == "#":
+            continue
+        if not href.startswith("http"):
+            href = urllib.parse.urljoin(base_url, href)
+        label = a.get_text(" ", strip=True)[:100] or href[:60]
+        elements.append({
+            "idx": idx, "type": "link",
+            "label": label, "href": href,
+            "selector": None
+        })
+        idx += 1
+
+    # 2. <button> — JS tugmalar
+    for btn in soup.find_all("button"):
+        label = btn.get_text(" ", strip=True)[:80]
+        if not label:
+            label = btn.get("aria-label", btn.get("title", "tugma"))[:80]
+        if not label:
+            continue
+        # CSS selector (id > class > tag)
+        sel = _make_selector(btn)
+        elements.append({
+            "idx": idx, "type": "button",
+            "label": label, "href": None,
+            "selector": sel
+        })
+        idx += 1
+
+    # 3. <input type=submit|button|search|text|email|password>
+    for inp in soup.find_all("input"):
+        itype = (inp.get("type") or "text").lower()
+        if itype in ("hidden", "checkbox", "radio", "file", "image"):
+            continue
+        label = (inp.get("placeholder") or inp.get("aria-label") or
+                 inp.get("name") or inp.get("id") or itype)[:80]
+        sel = _make_selector(inp)
+        elements.append({
+            "idx": idx,
+            "type": "submit" if itype in ("submit", "button") else "input",
+            "label": label, "href": None,
+            "selector": sel
+        })
+        idx += 1
+
+    # 4. <select> — dropdown
+    for sel_tag in soup.find_all("select"):
+        label = (sel_tag.get("aria-label") or sel_tag.get("name") or
+                 sel_tag.get("id") or "dropdown")[:80]
+        options = [o.get_text(strip=True)[:50]
+                   for o in sel_tag.find_all("option")][:8]
+        sel = _make_selector(sel_tag)
+        elements.append({
+            "idx": idx, "type": "select",
+            "label": f"{label} [{', '.join(options)}]",
+            "href": None, "selector": sel
+        })
+        idx += 1
+
+    # Toza matn
+    for tag in soup(["nav", "footer", "header", "aside", "ads"]):
+        tag.decompose()
+    text = soup.get_text(separator="\n", strip=True)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text[:14000], elements[:40]   # max 14k belgi, 40 element
+
 @app.route("/api/ai-chat", methods=["POST"])
 def api_ai_chat():
     data = request.json or {}
@@ -4145,14 +4599,59 @@ def api_ai_chat():
         old_msgs = c.fetchall()
 
     system_prompt = """Sen 'Testchi' ta'lim platformasining aqlli sun'iy intellekt yordamchisisan.
-Senga qo'yilgan quyidagi qoidalarga QAT'IY va SO'ZSIZ amal qilishing SHART. Tizim to'g'ri ishlashi uchun bu hayot-mamot masalasi.
+Senga qo'yilgan qoidalarga QAT'IY amal qilishing SHART.
 
-🔴 MAXSUS BUYRUQLAR QOIDASI (ENG MUHIMI):
-Agar savolga javob topish uchun internet qidiruv talab etilsa, sening javobing FAQAT VA FAQAT bitta qator buyruqdan iborat bo'lishi shart!
+😊 MULOQOT USLUBI — ENG MUHIM:
+- Foydalanuvchiga DOIM iliq, do'stona va qiziqarli tarzda murojaat qil
+- Har bir javobda kamida 2-3 ta emoji ishlat — his-tuyg'ularni ifodalash uchun
+- Javobni hayajon, qiziqish va mehr bilan yoz — robotdek emas, insoniylik bilan
+- Qisqa savollarga ham qisqacha lekin chiroyli javob ber
+- Foydalanuvchi muvaffaqiyatga erishsa — quvon, xato qilsa — rag'batlantir
+- Agar savol aniq bo'lmasa — "Sal aniqroq aytib bera olasizmi? 🤔" deb so'ra
+- Javob oxirida qo'shimcha savol yoki taklif bilan tugat (agar mos bo'lsa)
 
-1. INTERNET QIDIRUVI:
-Agar foydalanuvchi eng so'nggi yangilik, fakt yoki ma'lumot so'rasa, javob o'rniga FAQAT shuni yoz:
-/interdan_qidirish [qidiriladigan matn]"""
+Misol uslub:
+❌ Yomon: "Python da list yaratish uchun [] ishlatiladi."
+✅ Yaxshi: "Zo'r savol! 🎉 Python da ro'yxat (list) yaratish juda oson — shunchaki
+  kvadrat qavslar `[]` ichiga elementlarni yoz. Masalan: `mevalar = ['olma', 'nok', 'shaftoli']` 🍎
+  Ko'proq bilib olishni xohlaysizmi? 😊"
+
+📝 JAVOB FORMATI:
+- Sarlavhalar: # Katta, ## O'rta, ### Kichik
+- Qalin: **matn**, kursiv: *matn*, chizilgan: ~~matn~~
+- Inline kod: `kod`, havola: [matn](url)
+- Kod bloki MAJBURIY (dasturlash, SQL, buyruq uchun):
+  ```python
+  print("Salom!")
+  ```
+- Tilni aniq ko'rsat: python, javascript, sql, html, bash va h.k.
+- Ro'yxat: - element yoki 1. element
+- Iqtibos: > matn
+- Jadval: | Ustun1 | Ustun2 |
+- Ajratuvchi: ---
+
+🔴 INTERNET QIDIRUVI BUYRUG'I:
+Agar foydalanuvchi so'nggi yangilik, hozirgi vaqt ma'lumoti, haqiqiy fakt,
+sport natijasi, ob-havo, kurs, narx yoki boshqa real-vaqt ma'lumot so'rasa —
+FAQAT quyidagi formatda yoz:
+/interdan_qidirish [inglizcha yoki o'zbekcha qidiruv so'zi]
+
+Misol:
+- "O'zbekiston prezidenti kim?" → /interdan_qidirish O'zbekiston prezidenti 2024
+- "Dollar kursi?" → /interdan_qidirish dollar kursi O'zbekiston bugun
+- "Real Madrid oxirgi o'yini?" → /interdan_qidirish Real Madrid last match result 2024
+
+🚫 MUTLAQ TAQIQ — bu gaplarni HECH QACHON yozma:
+- "men internetga chiqa olmayman"
+- "real vaqtda ma'lumot ololmayman"
+- "ma'lumotlarim ...gacha"
+- "internetga ulanishim yo'q"
+- "BBC, Gazeta.uz, Kun.uz kabi saytlarga o'ting"
+Bunday o'rniga — DOIM /interdan_qidirish buyrug'ini ishlat!
+
+✅ ODDIY SAVOLLARDA:
+O'quv, ta'lim, matematika, tarix, ilm-fan, til, kod yozish va boshqa bilim
+sohasidagi savollarga — to'g'ridan to'g'ri javob ber, /interdan_qidirish ishlatma."""
 
     messages = [{"role": "system", "content": system_prompt}]
     for msg in old_msgs:
@@ -4168,9 +4667,36 @@ Agar foydalanuvchi eng so'nggi yangilik, fakt yoki ma'lumot so'rasa, javob o'rni
     payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0.1, "max_tokens": 10240}
 
     def generate():
+        def emit(data: dict):
+            """JSON chunk yuboradi va darhol flushlanadi."""
+            yield json.dumps(data, ensure_ascii=False) + "\n"
+
         try:
-            yield json.dumps({"status": "Matn tahlil qilinmoqda..."}) + "\n"
-            api_response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=15)
+            yield from emit({"status": "💬 So'rovingiz qabul qilindi..."})
+
+            history_len = len([m for m in messages if m["role"] != "system"])
+            if history_len > 2:
+                yield from emit({"status": f"📂 Suhbat tarixi yuklandi ({history_len} ta xabar)..."})
+            else:
+                yield from emit({"status": "📂 Yangi suhbat boshlandi..."})
+
+            word_count = len(text.split())
+            if word_count > 30:
+                yield from emit({"status": f"📝 Uzun matn tahlil qilinmoqda ({word_count} so'z)..."})
+            else:
+                yield from emit({"status": "📝 Savol tahlil qilinmoqda..."})
+
+            yield from emit({"status": "🔍 Internet qidiruv kerakmi — aniqlanmoqda..."})
+            yield from emit({"status": f"🤖 AI modeliga ({MODEL_NAME.split('/')[-1]}) so'rov yuborilmoqda..."})
+
+            t_api_start = time.time()
+            api_response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers, json=payload, timeout=15
+            )
+            t_api_elapsed = round(time.time() - t_api_start, 1)
+            yield from emit({"status": f"⚡ AI javob yaratdi ({t_api_elapsed}s)..."})
+
             res_data = api_response.json()
 
             if "choices" in res_data and len(res_data["choices"]) > 0:
@@ -4179,55 +4705,128 @@ Agar foydalanuvchi eng so'nggi yangilik, fakt yoki ma'lumot so'rasa, javob o'rni
 
                 if "/interdan_qidirish" in ai_initial_reply:
                     query_part = ai_initial_reply.split("/interdan_qidirish")[-1].split('\n')[0].strip()
-                    query_part = query_part.replace('"', '').replace("'", "")
-                    yield json.dumps({"status": f"Internetdan izlanmoqda: '{query_part}'"}) + "\n"
+                    query_part = query_part.replace('"', '').replace("'", "").strip()
 
-                    try:
-                        from duckduckgo_search import DDGS
-                        with DDGS() as ddgs:
-                            results = list(ddgs.text(query_part, region='wt-wt', safesearch='moderate', max_results=3))
-                        if results:
-                            info = "\n\n".join([f"📌 Maqola: {r['title']}\nMatn: {r['body']}" for r in results])
-                            search_results = f"Tizim xabari: '{query_part}' bo'yicha internetdan quyidagi eng yangi ma'lumotlar topildi:\n{info}"
-                        else:
-                            search_results = f"Tizim xabari: '{query_part}' bo'yicha internetdan hech narsa topilmadi."
-                    except Exception as e:
-                        search_results = f"Tizim xabari: Qidiruvda xato yuz berdi ({e}). O'zing bilgan ma'lumotlar asosida javob ber."
+                    yield from emit({"status": f"🌐 Brauzer agenti ishga tushdi: \"{query_part[:45]}\"..."})
 
-                    messages.append({"role": "assistant", "content": ai_initial_reply})
-                    messages.append({"role": "user", "content": search_results + "\n\nYuqoridagi haqiqiy ma'lumotlardan foydalanib menga aniq va chiroyli javob yoz. Manbani ham qisqacha aytib o't:"})
-                    payload["messages"] = messages
+                    import threading
+                    import queue as _queue_mod
 
-                    yield json.dumps({"status": "Topilgan ma'lumotlar tahlil qilinib, javob yozilmoqda..."}) + "\n"
-                    resp2 = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=20).json()
-                    final_reply = resp2["choices"][0]["message"]["content"]
+                    # Thread-safe queue: browse_web statuslarini oqimga uzatish uchun
+                    status_q   = _queue_mod.Queue()
+                    browse_ans = [None]   # [answer_str | None]
+                    _SENTINEL  = object()  # thread tugaganini bildiruvchi marker
+
+                    def _emit_fn(d):
+                        """browse_web thread ichidan chaqiriladi, statusni queue ga qo'yadi."""
+                        status_q.put(d)
+
+                    def _run_browse():
+                        try:
+                            ans, _ = browse_web(query_part, headers, MODEL_NAME, _emit_fn)
+                            browse_ans[0] = ans
+                        except Exception as ex:
+                            status_q.put({"status": f"⚠️ Brauzer xatosi: {ex}"})
+                        finally:
+                            status_q.put(_SENTINEL)  # ishni tugadik
+
+                    t_browse = threading.Thread(target=_run_browse, daemon=True)
+                    t_browse.start()
+
+                    # Generator: queue dan statuslarni real-time stream qilamiz
+                    while True:
+                        try:
+                            item = status_q.get(timeout=30)  # max 30s kutish
+                        except _queue_mod.Empty:
+                            # 30 soniya o'tdi — timeout
+                            yield from emit({"status": "⚠️ Brauzer 30s da javob bermadi, to'xtatildi..."})
+                            break
+                        if item is _SENTINEL:
+                            break   # thread tugadi
+                        yield from emit(item)
+
+                    t_browse.join(timeout=2)  # thread tamom bo'lishini kutamiz
+                    answer = browse_ans[0]
+
+                    if answer:
+                        final_reply = answer
+                    else:
+                        # Topilmadi — AI o'zidan javob bersin
+                        yield from emit({"status": "🤖 AI o'z bilimi asosida javob tayyorlamoqda..."})
+                        messages.append({"role": "assistant", "content": ai_initial_reply})
+                        messages.append({
+                            "role": "user",
+                            "content": (
+                                f"Internet sahifalarida '{query_part}' bo'yicha aniq ma'lumot topilmadi. "
+                                "O'zing bilgan ma'lumotlar asosida imkon qadar to'liq javob ber."
+                            )
+                        })
+                        payload["messages"] = messages
+                        t2_start = time.time()
+                        resp2 = requests.post(
+                            "https://openrouter.ai/api/v1/chat/completions",
+                            headers=headers, json=payload, timeout=20
+                        ).json()
+                        t2_elapsed = round(time.time() - t2_start, 1)
+                        yield from emit({"status": f"💡 AI javobi tayyor ({t2_elapsed}s)..."})
+                        final_reply = resp2["choices"][0]["message"]["content"]
 
                 else:
-                    yield json.dumps({"status": "Javob tayyorlanmoqda..."}) + "\n"
+                    reply_len = len(ai_initial_reply.split())
+                    yield from emit({"status": f"💡 AI javob yaratdi ({reply_len} so'z)..."})
 
-                import re
+                yield from emit({"status": "🎨 Javob formatlashtirilmoqda..."})
+
+                # Markdown render frontend (ai_chat.html) tomonida bajariladi.
+                # Backend faqat xom matnni saqlaydi.
                 reply_formatted = final_reply
-                reply_formatted = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', reply_formatted)
-                reply_formatted = re.sub(r'\*(.*?)\*', r'<i>\1</i>', reply_formatted)
+
+                final_len = len(reply_formatted.split())
+                if final_len > 100:
+                    yield from emit({"status": f"📊 Katta javob tayyorlandi ({final_len} so'z)..."})
+
+                yield from emit({"status": "💾 Javob bazaga saqlanmoqda..."})
 
                 with db._conn() as c:
-                    c.execute("INSERT INTO ai_chat_history (user_id, session_id, role, content, created_at) VALUES (%s, %s, 'assistant', %s, %s)", (user_id, session_id, reply_formatted, int(time.time())))
+                    c.execute(
+                        "INSERT INTO ai_chat_history (user_id, session_id, role, content, created_at) "
+                        "VALUES (%s, %s, 'assistant', %s, %s)",
+                        (user_id, session_id, reply_formatted, int(time.time()))
+                    )
                     c.execute("COMMIT")
-                    c.execute("SELECT id FROM ai_chat_history WHERE user_id=%s ORDER BY id DESC LIMIT 1", (user_id,))
+                    c.execute(
+                        "SELECT id FROM ai_chat_history WHERE user_id=%s ORDER BY id DESC LIMIT 1",
+                        (user_id,)
+                    )
                     row = to_dict(c.fetchone())
                     ai_msg_id = row.get("id", int(time.time())) if row else int(time.time())
 
-                yield json.dumps({"reply": reply_formatted, "id": ai_msg_id, "session_id": session_id}) + "\n"
+                yield from emit({"status": "🗂️ Suhbat tarixi yangilandi..."})
+                yield from emit({"status": "🖥️ Javob ekranga chiqarilmoqda..."})
+                yield from emit({"reply": reply_formatted, "id": ai_msg_id, "session_id": session_id})
+
             else:
                 real_error = res_data.get("error", {}).get("message", "Noma'lum API xatosi")
-                yield json.dumps({"error": f"OpenRouter: {real_error}"}) + "\n"
+                yield from emit({"error": f"OpenRouter: {real_error}"})
 
+        except requests.exceptions.Timeout:
+            yield from emit({"error": "⏱️ Server 15 soniya ichida javob bermadi. Qayta urinib ko'ring."})
+        except requests.exceptions.ConnectionError:
+            yield from emit({"error": "🌐 AI serveriga ulanib bo'lmadi. Internetni tekshiring."})
         except requests.exceptions.RequestException as e:
-            yield json.dumps({"error": f"Tarmoq xatosi: {str(e)}"}) + "\n"
+            yield from emit({"error": f"Tarmoq xatosi: {str(e)}"})
         except Exception as e:
-            yield json.dumps({"error": f"Ichki xato: {str(e)}"}) + "\n"
+            yield from emit({"error": f"Ichki xato: {str(e)}"})
 
-    return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
+    return Response(
+        stream_with_context(generate()),
+        mimetype='application/x-ndjson',
+        headers={
+            'X-Accel-Buffering': 'no',   # nginx bufferni o'chiradi
+            'Cache-Control': 'no-cache',
+            'Transfer-Encoding': 'chunked',
+        }
+    )
 
 @app.route("/admin/ai-chats")
 def admin_ai_chats():
