@@ -105,6 +105,76 @@
     .cursor-blink { display: inline-block; width: 6px; height: 15px; background-color: var(--text); margin-left: 2px; animation: blink 1s step-end infinite; vertical-align: middle;}
     @keyframes blink { 50% { opacity: 0; } }
 
+    /* ── KOD BLOKI ── */
+    .code-block {
+      position: relative;
+      margin: 12px 0;
+      border-radius: 10px;
+      background: #1e1e2e;
+      border: 1px solid rgba(255,255,255,0.1);
+      overflow: hidden;
+      font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+    }
+    .code-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 14px;
+      background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      color: #9aa0a6;
+    }
+    .code-block-lang {
+      font-weight: 600;
+      color: #7ba3ff;
+      text-transform: lowercase;
+      letter-spacing: 0.5px;
+    }
+    .code-copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #9aa0a6;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+      font-family: inherit;
+    }
+    .code-copy-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+    .code-copy-btn.copied { background: rgba(56,211,159,0.18); color: #38d39f; border-color: rgba(56,211,159,0.35); }
+    .code-block pre {
+      margin: 0;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: #e2e8f0;
+      white-space: pre;
+    }
+    .code-block code { font-family: inherit; }
+
+    /* scrollbar kod bloki uchun */
+    .code-block pre::-webkit-scrollbar { height: 5px; }
+    .code-block pre::-webkit-scrollbar-track { background: transparent; }
+    .code-block pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+
+    /* inline kod */
+    .msg-bot code:not(.block-code),
+    .msg-user code:not(.block-code) {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      color: #f6b8ff;
+    }
+
     @media (max-width: 768px) {
       .sidebar { position: absolute; height: 100%; transform: translateX(-100%); }
       .sidebar.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.8); }
@@ -166,6 +236,140 @@
   </div>
 
   <script>
+    /* ════════════════════════════════════════════════════
+       MARKDOWN RENDERER — kod bloki + inline formatting
+    ════════════════════════════════════════════════════ */
+
+    // Tilni chiroyli ko'rsatish uchun
+    const LANG_LABELS = {
+      python: 'Python', py: 'Python',
+      javascript: 'JavaScript', js: 'JavaScript',
+      typescript: 'TypeScript', ts: 'TypeScript',
+      html: 'HTML', css: 'CSS',
+      sql: 'SQL', json: 'JSON', yaml: 'YAML', yml: 'YAML',
+      bash: 'Bash', sh: 'Shell', shell: 'Shell',
+      c: 'C', cpp: 'C++', java: 'Java', kotlin: 'Kotlin',
+      swift: 'Swift', go: 'Go', rust: 'Rust', php: 'PHP',
+      ruby: 'Ruby', dart: 'Dart', r: 'R', matlab: 'MATLAB',
+      xml: 'XML', markdown: 'Markdown', md: 'Markdown',
+      text: 'Text', txt: 'Text', plaintext: 'Text', '': 'Code',
+    };
+
+    function getLangLabel(lang) {
+      return LANG_LABELS[(lang || '').toLowerCase()] || lang || 'Code';
+    }
+
+    // Kod blokini HTML ga aylantirish
+    function renderCodeBlock(lang, code) {
+      const label = getLangLabel(lang);
+      // HTML escape
+      const safe = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return `
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-lang">${label}</span>
+            <button class="code-copy-btn" onclick="copyCode(this)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Nusxalash
+            </button>
+          </div>
+          <pre><code class="block-code">${safe}</code></pre>
+        </div>`;
+    }
+
+    // Inline markdown (bold, italic, inline code)
+    function renderInlineMarkdown(text) {
+      return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<b><i>$1</i></b>')
+        .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+        .replace(/\*(.+?)\*/g, '<i>$1</i>')
+        .replace(/_(.+?)_/g, '<i>$1</i>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br>');
+    }
+
+    // Matni kod bloki va oddiy qismlarga ajratish
+    function splitCodeBlocks(text) {
+      const parts = [];
+      const regex = /```(\w*)\n?([\s\S]*?)```/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push({ isCode: false, text: text.slice(lastIndex, match.index) });
+        }
+        parts.push({ isCode: true, lang: match[1], code: match[2] });
+        lastIndex = regex.lastIndex;
+      }
+      if (lastIndex < text.length) {
+        parts.push({ isCode: false, text: text.slice(lastIndex) });
+      }
+      return parts;
+    }
+
+    // To'liq markdown render (bir vaqtda hammasi)
+    function renderMarkdown(text) {
+      const parts = splitCodeBlocks(text);
+      return parts.map(p => {
+        if (p.isCode) return renderCodeBlock(p.lang, p.code);
+        return renderInlineMarkdown(p.text);
+      }).join('');
+    }
+
+    // Copy tugmasi bosilganda
+    function copyCode(btn) {
+      const pre = btn.closest('.code-block').querySelector('pre');
+      const code = pre.textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Nusxalandi!`;
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = `
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Nusxalash`;
+        }, 2000);
+      }).catch(() => {
+        // Clipboard API ishlamasa — fallback
+        const ta = document.createElement('textarea');
+        ta.value = code;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        btn.classList.add('copied');
+        btn.textContent = '✅ Nusxalandi!';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.textContent = 'Nusxalash';
+        }, 2000);
+      });
+    }
+
+    // Yangi render qilingan msgDiv dagi copy tugmalarini ulash
+    function attachCopyBtns(container) {
+      // onclick allaqachon HTML da — hech narsa kerak emas,
+      // lekin SPA navigatsiyada kerak bo'lsa shu yerda
+    }
+
+    /* ════════════════════════════════════════════════════ */
+
     let currentSessionId = null;
     let isSending = false;
     let renderedMessages = new Set();
@@ -321,25 +525,57 @@
       wrap.appendChild(msgContainer);
       chatBox.appendChild(wrap);
 
-      let formattedText = text.replace(/\n/g, '<br>');
+      let formattedText = renderMarkdown(text);
 
       if (animate && !isUser) {
-        const tokens = formattedText.match(/(<[^>]+>|&[a-zA-Z0-9#]+;|[\s\S])/g) || [];
-        let i = 0; let currentHTML = "";
+        // Animate qilishdan oldin kod bloklarini ajratamiz
+        // Typewriter faqat oddiy matn uchun, kod bloklari darhol ko'rinadi
+        const parts = splitCodeBlocks(text);
+        let partIdx = 0;
+        let currentHTML = "";
         msgDiv.innerHTML = '<span class="cursor-blink"></span>';
 
-        function type() {
-          if (i < tokens.length) {
-            currentHTML += tokens[i];
+        function typeParts() {
+          if (partIdx >= parts.length) {
+            msgDiv.innerHTML = renderMarkdown(text);
+            attachCopyBtns(msgDiv);
+            scrollToBottom();
+            return;
+          }
+          const part = parts[partIdx];
+          partIdx++;
+
+          if (part.isCode) {
+            // Kod bloki — darhol qo'shiladi
+            currentHTML += renderCodeBlock(part.lang, part.code);
             msgDiv.innerHTML = currentHTML + '<span class="cursor-blink"></span>';
-            i++; scrollToBottom(); setTimeout(type, 10); 
+            attachCopyBtns(msgDiv);
+            scrollToBottom();
+            typeParts();
           } else {
-            msgDiv.innerHTML = currentHTML; scrollToBottom();
+            // Oddiy matn — typewriter
+            const tokens = renderInlineMarkdown(part.text)
+              .match(/(<[^>]+>|&[a-zA-Z0-9#]+;|[\s\S])/g) || [];
+            let i = 0;
+            function typeToken() {
+              if (i < tokens.length) {
+                currentHTML += tokens[i];
+                msgDiv.innerHTML = currentHTML + '<span class="cursor-blink"></span>';
+                i++;
+                scrollToBottom();
+                setTimeout(typeToken, 8);
+              } else {
+                typeParts();
+              }
+            }
+            typeToken();
           }
         }
-        type();
+        typeParts();
       } else {
-        msgDiv.innerHTML = formattedText; scrollToBottom();
+        msgDiv.innerHTML = formattedText;
+        attachCopyBtns(msgDiv);
+        scrollToBottom();
       }
     }
 

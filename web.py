@@ -4601,8 +4601,20 @@ def api_ai_chat():
     system_prompt = """Sen 'Testchi' ta'lim platformasining aqlli sun'iy intellekt yordamchisisan.
 Senga qo'yilgan qoidalarga QAT'IY amal qilishing SHART.
 
+📝 JAVOB FORMATI:
+- Oddiy matn uchun: **qalin**, *kursiv*, `inline kod` ishlatish mumkin
+- Kod yozganda MAJBURIY ravishda kod bloki ishlat:
+  ```python
+  print("Salom")
+  ```
+- Tilni aniq ko'rsat: python, javascript, sql, html, bash va h.k.
+- Kod bloki SHART bo'lgan holatlar: har qanday dasturlash kodi,
+  SQL so'rov, buyruq satri, konfiguratsiya fayli
+
 🔴 INTERNET QIDIRUVI BUYRUG'I:
-Agar foydalanuvchi so'nggi yangilik, hozirgi vaqt ma'lumoti, haqiqiy fakt, sport natijasi, ob-havo, kurs, narx yoki boshqa real-vaqt ma'lumot so'rasa — FAQAT quyidagi formatda yoz:
+Agar foydalanuvchi so'nggi yangilik, hozirgi vaqt ma'lumoti, haqiqiy fakt,
+sport natijasi, ob-havo, kurs, narx yoki boshqa real-vaqt ma'lumot so'rasa —
+FAQAT quyidagi formatda yoz:
 /interdan_qidirish [inglizcha yoki o'zbekcha qidiruv so'zi]
 
 Misol:
@@ -4612,14 +4624,15 @@ Misol:
 
 🚫 MUTLAQ TAQIQ — bu gaplarni HECH QACHON yozma:
 - "men internetga chiqa olmayman"
-- "real vaqtda ma'lumot ololmayman"  
+- "real vaqtda ma'lumot ololmayman"
 - "ma'lumotlarim ...gacha"
 - "internetga ulanishim yo'q"
 - "BBC, Gazeta.uz, Kun.uz kabi saytlarga o'ting"
 Bunday o'rniga — DOIM /interdan_qidirish buyrug'ini ishlat!
 
 ✅ ODDIY SAVOLLARDA:
-O'quv, ta'lim, matematika, tarix, ilm-fan, til, kod yozish va boshqa bilim sohasidagi savollarga — to'g'ridan to'g'ri javob ber, /interdan_qidirish ishlatma."""
+O'quv, ta'lim, matematika, tarix, ilm-fan, til, kod yozish va boshqa bilim
+sohasidagi savollarga — to'g'ridan to'g'ri javob ber, /interdan_qidirish ishlatma."""
 
     messages = [{"role": "system", "content": system_prompt}]
     for msg in old_msgs:
@@ -4745,10 +4758,9 @@ O'quv, ta'lim, matematika, tarix, ilm-fan, til, kod yozish va boshqa bilim sohas
 
                 yield from emit({"status": "🎨 Javob formatlashtirilmoqda..."})
 
-                import re
+                # Markdown render frontend (ai_chat.html) tomonida bajariladi.
+                # Backend faqat xom matnni saqlaydi.
                 reply_formatted = final_reply
-                reply_formatted = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', reply_formatted)
-                reply_formatted = re.sub(r'\*(.*?)\*', r'<i>\1</i>', reply_formatted)
 
                 final_len = len(reply_formatted.split())
                 if final_len > 100:
