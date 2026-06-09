@@ -972,7 +972,8 @@ def index():
         current_user_bg=user.get("custom_bg"),
         current_lock_bg=user.get("custom_lock_bg"),
         lang=lang,
-        get_text=get_text
+        get_text=get_text,
+        user_status=user.get("status", "free"),
     )
 
 @app.route("/account")
