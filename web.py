@@ -4261,7 +4261,15 @@ Agar savolga javob topish uchun internet qidiruv talab etilsa, sening javobing F
 
 1. INTERNET QIDIRUVI:
 Agar foydalanuvchi eng so'nggi yangilik, fakt yoki ma'lumot so'rasa, javob o'rniga FAQAT shuni yoz:
-/interdan_qidirish [qidiriladigan matn]"""
+/interdan_qidirish [qidiriladigan matn]
+
+🚫 MUTLAQ TAQIQ — QUYIDAGI GAPLARNI HECH QACHON YOZMA:
+- "men internetga chiqa olmayman"
+- "real vaqtda ma'lumot ololmayman"
+- "ma'lumotlarim ...gacha"
+- "internetga ulanishim yo'q"
+- "BBC, Gazeta.uz, Kun.uz kabi saytlarga o'ting"
+Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHART!"""
 
     messages = [{"role": "system", "content": system_prompt}]
     for msg in old_msgs:
