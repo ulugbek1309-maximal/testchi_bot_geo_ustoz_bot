@@ -4226,6 +4226,208 @@ def api_ai_edit():
         c.execute("COMMIT")
     return jsonify({"success": True})
 
+# ══════════════════════════════════════════════════════════════════════
+#  🌐  AGENTIC WEB BROWSER  — AI brauzer kabi internetda yuradi
+# ══════════════════════════════════════════════════════════════════════
+
+def _clean_html(html_text: str, max_chars: int = 14000) -> str:
+    """HTML dan faqat foydali matnni ajratib oladi."""
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html_text, "lxml")
+        # Keraksiz taglarni olib tashlash
+        for tag in soup(["script", "style", "nav", "footer", "header",
+                          "aside", "form", "noscript", "svg", "img",
+                          "figure", "ads", "advertisement"]):
+            tag.decompose()
+        # Barcha linklar
+        links = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"].strip()
+            label = a.get_text(strip=True)[:80]
+            if href.startswith("http") and label:
+                links.append((label, href))
+        # Toza matn
+        text = soup.get_text(separator="\n", strip=True)
+        # Ketma-ket bo'sh qatorlarni bitta qilish
+        import re
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text[:max_chars], links[:20]
+    except Exception as e:
+        return html_text[:max_chars], []
+
+
+def _fetch_page(url: str, timeout: int = 8) -> tuple[str, list]:
+    """URL dan HTML ni yuklab, toza matn va linklar qaytaradi."""
+    try:
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "uz,en;q=0.9,ru;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+        resp = requests.get(url, headers=headers, timeout=timeout,
+                            allow_redirects=True)
+        resp.encoding = resp.apparent_encoding or "utf-8"
+        return _clean_html(resp.text)
+    except Exception as e:
+        return f"[Sahifa yuklanmadi: {e}]", []
+
+
+def _ai_call(messages: list, ai_headers: dict, model: str,
+             max_tokens: int = 512, temperature: float = 0.0) -> str:
+    """OpenRouter ga sinxron so'rov yuboradi, javob matnini qaytaradi."""
+    try:
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=ai_headers,
+            json={"model": model, "messages": messages,
+                  "temperature": temperature, "max_tokens": max_tokens},
+            timeout=20
+        ).json()
+        return resp["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        return f"[AI xatosi: {e}]"
+
+
+def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
+    """
+    Haqiqiy agentic web browsing:
+      1. DuckDuckGo → top 7 link
+      2. AI qaysi linkni bosishni tanlaydi
+      3. O'sha sahifani yuklab, AI ga beradi
+      4. AI: "TOPILDI: <javob>" yoki "KEYINGISI" yoki "LINK: <url>"
+      5. Max MAX_STEPS qadam — keyin to'xtaydi
+    Qaytaradi: (final_answer: str | None, steps_log: list)
+    """
+    from ddgs import DDGS
+    import re
+
+    MAX_STEPS   = 6   # nechta sahifa ko'rishga ruxsat
+    visited     = set()
+    steps_log   = []
+
+    # ── 1. Qidiruv ──
+    emit_fn({"status": f"🔍 DuckDuckGo: \"{query[:50]}\" qidirilmoqda..."})
+    try:
+        with DDGS() as d:
+            raw = list(d.text(query, region="wt-wt",
+                              safesearch="moderate", max_results=7))
+    except Exception as e:
+        emit_fn({"status": f"⚠️ Qidiruv xatosi: {e}"})
+        return None, []
+
+    if not raw:
+        emit_fn({"status": "⚠️ Qidiruv natijasi topilmadi."})
+        return None, []
+
+    # Qidiruv natijalaridagi URLlar va sarlavhalar
+    search_links = [(r["title"][:80], r["href"]) for r in raw if r.get("href")]
+    emit_fn({"status": f"📋 {len(search_links)} ta havola topildi, AI tanlayapti..."})
+
+    # AI ga qidiruv natijalarini ko'rsatib, qaysi linkni bosar ekan so'raymiz
+    links_text = "\n".join(
+        f"{i+1}. {t} → {u}" for i, (t, u) in enumerate(search_links)
+    )
+    chooser_prompt = [
+        {"role": "system", "content": (
+            "Sen veb-brauzer agentisan. Foydalanuvchi so'roviga eng mos linkni tanlaysan.\n"
+            "FAQAT raqam yoz (1-7). Hech qanday izoh yo'q."
+        )},
+        {"role": "user", "content": (
+            f"So'rov: \"{query}\"\n\n"
+            f"Qidiruv natijalari:\n{links_text}\n\n"
+            "Qaysi raqamdagi link eng mos? Faqat raqam yoz:"
+        )}
+    ]
+    choice_raw = _ai_call(chooser_prompt, ai_headers, model,
+                          max_tokens=8, temperature=0.0)
+    choice_num = re.search(r'\d', choice_raw)
+    idx = (int(choice_num.group()) - 1) if choice_num else 0
+    idx = max(0, min(idx, len(search_links) - 1))
+
+    # Tashrif tartibini tuza: tanlangan avval, qolganlari ketma-ket
+    ordered = [search_links[idx]] + [l for i, l in enumerate(search_links) if i != idx]
+
+    step = 0
+    current_url  = None
+    current_page_links = []   # sahifadagi linklar (AI bosa oladi)
+    pending_urls = [u for _, u in ordered]  # navbat
+
+    while step < MAX_STEPS and pending_urls:
+        url = pending_urls.pop(0)
+        if url in visited:
+            continue
+        visited.add(url)
+        step += 1
+
+        short_url = url[:60] + ("..." if len(url) > 60 else "")
+        emit_fn({"status": f"🖱️  {step}-qadam: sahifaga kirilmoqda → {short_url}"})
+
+        # ── Sahifani yukla ──
+        page_text, page_links = _fetch_page(url)
+        char_count = len(page_text)
+        emit_fn({"status": f"📖 Sahifa o'qilmoqda ({char_count:,} belgi)..."})
+        steps_log.append({"url": url, "chars": char_count})
+
+        # ── AI: bu sahifada javob bormi? ──
+        emit_fn({"status": "🤔 AI: kerakli ma'lumot bormi — tekshirilmoqda..."})
+
+        # Sahifadagi linklar ro'yxati (AI bosa oladi)
+        page_links_text = ""
+        if page_links:
+            page_links_text = "\n\nSahifadagi havolalar:\n" + "\n".join(
+                f"[{i+1}] {lbl} → {lurl}"
+                for i, (lbl, lurl) in enumerate(page_links[:15])
+            )
+
+        reader_prompt = [
+            {"role": "system", "content": (
+                "Sen veb-brauzer agentisan. Sahifa matnini o'qib, foydalanuvchi so'roviga javob berasang.\n\n"
+                "Javob berish qoidalari:\n"
+                "1. Agar sahifada so'rovga TO'LIQ javob bo'lsa:\n"
+                "   TOPILDI: <bu yerga to'liq, batafsil javob yoz>\n\n"
+                "2. Agar sahifada kerakli sahifaga olib boruvchi link bo'lsa:\n"
+                "   LINK: <to'liq URL>\n\n"
+                "3. Agar bu sahifada hech narsa yo'q bo'lsa:\n"
+                "   KEYINGISI\n\n"
+                "FAQAT shu formatlardan birini ishlat. Boshqa hech narsa yozma."
+            )},
+            {"role": "user", "content": (
+                f"Foydalanuvchi so'rovi: \"{query}\"\n\n"
+                f"Sahifa URL: {url}\n\n"
+                f"Sahifa matni:\n{page_text[:12000]}"
+                f"{page_links_text}"
+            )}
+        ]
+
+        ai_decision = _ai_call(reader_prompt, ai_headers, model,
+                               max_tokens=1500, temperature=0.1)
+
+        if ai_decision.startswith("TOPILDI:"):
+            answer = ai_decision[len("TOPILDI:"):].strip()
+            emit_fn({"status": f"✅ Ma'lumot topildi! ({step}-sahifada, {char_count:,} belgi o'qildi)"})
+            return answer, steps_log
+
+        elif ai_decision.startswith("LINK:"):
+            next_url = ai_decision[len("LINK:"):].strip().split()[0]
+            if next_url not in visited:
+                emit_fn({"status": f"🔗 AI yangi link tanladi → {next_url[:55]}..."})
+                pending_urls.insert(0, next_url)   # navbat boshiga qo'y
+            else:
+                emit_fn({"status": "↩️  Bu link avval ko'rilgan, keyingisiga o'tilmoqda..."})
+
+        else:  # KEYINGISI yoki noto'g'ri format
+            emit_fn({"status": f"➡️  Bu sahifada ma'lumot yo'q, keyingisiga o'tilmoqda... ({step}/{MAX_STEPS})"})
+
+    # MAX_STEPS tugadi — topilmadi
+    emit_fn({"status": f"⚠️  {step} ta sahifa ko'rildi, aniq javob topilmadi. AI o'zidan javob beradi..."})
+    return None, steps_log
+
+
 @app.route("/api/ai-chat", methods=["POST"])
 def api_ai_chat():
     data = request.json or {}
@@ -4254,22 +4456,27 @@ def api_ai_chat():
         old_msgs = c.fetchall()
 
     system_prompt = """Sen 'Testchi' ta'lim platformasining aqlli sun'iy intellekt yordamchisisan.
-Senga qo'yilgan quyidagi qoidalarga QAT'IY va SO'ZSIZ amal qilishing SHART. Tizim to'g'ri ishlashi uchun bu hayot-mamot masalasi.
+Senga qo'yilgan qoidalarga QAT'IY amal qilishing SHART.
 
-🔴 MAXSUS BUYRUQLAR QOIDASI (ENG MUHIMI):
-Agar savolga javob topish uchun internet qidiruv talab etilsa, sening javobing FAQAT VA FAQAT bitta qator buyruqdan iborat bo'lishi shart!
+🔴 INTERNET QIDIRUVI BUYRUG'I:
+Agar foydalanuvchi so'nggi yangilik, hozirgi vaqt ma'lumoti, haqiqiy fakt, sport natijasi, ob-havo, kurs, narx yoki boshqa real-vaqt ma'lumot so'rasa — FAQAT quyidagi formatda yoz:
+/interdan_qidirish [inglizcha yoki o'zbekcha qidiruv so'zi]
 
-1. INTERNET QIDIRUVI:
-Agar foydalanuvchi eng so'nggi yangilik, fakt yoki ma'lumot so'rasa, javob o'rniga FAQAT shuni yoz:
-/interdan_qidirish [qidiriladigan matn]
+Misol:
+- "O'zbekiston prezidenti kim?" → /interdan_qidirish O'zbekiston prezidenti 2024
+- "Dollar kursi?" → /interdan_qidirish dollar kursi O'zbekiston bugun
+- "Real Madrid oxirgi o'yini?" → /interdan_qidirish Real Madrid last match result 2024
 
-🚫 MUTLAQ TAQIQ — QUYIDAGI GAPLARNI HECH QACHON YOZMA:
+🚫 MUTLAQ TAQIQ — bu gaplarni HECH QACHON yozma:
 - "men internetga chiqa olmayman"
-- "real vaqtda ma'lumot ololmayman"
+- "real vaqtda ma'lumot ololmayman"  
 - "ma'lumotlarim ...gacha"
 - "internetga ulanishim yo'q"
 - "BBC, Gazeta.uz, Kun.uz kabi saytlarga o'ting"
-Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHART!"""
+Bunday o'rniga — DOIM /interdan_qidirish buyrug'ini ishlat!
+
+✅ ODDIY SAVOLLARDA:
+O'quv, ta'lim, matematika, tarix, ilm-fan, til, kod yozish va boshqa bilim sohasidagi savollarga — to'g'ridan to'g'ri javob ber, /interdan_qidirish ishlatma."""
 
     messages = [{"role": "system", "content": system_prompt}]
     for msg in old_msgs:
@@ -4323,61 +4530,74 @@ Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHA
 
                 if "/interdan_qidirish" in ai_initial_reply:
                     query_part = ai_initial_reply.split("/interdan_qidirish")[-1].split('\n')[0].strip()
-                    query_part = query_part.replace('"', '').replace("'", "")
+                    query_part = query_part.replace('"', '').replace("'", "").strip()
 
-                    yield from emit({"status": f"🌐 Internet qidiruvi kerak: \"{query_part[:40]}\"..."})
-                    yield from emit({"status": "🔗 DuckDuckGo qidiruv tizimiga ulanmoqda..."})
+                    yield from emit({"status": f"🌐 Brauzer agenti ishga tushdi: \"{query_part[:45]}\"..."})
 
-                    try:
-                        from ddgs import DDGS
+                    # emit_fn — browse_web ichida status yuborish uchun
+                    def emit_fn(d):
+                        # generator emas, to'g'ridan to'g'ri yield qila olmaymiz,
+                        # shuning uchun queue ishlatamiz
+                        _browse_queue.append(d)
 
-                        yield from emit({"status": f"🔎 \"{query_part[:35]}\" — qidirilmoqda..."})
+                    _browse_queue = []
 
-                        with DDGS() as ddgs_client:
-                            results = list(ddgs_client.text(query_part, region='wt-wt', safesearch='moderate', max_results=3))
+                    # browse_web ni sinxron chaqiramiz, lekin har qadam
+                    # _browse_queue ga tushadi — keyin yield qilamiz
+                    # Chunki browse_web generator emas (oddiy funksiya)
+                    # Yechim: browse_web ni step-by-step generator ko'rinishida
+                    # chaqirish o'rniga — queue pattern ishlatamiz
 
-                        if results:
-                            yield from emit({"status": f"📄 {len(results)} ta manba topildi, o'qilmoqda..."})
-                            info = "\n\n".join([f"📌 Maqola: {r['title']}\nMatn: {r['body']}" for r in results])
-                            search_results = (
-                                f"Tizim xabari: '{query_part}' bo'yicha internetdan "
-                                f"quyidagi eng yangi ma'lumotlar topildi:\n{info}"
+                    import threading
+
+                    browse_result   = [None]   # [answer]
+                    browse_done     = threading.Event()
+
+                    def run_browse():
+                        answer, _ = browse_web(
+                            query_part, headers, MODEL_NAME, emit_fn
+                        )
+                        browse_result[0] = answer
+                        browse_done.set()
+
+                    t = threading.Thread(target=run_browse, daemon=True)
+                    t.start()
+
+                    # browse ishlayotgan vaqtda queue dagi statuslarni stream qilamiz
+                    while not browse_done.is_set() or _browse_queue:
+                        while _browse_queue:
+                            yield from emit(_browse_queue.pop(0))
+                        browse_done.wait(timeout=0.15)
+
+                    # Qolgan statuslar (agar bor bo'lsa)
+                    while _browse_queue:
+                        yield from emit(_browse_queue.pop(0))
+
+                    answer = browse_result[0]
+
+                    if answer:
+                        # Browse muvaffaqiyatli — javob to'g'ridan to'g'ri tayyor
+                        final_reply = answer
+                    else:
+                        # Topilmadi — AI o'zidan javob bersin
+                        yield from emit({"status": "🤖 AI o'z bilimi asosida javob tayyorlamoqda..."})
+                        messages.append({"role": "assistant", "content": ai_initial_reply})
+                        messages.append({
+                            "role": "user",
+                            "content": (
+                                f"Internet sahifalarida '{query_part}' bo'yicha aniq ma'lumot topilmadi. "
+                                "O'zing bilgan ma'lumotlar asosida imkon qadar to'liq javob ber."
                             )
-                            total_chars = sum(len(r['body']) for r in results)
-                            yield from emit({"status": f"🧠 Manbalar tahlil qilinmoqda (~{total_chars} belgi)..."})
-                        else:
-                            yield from emit({"status": "⚠️ Internet qidiruvda natija topilmadi, AI o'zidan javob beradi..."})
-                            search_results = f"Tizim xabari: '{query_part}' bo'yicha internetdan hech narsa topilmadi."
-
-                    except Exception as e:
-                        yield from emit({"status": f"⚠️ Qidiruv xatosi: {str(e)[:40]} — AI o'zidan javob beradi..."})
-                        search_results = (
-                            f"Tizim xabari: Qidiruvda xato yuz berdi ({e}). "
-                            "O'zing bilgan ma'lumotlar asosida javob ber."
-                        )
-
-                    messages.append({"role": "assistant", "content": ai_initial_reply})
-                    messages.append({
-                        "role": "user",
-                        "content": (
-                            search_results +
-                            "\n\nYuqoridagi haqiqiy ma'lumotlardan foydalanib menga "
-                            "aniq va chiroyli javob yoz. Manbani ham qisqacha aytib o't:"
-                        )
-                    })
-                    payload["messages"] = messages
-
-                    yield from emit({"status": "✍️ Topilgan ma'lumotlar asosida javob yozilmoqda..."})
-
-                    t2_start = time.time()
-                    resp2 = requests.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        headers=headers, json=payload, timeout=20
-                    ).json()
-                    t2_elapsed = round(time.time() - t2_start, 1)
-
-                    yield from emit({"status": f"✅ Internet asosidagi javob tayyor ({t2_elapsed}s)..."})
-                    final_reply = resp2["choices"][0]["message"]["content"]
+                        })
+                        payload["messages"] = messages
+                        t2_start = time.time()
+                        resp2 = requests.post(
+                            "https://openrouter.ai/api/v1/chat/completions",
+                            headers=headers, json=payload, timeout=20
+                        ).json()
+                        t2_elapsed = round(time.time() - t2_start, 1)
+                        yield from emit({"status": f"💡 AI javobi tayyor ({t2_elapsed}s)..."})
+                        final_reply = resp2["choices"][0]["message"]["content"]
 
                 else:
                     reply_len = len(ai_initial_reply.split())
