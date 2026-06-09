@@ -167,9 +167,8 @@
 
   <script>
     let currentSessionId = null;
-    let thinkingInterval = null;
-    let isSending = false; // TAKRORLANISHGA QARSHI QO'SHIMCHA BLOKIROVKA
-    let renderedMessages = new Set(); // YANGLIK: Xabarlarni ikki marta chiqib ketishidan himoya!
+    let isSending = false;
+    let renderedMessages = new Set();
     
     const lang = "{{ lang }}";
 
@@ -265,31 +264,20 @@
             <div class="gemini-spinner"></div>
           </div>
           <div class="gemini-thinking-text-container">
-            <span class="gemini-thinking-text" id="dynamicStatusText">Sizning so'rovingiz serverga yuborilmoqda...</span>
+            <span class="gemini-thinking-text" id="dynamicStatusText">💬 So'rovingiz qabul qilindi...</span>
             <svg class="chevron-down" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
         </div>
       `;
       chatBox.appendChild(wrap);
       scrollToBottom();
-
-      const steps = ["Matn tahlil qilinmoqda...", "Internet tarmog'idan izlanmoqda...", "Ma'lumotlar jamlanmoqda...", "Javob shakllantirilmoqda..."];
-      let stepIndex = 0;
-      thinkingInterval = setInterval(() => {
-        const textElement = document.getElementById('dynamicStatusText');
-        if (textElement) {
-            textElement.style.animation = 'none'; textElement.offsetHeight; 
-            textElement.style.animation = 'fadeInOut 0.5s ease';
-            textElement.innerText = steps[stepIndex];
-            stepIndex = (stepIndex + 1) % steps.length;
-        } else clearInterval(thinkingInterval);
-      }, 2500); 
+      // setInterval YO'Q — server o'zi real statuslarni yuboradi
     }
 
     function removeThinkingUI() {
       const indicator = document.getElementById('thinkingIndicator');
       if (indicator) indicator.remove();
-      if (thinkingInterval) clearInterval(thinkingInterval);
+      // thinkingInterval mavjud emas endi — server statuslari to'g'ridan-to'g'ri keladi
     }
 
     function addMessageUI(id, text, isUser, animate = false) {
@@ -401,9 +389,18 @@
               if (data.status) {
                 const statusEl = document.getElementById('dynamicStatusText');
                 if (statusEl) {
-                  statusEl.style.animation = 'none'; statusEl.offsetHeight; 
-                  statusEl.style.animation = 'fadeInOut 0.5s ease';
-                  statusEl.innerText = data.status; 
+                  // Eski matnni fade-out, yangi matnni fade-in
+                  statusEl.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
+                  statusEl.style.opacity = '0';
+                  statusEl.style.transform = 'translateY(-4px)';
+                  setTimeout(() => {
+                    statusEl.innerText = data.status;
+                    statusEl.style.transform = 'translateY(4px)';
+                    requestAnimationFrame(() => {
+                      statusEl.style.opacity = '1';
+                      statusEl.style.transform = 'translateY(0)';
+                    });
+                  }, 150);
                 }
               } else if (data.reply) {
                 removeThinkingUI();
