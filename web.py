@@ -1,7 +1,6 @@
 import os
 import uuid
 import re
-import asyncio
 import hashlib
 import hmac
 import logging
@@ -4232,29 +4231,257 @@ def api_ai_edit():
 # ══════════════════════════════════════════════════════════════════════
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  🌐  AGENTIC WEB BROWSER  (Playwright — haqiqiy brauzer)
+#  🌐  AGENTIC WEB BROWSER  (requests + BeautifulSoup)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
-def _run_async(coro):
-    """Flask (sinxron) ichida async kodni ishlatish uchun."""
+
+# ── HTML → toza matn + linklar ro'yxati ─────────────────────────────
+def _parse_page(html_text: str, base_url: str = "") -> tuple[str, list[dict]]:
+    """
+    HTML → toza matn + interaktiv elementlar (linklar + ko'zga ko'ringan tugmalar).
+    Qaytaradi: (text[:14000], elements[:40])
+    """
+    from bs4 import BeautifulSoup
+    import urllib.parse
+
+    soup = BeautifulSoup(html_text, "lxml")
+
+    for tag in soup(["script", "style", "noscript", "svg",
+                     "iframe", "head", "meta", "link"]):
+        tag.decompose()
+
+    elements = []
+    idx = 1
+
+    # Linklar
+    seen_hrefs = set()
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        if not href or href.startswith("javascript") or href in ("#", ""):
+            continue
+        if not href.startswith("http"):
+            href = urllib.parse.urljoin(base_url, href)
+        if href in seen_hrefs:
+            continue
+        seen_hrefs.add(href)
+        label = a.get_text(" ", strip=True)[:100] or href[:60]
+        elements.append({"idx": idx, "type": "link",
+                          "label": label, "href": href})
+        idx += 1
+
+    # Ko'zga ko'ringan tugmalar (matnli)
+    for btn in soup.find_all("button"):
+        label = btn.get_text(" ", strip=True)[:80]
+        if not label:
+            label = btn.get("aria-label", btn.get("title", ""))[:80]
+        if label:
+            elements.append({"idx": idx, "type": "button",
+                              "label": label, "href": None})
+            idx += 1
+
+    # Toza matn
+    for tag in soup(["nav", "footer", "header", "aside"]):
+        tag.decompose()
+    text = soup.get_text(separator="\n", strip=True)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text[:14000], elements[:40]
+
+
+# ── HTTP sahifani yuklab olish ────────────────────────────────────────
+def _fetch_page(url: str, timeout: int = 10) -> tuple[str, list[dict], str]:
+    """requests bilan sahifani yuklab, toza matn + elementlar qaytaradi."""
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Already inside an event loop (e.g. in some WSGI servers) —
-            # run in a new thread with its own loop
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                future = ex.submit(asyncio.run, coro)
-                return future.result()
-        else:
-            return loop.run_until_complete(coro)
-    except RuntimeError:
-        return asyncio.run(coro)
+        hdrs = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "uz,en;q=0.9,ru;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+        }
+        resp = requests.get(url, headers=hdrs, timeout=timeout,
+                            allow_redirects=True)
+        resp.encoding = resp.apparent_encoding or "utf-8"
+        text, elements = _parse_page(resp.text, base_url=resp.url)
+        return text, elements, resp.url
+    except Exception as e:
+        return f"[Sahifa yuklanmadi: {e}]", [], url
 
 
-# ── HTML → toza matn + elementlar ro'yxati ──────────────────────────
-def _parse_page(html: str, base_url: str = "") -> tuple[str, list[dict]]:
+# ── Elementlar ro'yxatini AI uchun matn formatida ────────────────────
+def _elements_to_text(elements: list[dict]) -> str:
+    if not elements:
+        return ""
+    lines = ["\n\n📌 Sahifadagi havolalar va tugmalar:"]
+    for el in elements:
+        icon = {"link": "🔗", "button": "🔘"}.get(el["type"], "•")
+        line = f"  [{el['idx']}] {icon} {el['label']}"
+        if el.get("href"):
+            line += f"\n       → {el['href'][:80]}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+# ── OpenRouter sinxron chaqiruv ──────────────────────────────────────
+def _ai_call(messages: list, ai_headers: dict, model: str,
+             max_tokens: int = 600, temperature: float = 0.0) -> str:
+    try:
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=ai_headers,
+            json={"model": model, "messages": messages,
+                  "temperature": temperature, "max_tokens": max_tokens},
+            timeout=25
+        ).json()
+        return resp["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        return f"[AI xatosi: {e}]"
+
+
+# ── ASOSIY AGENT LOOP ────────────────────────────────────────────────
+def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
+    """
+    requests + BeautifulSoup asosidagi agentic browsing.
+    AI buyruqlari:
+      TOPILDI: <javob>     → tayyor, chiqish
+      CLICK: <idx>         → [idx] linkni ochish
+      LINK: <url>          → yangi URLga o'tish
+      SCROLL               → (hozircha keyingi sahifaga o'tish kabi)
+      KEYINGISI            → bu sahifada hech narsa yo'q
+    Qaytaradi: (answer: str | None, log: list)
+    """
+    from ddgs import DDGS
+
+    MAX_STEPS = 8
+    visited   = set()
+    log       = []
+    cur_url   = None
+    cur_elements = []
+
+    # ── 1. DuckDuckGo qidiruv ──
+    emit_fn({"status": f"🔍 DuckDuckGo: \"{query[:50]}\" qidirilmoqda..."})
+    try:
+        with DDGS() as d:
+            raw = list(d.text(query, region="wt-wt",
+                              safesearch="moderate", max_results=7))
+    except Exception as e:
+        emit_fn({"status": f"⚠️ Qidiruv xatosi: {e}"})
+        return None, []
+
+    if not raw:
+        emit_fn({"status": "⚠️ Qidiruv natijasi yo'q."})
+        return None, []
+
+    search_links = [(r["title"][:80], r["href"])
+                    for r in raw if r.get("href")]
+    emit_fn({"status": f"📋 {len(search_links)} ta havola topildi, AI tanlayapti..."})
+
+    # ── 2. AI eng mos linkni tanlaydi ──
+    links_txt = "\n".join(
+        f"{i+1}. {t} → {u}" for i, (t, u) in enumerate(search_links)
+    )
+    choice_raw = _ai_call([
+        {"role": "system", "content":
+             "Veb-brauzer agentisan. So'rovga eng mos linkni tanla. "
+             "FAQAT bitta raqam yoz (1-7). Izohsiz."},
+        {"role": "user", "content":
+             f"So'rov: \"{query}\"\n\nHavolalar:\n{links_txt}\n\n"
+             "Qaysi raqam? Faqat raqam:"}
+    ], ai_headers, model, max_tokens=4)
+
+    num = re.search(r'\d', choice_raw)
+    idx = (int(num.group()) - 1) if num else 0
+    idx = max(0, min(idx, len(search_links) - 1))
+
+    # Navbat: tanlangan birinchi, qolganlari zaxira
+    queue = ([search_links[idx][1]]
+             + [u for i, (_, u) in enumerate(search_links) if i != idx])
+
+    # ── 3. Agent loop ──
+    step = 0
+
+    while step < MAX_STEPS and queue:
+        url = queue.pop(0)
+        if url in visited:
+            continue
+        visited.add(url)
+        cur_url = url
+        step += 1
+
+        short = url[:65] + ("..." if len(url) > 65 else "")
+        emit_fn({"status": f"🌐 {step}-qadam: sahifaga kirilmoqda..."})
+        emit_fn({"status": f"   → {short}"})
+
+        # ── Sahifani yukla ──
+        page_text, cur_elements, cur_url = _fetch_page(url)
+        chars = len(page_text)
+        emit_fn({"status": f"📖 Sahifa o'qildi ({chars:,} belgi, "
+                            f"{len(cur_elements)} element)..."})
+        log.append({"url": cur_url, "chars": chars,
+                    "elements": len(cur_elements)})
+
+        # ── AI: nima qilsin? ──
+        emit_fn({"status": "🤔 AI qaror qilmoqda..."})
+
+        elements_txt = _elements_to_text(cur_elements)
+
+        decision = _ai_call([
+            {"role": "system", "content": (
+                "Sen veb-brauzer agentisan. Sahifa matnini o'qib, "
+                "foydalanuvchi so'roviga javob topishga harakat qilasan.\n\n"
+                "Buyruqlar (FAQAT bittasini yoz):\n"
+                "  TOPILDI: <to'liq javob matni>\n"
+                "  CLICK: <raqam>   → o'sha havolani ochish\n"
+                "  LINK: <to'liq URL>\n"
+                "  KEYINGISI        → bu sahifada hech narsa yo'q\n\n"
+                "MUHIM: Sahifada so'rovga oid ma'lumot bo'lsa — "
+                "TOPILDI deb to'liq javob yoz."
+            )},
+            {"role": "user", "content": (
+                f"So'rov: \"{query}\"\n"
+                f"Joriy URL: {cur_url}\n\n"
+                f"Sahifa matni:\n{page_text[:11000]}"
+                f"{elements_txt}"
+            )}
+        ], ai_headers, model, max_tokens=1800, temperature=0.1)
+
+        # ── Qarorni parse qilish ──
+        if decision.upper().startswith("TOPILDI:"):
+            answer = decision[len("TOPILDI:"):].strip()
+            emit_fn({"status": f"✅ Javob topildi! "
+                               f"({step} qadam, {chars:,} belgi o'qildi)"})
+            return answer, log
+
+        elif decision.upper().startswith("CLICK:"):
+            raw_idx = decision[len("CLICK:"):].strip().split()[0]
+            m = re.search(r'\d+', raw_idx)
+            if m:
+                el_idx = int(m.group())
+                el = next((e for e in cur_elements if e["idx"] == el_idx), None)
+                if el and el.get("href") and el["href"] not in visited:
+                    emit_fn({"status": f"🔗 AI link tanladi: \"{el['label'][:50]}\"..."})
+                    queue.insert(0, el["href"])
+                else:
+                    emit_fn({"status": f"⚠️ [{el_idx}] element topilmadi yoki avval ko'rilgan..."})
+
+        elif decision.upper().startswith("LINK:"):
+            next_url = decision[len("LINK:"):].strip().split()[0]
+            if next_url not in visited:
+                emit_fn({"status": f"🔗 Yangi URL → {next_url[:55]}..."})
+                queue.insert(0, next_url)
+            else:
+                emit_fn({"status": "↩️ Bu URL avval ko'rilgan, keyingisi..."})
+
+        else:  # KEYINGISI yoki noaniq
+            emit_fn({"status": f"➡️ Bu sahifada ma'lumot yo'q "
+                               f"({step}/{MAX_STEPS}), keyingisi..."})
+
+    emit_fn({"status": f"⚠️ {step} qadam bajarildi — aniq javob topilmadi. "
+                       "AI o'z bilimidan javob beradi..."})
+    return None, log
     """
     HTML dan:
       • toza matn  (script/style/nav olib tashlanadi)
@@ -4343,379 +4570,6 @@ def _parse_page(html: str, base_url: str = "") -> tuple[str, list[dict]]:
     text = re.sub(r'\n{3,}', '\n\n', text)
 
     return text[:14000], elements[:40]   # max 14k belgi, 40 element
-
-
-def _make_selector(tag) -> str:
-    """Tag uchun CSS selector yasaydi (id > class > tag[attr])."""
-    if tag.get("id"):
-        return f"#{tag['id']}"
-    classes = " ".join(tag.get("class", []))[:60]
-    name = tag.name
-    if classes:
-        cls = ".".join(tag.get("class", [])[:3])
-        return f"{name}.{cls}"
-    if tag.get("name"):
-        return f"{name}[name='{tag['name']}']"
-    if tag.get("type"):
-        return f"{name}[type='{tag['type']}']"
-    return name
-
-
-# ── OpenRouter sinxron chaqiruv ──────────────────────────────────────
-def _ai_call(messages: list, ai_headers: dict, model: str,
-             max_tokens: int = 600, temperature: float = 0.0) -> str:
-    try:
-        resp = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=ai_headers,
-            json={"model": model, "messages": messages,
-                  "temperature": temperature, "max_tokens": max_tokens},
-            timeout=25
-        ).json()
-        return resp["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        return f"[AI xatosi: {e}]"
-
-
-# ── Playwright async sahifa o'quvchi ────────────────────────────────
-async def _pw_snapshot(url: str, action: dict | None = None,
-                       timeout_ms: int = 12000) -> tuple[str, list[dict], str]:
-    """
-    Playwright bilan sahifani ochib, interaktiv elementlarni qaytaradi.
-    action = {"type": "click"|"fill"|"select"|"scroll",
-              "selector": "...", "value": "..."}
-    Qaytaradi: (page_text, elements, current_url)
-    """
-    from playwright.async_api import async_playwright, TimeoutError as PWTimeout
-
-    async with async_playwright() as pw:
-        browser = await pw.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-blink-features=AutomationControlled",
-                "--disable-dev-shm-usage",
-            ]
-        )
-        ctx = await browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            viewport={"width": 1280, "height": 800},
-            locale="uz-UZ,en;q=0.9",
-        )
-        page = await ctx.new_page()
-
-        # Bot aniqlanishini kamaytirish
-        await page.add_init_script(
-            "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
-        )
-
-        try:
-            await page.goto(url, wait_until="domcontentloaded",
-                            timeout=timeout_ms)
-            # Sahifa biroz yuklansin
-            await page.wait_for_timeout(1500)
-        except PWTimeout:
-            pass   # timeout bo'lsa ham HTML bor
-
-        # ── Amal bajarish ──
-        if action:
-            atype = action.get("type")
-            sel   = action.get("selector", "")
-            val   = action.get("value", "")
-            try:
-                if atype == "click":
-                    await page.click(sel, timeout=5000)
-                    await page.wait_for_timeout(2000)
-                elif atype == "fill":
-                    await page.fill(sel, val, timeout=5000)
-                    await page.wait_for_timeout(500)
-                elif atype == "select":
-                    await page.select_option(sel, label=val, timeout=5000)
-                    await page.wait_for_timeout(1000)
-                elif atype == "scroll":
-                    await page.evaluate("window.scrollBy(0, window.innerHeight)")
-                    await page.wait_for_timeout(1000)
-                elif atype == "press_enter":
-                    await page.press(sel, "Enter")
-                    await page.wait_for_timeout(2000)
-            except Exception:
-                pass   # amal xato bo'lsa ham davom etamiz
-
-        html        = await page.content()
-        current_url = page.url
-
-        await browser.close()
-
-    text, elements = _parse_page(html, base_url=current_url)
-    return text, elements, current_url
-
-
-def _fetch_pw(url: str, action: dict | None = None) -> tuple[str, list[dict], str]:
-    """_pw_snapshot ni sinxron Flask ichida chaqiradi."""
-    try:
-        return _run_async(_pw_snapshot(url, action))
-    except Exception as e:
-        return f"[Playwright xatosi: {e}]", [], url
-
-
-# ── Elementlar ro'yxatini AI uchun matn ko'rinishga keltirish ─────────
-def _elements_to_text(elements: list[dict]) -> str:
-    if not elements:
-        return ""
-    lines = ["\n\n📌 Sahifadagi elementlar (raqam bilan bosishingiz mumkin):"]
-    for el in elements:
-        icon = {"link": "🔗", "button": "🔘", "input": "✏️",
-                "submit": "🚀", "select": "📋"}.get(el["type"], "•")
-        lines.append(f"  [{el['idx']}] {icon} {el['type'].upper()}: {el['label']}"
-                     + (f"\n       → {el['href']}" if el.get("href") else ""))
-    return "\n".join(lines)
-
-
-# ── ASOSIY AGENT LOOP ────────────────────────────────────────────────
-def browse_web(query: str, ai_headers: dict, model: str, emit_fn):
-    """
-    Playwright-based agentic browsing.
-    AI buyruqlari:
-      TOPILDI: <javob>           → javob tayyor, chiqish
-      CLICK: <idx>               → [idx] raqamli elementni bosish
-      FILL: <idx> = <matn>       → [idx] inputga matn yozish
-      FILL_ENTER: <idx> = <matn> → matn yozib Enter bosish
-      SELECT: <idx> = <option>   → dropdown tanlash
-      SCROLL                     → pastga scroll
-      LINK: <url>                → yangi URLga o'tish
-      KEYINGISI                  → bu sahifada hech narsa yo'q
-    Qaytaradi: (answer: str | None, log: list)
-    """
-    from ddgs import DDGS
-
-    MAX_STEPS = 8
-    visited   = set()
-    log       = []
-    # joriy sahifa holati
-    cur_url      = None
-    cur_elements = []
-
-    # ── 1. DuckDuckGo qidiruv ──
-    emit_fn({"status": f"🔍 DuckDuckGo: \"{query[:50]}\" qidirilmoqda..."})
-    try:
-        with DDGS() as d:
-            raw = list(d.text(query, region="wt-wt",
-                              safesearch="moderate", max_results=7))
-    except Exception as e:
-        emit_fn({"status": f"⚠️ Qidiruv xatosi: {e}"})
-        return None, []
-
-    if not raw:
-        emit_fn({"status": "⚠️ Qidiruv natijasi yo'q."})
-        return None, []
-
-    search_links = [(r["title"][:80], r["href"])
-                    for r in raw if r.get("href")]
-    emit_fn({"status": f"📋 {len(search_links)} ta havola topildi, AI tanlayapti..."})
-
-    # ── 2. AI eng mos linkni tanlaydi ──
-    links_txt = "\n".join(
-        f"{i+1}. {t} → {u}" for i, (t, u) in enumerate(search_links)
-    )
-    choice_raw = _ai_call([
-        {"role": "system", "content":
-             "Veb-brauzer agentisan. So'rovga eng mos linkni tanla. "
-             "FAQAT bitta raqam yoz (1-7). Izohsiz."},
-        {"role": "user", "content":
-             f"So'rov: \"{query}\"\n\nHavolalar:\n{links_txt}\n\n"
-             "Qaysi raqam? Faqat raqam:"}
-    ], ai_headers, model, max_tokens=4)
-
-    num = re.search(r'\d', choice_raw)
-    idx = (int(num.group()) - 1) if num else 0
-    idx = max(0, min(idx, len(search_links) - 1))
-
-    # Navbat: tanlangan birinchi, qolganlari zaxira
-    queue = ([search_links[idx][1]]
-             + [u for i, (_, u) in enumerate(search_links) if i != idx])
-
-    # ── 3. Agent loop ──
-    step    = 0
-    action  = None   # birinchi kirish — hech qanday amal yo'q
-
-    while step < MAX_STEPS:
-
-        # Navbatdan URL ol (agar action bo'lmasa)
-        if action is None:
-            if not queue:
-                break
-            url = queue.pop(0)
-            if url in visited:
-                continue
-            visited.add(url)
-            cur_url = url
-        else:
-            url = cur_url   # ayniy sahifada amal qilamiz
-
-        step += 1
-        short = url[:65] + ("..." if len(url) > 65 else "")
-
-        if action is None:
-            emit_fn({"status": f"🌐 {step}-qadam: sahifaga kirilmoqda..."})
-            emit_fn({"status": f"   → {short}"})
-        else:
-            atype = action.get("type", "")
-            icons = {"click": "🖱️ Tugma bosilmoqda",
-                     "fill":  "⌨️  Matn yozilmoqda",
-                     "fill_enter": "⌨️  Matn yozib Enter",
-                     "select": "📋 Tanlov qilinmoqda",
-                     "scroll": "📜 Scroll qilinmoqda",
-                     "press_enter": "↵  Enter bosilmoqda"}
-            emit_fn({"status": f"{icons.get(atype,'🖱️')}..."})
-
-        # ── Playwright bilan sahifani ochish / amal qilish ──
-        page_text, cur_elements, cur_url = _fetch_pw(url, action)
-        action = None   # amalni iste'mol qildik
-
-        chars = len(page_text)
-        emit_fn({"status": f"📖 Sahifa o'qildi ({chars:,} belgi, "
-                            f"{len(cur_elements)} element)..."})
-        log.append({"url": cur_url, "chars": chars,
-                    "elements": len(cur_elements)})
-
-        # ── AI: nima qilsin? ──
-        emit_fn({"status": "🤔 AI qaror qilmoqda..."})
-
-        elements_txt = _elements_to_text(cur_elements)
-
-        decision_prompt = [
-            {"role": "system", "content": (
-                "Sen veb-brauzer agentisan. Sahifa matnini va elementlarini o'qib,\n"
-                "foydalanuvchi so'roviga javob topishga harakat qilasan.\n\n"
-                "Buyruqlar (FAQAT bittasini yoz):\n"
-                "  TOPILDI: <to'liq javob matni>\n"
-                "    → sahifada javob topildi\n\n"
-                "  CLICK: <raqam>\n"
-                "    → o'sha raqamdagi tugma yoki linkni bos\n\n"
-                "  FILL: <raqam> = <yoziladigan matn>\n"
-                "    → o'sha raqamdagi input ga matn yoz\n\n"
-                "  FILL_ENTER: <raqam> = <yoziladigan matn>\n"
-                "    → input ga matn yozib Enter bos (qidiruv uchun)\n\n"
-                "  SELECT: <raqam> = <option nomi>\n"
-                "    → dropdown dan tanlash\n\n"
-                "  SCROLL\n"
-                "    → sahifani pastga siljit, ko'proq kontent yuklash\n\n"
-                "  LINK: <to'liq URL>\n"
-                "    → boshqa sahifaga o'tish\n\n"
-                "  KEYINGISI\n"
-                "    → bu sahifada hech narsa yo'q, navbatdagi sahifa\n\n"
-                "MUHIM: Agar sahifada so'rovga oid ma'lumot bo'lsa — "
-                "TOPILDI deb to'liq javob yoz. "
-                "Faqat yetarlicha ma'lumot bo'lmasa boshqa qaror qabul qil."
-            )},
-            {"role": "user", "content": (
-                f"So'rov: \"{query}\"\n"
-                f"Joriy URL: {cur_url}\n\n"
-                f"Sahifa matni:\n{page_text[:11000]}"
-                f"{elements_txt}"
-            )}
-        ]
-
-        decision = _ai_call(decision_prompt, ai_headers, model,
-                            max_tokens=1800, temperature=0.1)
-
-        # ── Qarorni parse qilish ──
-
-        if decision.upper().startswith("TOPILDI:"):
-            answer = decision[len("TOPILDI:"):].strip()
-            emit_fn({"status": f"✅ Javob topildi! "
-                               f"({step} qadam, {chars:,} belgi o'qildi)"})
-            return answer, log
-
-        elif decision.upper().startswith("CLICK:"):
-            raw_idx = decision[len("CLICK:"):].strip().split()[0]
-            num = re.search(r'\d+', raw_idx)
-            if num:
-                el_idx = int(num.group())
-                el = next((e for e in cur_elements if e["idx"] == el_idx), None)
-                if el:
-                    lbl = el["label"][:50]
-                    if el["type"] == "link" and el.get("href"):
-                        # Link — to'g'ridan URL ga o'tamiz
-                        emit_fn({"status": f"🔗 AI link tanladi: \"{lbl}\"..."})
-                        if el["href"] not in visited:
-                            queue.insert(0, el["href"])
-                        action = None
-                    else:
-                        # Tugma — Playwright bilan bosamiz
-                        emit_fn({"status": f"🖱️ AI tugmani bosmoqda: \"{lbl}\"..."})
-                        action = {"type": "click", "selector": el["selector"]}
-                        url = cur_url
-                else:
-                    emit_fn({"status": f"⚠️ [{el_idx}] element topilmadi, davom..."})
-
-        elif decision.upper().startswith("FILL_ENTER:"):
-            rest = decision[len("FILL_ENTER:"):].strip()
-            m = re.match(r'(\d+)\s*=\s*(.*)', rest, re.DOTALL)
-            if m:
-                el_idx, fill_val = int(m.group(1)), m.group(2).strip().strip('"')
-                el = next((e for e in cur_elements if e["idx"] == el_idx), None)
-                if el and el.get("selector"):
-                    emit_fn({"status": f"⌨️ Inputga yozilib Enter bosilmoqda: \"{fill_val[:40]}\"..."})
-                    # avval fill, keyin Enter
-                    page_text2, cur_elements, cur_url = _fetch_pw(
-                        cur_url, {"type": "fill", "selector": el["selector"], "value": fill_val}
-                    )
-                    action = {"type": "press_enter", "selector": el["selector"]}
-                    url = cur_url
-
-        elif decision.upper().startswith("FILL:"):
-            rest = decision[len("FILL:"):].strip()
-            m = re.match(r'(\d+)\s*=\s*(.*)', rest, re.DOTALL)
-            if m:
-                el_idx, fill_val = int(m.group(1)), m.group(2).strip().strip('"')
-                el = next((e for e in cur_elements if e["idx"] == el_idx), None)
-                if el and el.get("selector"):
-                    emit_fn({"status": f"⌨️ Inputga yozilmoqda: \"{fill_val[:40]}\"..."})
-                    action = {"type": "fill",
-                              "selector": el["selector"], "value": fill_val}
-                    url = cur_url
-
-        elif decision.upper().startswith("SELECT:"):
-            rest = decision[len("SELECT:"):].strip()
-            m = re.match(r'(\d+)\s*=\s*(.*)', rest)
-            if m:
-                el_idx, opt_val = int(m.group(1)), m.group(2).strip()
-                el = next((e for e in cur_elements if e["idx"] == el_idx), None)
-                if el and el.get("selector"):
-                    emit_fn({"status": f"📋 Dropdown tanlanmoqda: \"{opt_val[:40]}\"..."})
-                    action = {"type": "select",
-                              "selector": el["selector"], "value": opt_val}
-                    url = cur_url
-
-        elif decision.upper().strip() == "SCROLL":
-            emit_fn({"status": "📜 Sahifa pastga scroll qilinmoqda..."})
-            action = {"type": "scroll", "selector": ""}
-            url = cur_url
-
-        elif decision.upper().startswith("LINK:"):
-            next_url = decision[len("LINK:"):].strip().split()[0]
-            if next_url not in visited:
-                emit_fn({"status": f"🔗 Yangi URL ga o'tilmoqda → {next_url[:55]}..."})
-                queue.insert(0, next_url)
-            else:
-                emit_fn({"status": "↩️ Bu URL avval ko'rilgan, keyingisi..."})
-            action = None
-
-        else:  # KEYINGISI yoki noaniq
-            emit_fn({"status": f"➡️ Bu sahifada ma'lumot yo'q "
-                               f"({step}/{MAX_STEPS}), keyingisi..."})
-            action = None
-
-    emit_fn({"status": f"⚠️ {step} qadam bajarildi — aniq javob topilmadi. "
-                       "AI o'z bilimidan javob beradi..."})
-    return None, log
-
 
 @app.route("/api/ai-chat", methods=["POST"])
 def api_ai_chat():
