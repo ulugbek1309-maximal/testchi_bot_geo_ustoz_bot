@@ -4285,39 +4285,35 @@ Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHA
     payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0.1, "max_tokens": 10240}
 
     def generate():
-        try:
-            # ── 1. So'rov qabul qilindi ──
-            yield json.dumps({"status": "💬 So'rovingiz qabul qilindi..."}) + "\n"
+        def emit(data: dict):
+            """JSON chunk yuboradi va darhol flushlanadi."""
+            yield json.dumps(data, ensure_ascii=False) + "\n"
 
-            # ── 2. Suhbat tarixi tekshirilmoqda ──
+        try:
+            yield from emit({"status": "💬 So'rovingiz qabul qilindi..."})
+
             history_len = len([m for m in messages if m["role"] != "system"])
             if history_len > 2:
-                yield json.dumps({"status": f"📂 Suhbat tarixi yuklandi ({history_len} ta xabar)..."}) + "\n"
+                yield from emit({"status": f"📂 Suhbat tarixi yuklandi ({history_len} ta xabar)..."})
             else:
-                yield json.dumps({"status": "📂 Yangi suhbat boshlandi..."}) + "\n"
+                yield from emit({"status": "📂 Yangi suhbat boshlandi..."})
 
-            # ── 3. Xabar uzunligiga qarab tahlil ──
             word_count = len(text.split())
             if word_count > 30:
-                yield json.dumps({"status": f"📝 Uzun matn tahlil qilinmoqda ({word_count} so'z)..."}) + "\n"
+                yield from emit({"status": f"📝 Uzun matn tahlil qilinmoqda ({word_count} so'z)..."})
             else:
-                yield json.dumps({"status": "📝 Savol tahlil qilinmoqda..."}) + "\n"
+                yield from emit({"status": "📝 Savol tahlil qilinmoqda..."})
 
-            # ── 4. Internet kerakmi yo'qmi tekshirilmoqda ──
-            yield json.dumps({"status": "🔍 Internet qidiruv kerakmi — aniqlanmoqda..."}) + "\n"
-
-            # ── 5. AI modeliga so'rov yuborilmoqda ──
-            yield json.dumps({"status": f"🤖 AI modeliga ({MODEL_NAME.split('/')[-1]}) so'rov yuborilmoqda..."}) + "\n"
+            yield from emit({"status": "🔍 Internet qidiruv kerakmi — aniqlanmoqda..."})
+            yield from emit({"status": f"🤖 AI modeliga ({MODEL_NAME.split('/')[-1]}) so'rov yuborilmoqda..."})
 
             t_api_start = time.time()
             api_response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers=headers, json=payload, timeout=15
             )
-
-            # ── 6. Javob keldi, o'lchamlari aniqlanmoqda ──
             t_api_elapsed = round(time.time() - t_api_start, 1)
-            yield json.dumps({"status": f"⚡ AI javob yaratdi ({t_api_elapsed}s)..."}) + "\n"
+            yield from emit({"status": f"⚡ AI javob yaratdi ({t_api_elapsed}s)..."})
 
             res_data = api_response.json()
 
@@ -4325,49 +4321,36 @@ Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHA
                 ai_initial_reply = res_data["choices"][0]["message"]["content"].strip()
                 final_reply = ai_initial_reply
 
-                # ── 7. Javob turi aniqlanmoqda ──
                 if "/interdan_qidirish" in ai_initial_reply:
                     query_part = ai_initial_reply.split("/interdan_qidirish")[-1].split('\n')[0].strip()
                     query_part = query_part.replace('"', '').replace("'", "")
 
-                    # ── 8. Internet qidiruv talab etilmoqda ──
-                    yield json.dumps({"status": f"🌐 Internet qidiruvi kerak: \"{query_part[:40]}\"..."}) + "\n"
-
-                    # ── 9. DuckDuckGo ga ulanmoqda ──
-                    yield json.dumps({"status": "🔗 DuckDuckGo qidiruv tizimiga ulanmoqda..."}) + "\n"
+                    yield from emit({"status": f"🌐 Internet qidiruvi kerak: \"{query_part[:40]}\"..."})
+                    yield from emit({"status": "🔗 DuckDuckGo qidiruv tizimiga ulanmoqda..."})
 
                     try:
                         from ddgs import DDGS
 
-                        # ── 10. Qidiruv bajarilmoqda ──
-                        yield json.dumps({"status": f"🔎 \"{query_part[:35]}\" — qidirilmoqda..."}) + "\n"
+                        yield from emit({"status": f"🔎 \"{query_part[:35]}\" — qidirilmoqda..."})
 
-                        with DDGS() as ddgs:
-                            results = list(ddgs.text(query_part, region='wt-wt', safesearch='moderate', max_results=3))
+                        with DDGS() as ddgs_client:
+                            results = list(ddgs_client.text(query_part, region='wt-wt', safesearch='moderate', max_results=3))
 
                         if results:
-                            # ── 11. Natijalar topildi ──
-                            yield json.dumps({"status": f"📄 {len(results)} ta manba topildi, o'qilmoqda..."}) + "\n"
-
+                            yield from emit({"status": f"📄 {len(results)} ta manba topildi, o'qilmoqda..."})
                             info = "\n\n".join([f"📌 Maqola: {r['title']}\nMatn: {r['body']}" for r in results])
                             search_results = (
                                 f"Tizim xabari: '{query_part}' bo'yicha internetdan "
                                 f"quyidagi eng yangi ma'lumotlar topildi:\n{info}"
                             )
-
-                            # ── 12. Manbalar tahlil qilinmoqda ──
                             total_chars = sum(len(r['body']) for r in results)
-                            yield json.dumps({"status": f"🧠 Manbalar tahlil qilinmoqda (~{total_chars} belgi)..."}) + "\n"
+                            yield from emit({"status": f"🧠 Manbalar tahlil qilinmoqda (~{total_chars} belgi)..."})
                         else:
-                            # ── 11b. Hech narsa topilmadi ──
-                            yield json.dumps({"status": "⚠️ Internet qidiruvda natija topilmadi, AI o'zidan javob beradi..."}) + "\n"
-                            search_results = (
-                                f"Tizim xabari: '{query_part}' bo'yicha internetdan hech narsa topilmadi."
-                            )
+                            yield from emit({"status": "⚠️ Internet qidiruvda natija topilmadi, AI o'zidan javob beradi..."})
+                            search_results = f"Tizim xabari: '{query_part}' bo'yicha internetdan hech narsa topilmadi."
 
                     except Exception as e:
-                        # ── 11c. Qidiruv xatosi ──
-                        yield json.dumps({"status": f"⚠️ Qidiruv xatosi: {str(e)[:40]} — AI o'zidan javob beradi..."}) + "\n"
+                        yield from emit({"status": f"⚠️ Qidiruv xatosi: {str(e)[:40]} — AI o'zidan javob beradi..."})
                         search_results = (
                             f"Tizim xabari: Qidiruvda xato yuz berdi ({e}). "
                             "O'zing bilgan ma'lumotlar asosida javob ber."
@@ -4384,8 +4367,7 @@ Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHA
                     })
                     payload["messages"] = messages
 
-                    # ── 13. Topilgan ma'lumotlar asosida javob yozilmoqda ──
-                    yield json.dumps({"status": "✍️ Topilgan ma'lumotlar asosida javob yozilmoqda..."}) + "\n"
+                    yield from emit({"status": "✍️ Topilgan ma'lumotlar asosida javob yozilmoqda..."})
 
                     t2_start = time.time()
                     resp2 = requests.post(
@@ -4394,30 +4376,25 @@ Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHA
                     ).json()
                     t2_elapsed = round(time.time() - t2_start, 1)
 
-                    # ── 14. Ikkinchi AI javobi tayyor ──
-                    yield json.dumps({"status": f"✅ Internet asosidagi javob tayyor ({t2_elapsed}s)..."}) + "\n"
+                    yield from emit({"status": f"✅ Internet asosidagi javob tayyor ({t2_elapsed}s)..."})
                     final_reply = resp2["choices"][0]["message"]["content"]
 
                 else:
-                    # ── 8b. To'g'ridan-to'g'ri javob ──
                     reply_len = len(ai_initial_reply.split())
-                    yield json.dumps({"status": f"💡 AI javob yaratdi ({reply_len} so'z)..."}) + "\n"
+                    yield from emit({"status": f"💡 AI javob yaratdi ({reply_len} so'z)..."})
 
-                # ── 15. Markdown formatlanmoqda ──
-                yield json.dumps({"status": "🎨 Javob formatlashtirilmoqda (markdown → HTML)..."}) + "\n"
+                yield from emit({"status": "🎨 Javob formatlashtirilmoqda..."})
 
                 import re
                 reply_formatted = final_reply
                 reply_formatted = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', reply_formatted)
                 reply_formatted = re.sub(r'\*(.*?)\*', r'<i>\1</i>', reply_formatted)
 
-                # ── 16. Javob uzunligi tekshirilmoqda ──
                 final_len = len(reply_formatted.split())
                 if final_len > 100:
-                    yield json.dumps({"status": f"📊 Katta javob tayyorlandi ({final_len} so'z)..."}) + "\n"
+                    yield from emit({"status": f"📊 Katta javob tayyorlandi ({final_len} so'z)..."})
 
-                # ── 17. Bazaga saqlanmoqda ──
-                yield json.dumps({"status": "💾 Javob bazaga saqlanmoqda..."}) + "\n"
+                yield from emit({"status": "💾 Javob bazaga saqlanmoqda..."})
 
                 with db._conn() as c:
                     c.execute(
@@ -4433,28 +4410,32 @@ Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHA
                     row = to_dict(c.fetchone())
                     ai_msg_id = row.get("id", int(time.time())) if row else int(time.time())
 
-                # ── 18. Suhbat tarixi yangilandi ──
-                yield json.dumps({"status": "🗂️ Suhbat tarixi yangilandi..."}) + "\n"
-
-                # ── 19. Javob ekranga chiqarilmoqda ──
-                yield json.dumps({"status": "🖥️ Javob ekranga chiqarilmoqda..."}) + "\n"
-
-                yield json.dumps({"reply": reply_formatted, "id": ai_msg_id, "session_id": session_id}) + "\n"
+                yield from emit({"status": "🗂️ Suhbat tarixi yangilandi..."})
+                yield from emit({"status": "🖥️ Javob ekranga chiqarilmoqda..."})
+                yield from emit({"reply": reply_formatted, "id": ai_msg_id, "session_id": session_id})
 
             else:
                 real_error = res_data.get("error", {}).get("message", "Noma'lum API xatosi")
-                yield json.dumps({"error": f"OpenRouter: {real_error}"}) + "\n"
+                yield from emit({"error": f"OpenRouter: {real_error}"})
 
         except requests.exceptions.Timeout:
-            yield json.dumps({"error": "⏱️ Server 15 soniya ichida javob bermadi. Qayta urinib ko'ring."}) + "\n"
+            yield from emit({"error": "⏱️ Server 15 soniya ichida javob bermadi. Qayta urinib ko'ring."})
         except requests.exceptions.ConnectionError:
-            yield json.dumps({"error": "🌐 AI serveriga ulanib bo'lmadi. Internetni tekshiring."}) + "\n"
+            yield from emit({"error": "🌐 AI serveriga ulanib bo'lmadi. Internetni tekshiring."})
         except requests.exceptions.RequestException as e:
-            yield json.dumps({"error": f"Tarmoq xatosi: {str(e)}"}) + "\n"
+            yield from emit({"error": f"Tarmoq xatosi: {str(e)}"})
         except Exception as e:
-            yield json.dumps({"error": f"Ichki xato: {str(e)}"}) + "\n"
+            yield from emit({"error": f"Ichki xato: {str(e)}"})
 
-    return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
+    return Response(
+        stream_with_context(generate()),
+        mimetype='application/x-ndjson',
+        headers={
+            'X-Accel-Buffering': 'no',   # nginx bufferni o'chiradi
+            'Cache-Control': 'no-cache',
+            'Transfer-Encoding': 'chunked',
+        }
+    )
 
 @app.route("/admin/ai-chats")
 def admin_ai_chats():
