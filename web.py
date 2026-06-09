@@ -4337,7 +4337,7 @@ Bunday gap yozish o'rniga, DOIM /interdan_qidirish buyrug'ini ishlatishingiz SHA
                     yield json.dumps({"status": "🔗 DuckDuckGo qidiruv tizimiga ulanmoqda..."}) + "\n"
 
                     try:
-                        from duckduckgo_search import DDGS
+                        from ddgs import DDGS
 
                         # ── 10. Qidiruv bajarilmoqda ──
                         yield json.dumps({"status": f"🔎 \"{query_part[:35]}\" — qidirilmoqda..."}) + "\n"
